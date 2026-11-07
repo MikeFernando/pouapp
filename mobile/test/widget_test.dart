@@ -35,11 +35,11 @@ void main() {
 
       await tester.enterText(
         find.byKey(const Key('login_email')),
-        'ana.souza@pouapp.dev',
+        'mike@gmail.com',
       );
       await tester.enterText(
         find.byKey(const Key('login_password')),
-        'senha-dev',
+        'mike@123',
       );
       await tester.tap(find.byKey(const Key('login_submit')));
       await tester.pump();
@@ -61,7 +61,42 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('login_submit')), findsOneWidget);
-      expect(find.text('Ana Souza'), findsNothing);
+      expect(find.text('Mike'), findsNothing);
     },
   );
+
+  testWidgets('should create an account and enter the workspace', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const PouApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('create_account')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('register_name')),
+      'Carla Lima',
+    );
+    await tester.enterText(
+      find.byKey(const Key('register_email')),
+      'carla@pouapp.dev',
+    );
+    await tester.enterText(
+      find.byKey(const Key('register_password')),
+      'senha-nova',
+    );
+    await tester.enterText(
+      find.byKey(const Key('register_password_confirmation')),
+      'senha-nova',
+    );
+    await tester.ensureVisible(find.byKey(const Key('register_submit')));
+    await tester.tap(find.byKey(const Key('register_submit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('workspace_mode_rua')), findsOneWidget);
+    expect(find.byIcon(Icons.mic), findsWidgets);
+  });
 }

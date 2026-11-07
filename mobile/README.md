@@ -108,9 +108,9 @@ A feature `auth` não chama backend. Em build de debug, o login aceita somente e
 
 | Campo | Valor |
 | --- | --- |
-| E-mail | `ana.souza@pouapp.dev` |
-| Senha | `senha-dev` |
-| Nome exibido | Ana Souza |
+| E-mail | `mike@gmail.com` |
+| Senha | `mike@123` |
+| Nome exibido | Mike |
 
 Essas credenciais existem apenas para a simulação de desenvolvimento. Não são uma conta real e não devem ser reutilizadas fora deste aplicativo. A senha não é gravada no aparelho nem escrita em log. A sessão guarda somente `id`, `name` e `email`.
 

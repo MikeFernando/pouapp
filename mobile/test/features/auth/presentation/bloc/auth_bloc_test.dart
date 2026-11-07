@@ -9,11 +9,14 @@ import 'package:pouapp/features/auth/domain/failures/auth_failures.dart';
 import 'package:pouapp/features/auth/domain/usecases/get_current_user.dart';
 import 'package:pouapp/features/auth/domain/usecases/login.dart';
 import 'package:pouapp/features/auth/domain/usecases/logout.dart';
+import 'package:pouapp/features/auth/domain/usecases/register_account.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_event.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_state.dart';
 
 class MockLogin extends Mock implements Login {}
+
+class MockRegisterAccount extends Mock implements RegisterAccount {}
 
 class MockGetCurrentUser extends Mock implements GetCurrentUser {}
 
@@ -21,6 +24,7 @@ class MockLogout extends Mock implements Logout {}
 
 void main() {
   late MockLogin mockLogin;
+  late MockRegisterAccount mockRegister;
   late MockGetCurrentUser mockGetCurrentUser;
   late MockLogout mockLogout;
 
@@ -35,10 +39,18 @@ void main() {
     registerFallbackValue(
       const Params(email: 'ana.souza@pouapp.dev', password: 'senha-dev'),
     );
+    registerFallbackValue(
+      const RegisterParams(
+        name: 'Ana Souza',
+        email: 'ana.souza@pouapp.dev',
+        password: 'senha-dev',
+      ),
+    );
   });
 
   setUp(() {
     mockLogin = MockLogin();
+    mockRegister = MockRegisterAccount();
     mockGetCurrentUser = MockGetCurrentUser();
     mockLogout = MockLogout();
   });
@@ -46,6 +58,7 @@ void main() {
   AuthBloc buildBloc() {
     return AuthBloc(
       login: mockLogin,
+      registerAccount: mockRegister,
       getCurrentUser: mockGetCurrentUser,
       logout: mockLogout,
     );
@@ -60,6 +73,16 @@ void main() {
 
   test('should not expose the password in the login event text', () {
     const event = AuthLoginSubmitted(
+      email: 'ana.souza@pouapp.dev',
+      password: 'senha-dev',
+    );
+
+    expect(event.toString(), isNot(contains('senha-dev')));
+  });
+
+  test('should not expose the password in the register event text', () {
+    const event = AuthRegisterSubmitted(
+      name: 'Ana Souza',
       email: 'ana.souza@pouapp.dev',
       password: 'senha-dev',
     );
@@ -188,6 +211,82 @@ void main() {
       expect: () => const <AuthState>[
         AuthLoginInProgress(),
         AuthFailure(message: 'Não foi possível entrar. Tente novamente.'),
+      ],
+    );
+  });
+
+  group('AuthRegisterSubmitted', () {
+    blocTest<AuthBloc, AuthState>(
+      'should emit [AuthRegisterInProgress, Authenticated] when registration succeeds',
+      build: buildBloc,
+      setUp: () {
+        when(() => mockRegister(any()))
+            .thenAnswer((_) async => const Right(tUser));
+      },
+      act: (bloc) => bloc.add(
+        const AuthRegisterSubmitted(
+          name: '  Ana Souza  ',
+          email: '  ana.souza@pouapp.dev  ',
+          password: 'senha-dev',
+        ),
+      ),
+      expect: () => const <AuthState>[
+        AuthRegisterInProgress(),
+        Authenticated(user: tUser),
+      ],
+      verify: (_) {
+        verify(
+          () => mockRegister(
+            const RegisterParams(
+              name: 'Ana Souza',
+              email: 'ana.souza@pouapp.dev',
+              password: 'senha-dev',
+            ),
+          ),
+        ).called(1);
+      },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'should emit a message when the email is already in use',
+      build: buildBloc,
+      setUp: () {
+        when(
+          () => mockRegister(any()),
+        ).thenAnswer((_) async => const Left(EmailAlreadyRegisteredFailure()));
+      },
+      act: (bloc) => bloc.add(
+        const AuthRegisterSubmitted(
+          name: 'Ana Souza',
+          email: 'ana.souza@pouapp.dev',
+          password: 'senha-dev',
+        ),
+      ),
+      expect: () => const <AuthState>[
+        AuthRegisterInProgress(),
+        AuthRegisterFailure(message: 'Este e-mail já está em uso.'),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'should emit a generic message when registration fails unexpectedly',
+      build: buildBloc,
+      setUp: () {
+        when(() => mockRegister(any()))
+            .thenAnswer((_) async => const Left(ServerFailure()));
+      },
+      act: (bloc) => bloc.add(
+        const AuthRegisterSubmitted(
+          name: 'Ana Souza',
+          email: 'ana.souza@pouapp.dev',
+          password: 'senha-dev',
+        ),
+      ),
+      expect: () => const <AuthState>[
+        AuthRegisterInProgress(),
+        AuthRegisterFailure(
+          message: 'Não foi possível criar a conta. Tente novamente.',
+        ),
       ],
     );
   });

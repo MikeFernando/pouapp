@@ -247,23 +247,40 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
   @override
   Future<void> deleteProduct(String id) async {
     final db = await _databaseOrOpen();
-    final movements =
-        Sqflite.firstIntValue(
-          await db.rawQuery(
-            'SELECT COUNT(*) FROM movements WHERE product_id = ?',
-            [id],
-          ),
-        ) ??
-        0;
-    if (movements > 0) {
-      throw CatalogRuleException(StockRuleViolation.deleteWithHistory);
-    }
-    final removed = await db.delete(
-      'products',
-      where: 'id = ?',
-      whereArgs: [id],
+    await db.transaction((txn) async {
+      await txn.delete(
+        'stock_draft_lines',
+        where: 'product_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete('movements', where: 'product_id = ?', whereArgs: [id]);
+      await txn.delete(
+        'product_minimums',
+        where: 'product_id = ?',
+        whereArgs: [id],
+      );
+      final removed = await txn.delete(
+        'products',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      if (removed == 0) throw ProductNotFoundException();
+      await txn.insert('app_meta', {
+        'key': 'deleted_product:$id',
+        'value': '1',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
+  Future<bool> _productWasDeleted(DatabaseExecutor db, String id) async {
+    final rows = await db.query(
+      'app_meta',
+      columns: const ['key'],
+      where: 'key = ?',
+      whereArgs: ['deleted_product:$id'],
+      limit: 1,
     );
-    if (removed == 0) throw ProductNotFoundException();
+    return rows.isNotEmpty;
   }
 
   @override
@@ -1184,8 +1201,82 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
         await txn.insert('app_meta', {'key': 'catalog_seeded', 'value': '1'});
       });
     }
+    await _packDemoGarlic(db);
     await _ensureStaples(db, now);
+    await _ensurePackedProducts(db, now);
     await _sellDemoBananaByDozen(db);
+  }
+
+  /// The first demo garlic was 500 kg loose. The house basket sells a
+  /// 500 g pack and a 1 kg pack. Only the untouched opening balance is
+  /// rewritten into the 1 kg pack.
+  Future<void> _packDemoGarlic(Database db) async {
+    final products = await db.query(
+      'products',
+      where: 'id = ? AND name = ? AND unit = ?',
+      whereArgs: const ['product-alho', 'Alho', 'kilogram'],
+    );
+    if (products.isEmpty) return;
+    final movements = await db.query(
+      'movements',
+      where: 'product_id = ?',
+      whereArgs: const ['product-alho'],
+    );
+    if (movements.length != 1 || movements.single['quantity'] != 500000) {
+      return;
+    }
+    final garlic = demoCatalogProducts.firstWhere(
+      (product) => product.id == 'product-alho',
+    );
+    await db.transaction((txn) async {
+      await txn.update(
+        'products',
+        {
+          'name': garlic.name,
+          'unit': garlic.unit.name,
+          'sale_price_cents': garlic.salePriceCents,
+          'sort_index': garlic.sortIndex,
+          'updated_at': _clock().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: const ['product-alho'],
+      );
+      await txn.update(
+        'movements',
+        {'quantity': garlic.quantity},
+        where: 'id = ?',
+        whereArgs: [movements.single['id']],
+      );
+      await txn.update(
+        'product_minimums',
+        {'quantity': garlic.minimum},
+        where: 'product_id = ?',
+        whereArgs: const ['product-alho'],
+      );
+    });
+  }
+
+  Future<void> _ensurePackedProducts(Database db, DateTime now) async {
+    final present = await db.query(
+      'products',
+      columns: const ['id'],
+      where:
+          'id IN (${List.filled(packedCatalogProducts.length, '?').join(',')})',
+      whereArgs: [for (final product in packedCatalogProducts) product.id],
+    );
+    final known = {for (final row in present) row['id'] as String};
+    final missing = [
+      for (final product in packedCatalogProducts)
+        if (!known.contains(product.id) &&
+            !await _productWasDeleted(db, product.id))
+          product,
+    ];
+    if (missing.isEmpty) return;
+    await db.transaction((txn) async {
+      for (final product in missing) {
+        await _insertDemo(txn, product, now);
+      }
+    });
   }
 
   Future<void> _ensureStaples(Database db, DateTime now) async {
@@ -1199,7 +1290,9 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     final known = {for (final row in present) row['id'] as String};
     final missing = [
       for (final staple in stapleCatalogProducts)
-        if (!known.contains(staple.id)) staple,
+        if (!known.contains(staple.id) &&
+            !await _productWasDeleted(db, staple.id))
+          staple,
     ];
     if (missing.isEmpty) return;
     final minSort = Sqflite.firstIntValue(

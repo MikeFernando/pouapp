@@ -70,12 +70,21 @@ class OperationStore {
   }
 
   Future<void> _ensure() async {
-    if (await isActive()) {
-      _ready = true;
-      return;
+    if (!await isActive()) {
+      await _import();
     }
-    await _import();
+    await _useHomeFairs();
     _ready = await isActive();
+  }
+
+  /// The first install copied a wholesale demo order. A home grocery replaces
+  /// it once, and only while that original line is still untouched.
+  Future<void> _useHomeFairs() async {
+    if (!await isActive()) return;
+    final current = await readLedger();
+    final next = withHomeFairs(current);
+    if (identical(next, current)) return;
+    await writeLedger(next);
   }
 
   Future<StreetLedger> readLedger() async {

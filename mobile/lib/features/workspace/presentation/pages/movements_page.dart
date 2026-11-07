@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../assistant/presentation/widgets/voice_mic.dart';
 import '../../domain/entities/sales_board.dart';
 import '../../domain/entities/street_ledger.dart';
@@ -28,7 +30,7 @@ class _MovementsPageState extends State<MovementsPage> {
       backgroundColor: const Color(0xFFF3F5F8),
       floatingActionButtonLocation: const AboveVoiceMicLocation(),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         onPressed: widget.onCreate,
         child: const Icon(Icons.add, size: 28),
@@ -48,7 +50,7 @@ class _MovementsPageState extends State<MovementsPage> {
             slivers: [
               SliverAppBar(
                 pinned: true,
-                backgroundColor: const Color(0xFF1E88E5),
+                backgroundColor: pouAppBlue,
                 foregroundColor: Colors.white,
                 title: _searching
                     ? TextField(

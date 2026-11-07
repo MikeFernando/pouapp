@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../../catalog/domain/entities/catalog.dart';
 import '../../../customers/domain/entities/customer_note.dart';
@@ -132,7 +134,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Confirmar entrega'),
       ),

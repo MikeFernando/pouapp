@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pouapp/features/catalog/data/datasources/catalog_local_data_source.dart';
@@ -76,12 +78,6 @@ void main() {
     expect(split.balances[StockLocationCode.montana], 500);
     expect(split.total, 1500);
 
-    final removed = await repository.deleteProduct(stock.product.id);
-    expect(
-      removed,
-      const Left(CatalogRuleFailure(StockRuleViolation.deleteWithHistory)),
-    );
-
     final inactive = await repository.setActive(
       id: stock.product.id,
       active: false,
@@ -89,6 +85,44 @@ void main() {
     final hidden = inactive.getOrElse(() => throw StateError('inactive'));
     expect(hidden.product.active, isFalse);
     expect(hidden.low, isFalse);
+
+    final removed = await repository.deleteProduct(stock.product.id);
+    expect(removed.isRight(), isTrue);
+    final missing = await repository.getProduct(stock.product.id);
+    expect(missing, const Left(ProductNotFoundFailure()));
+  });
+
+  test('keeps a deleted demo product out of the next opening', () async {
+    final path =
+        '${Directory.systemTemp.path}${Platform.pathSeparator}pouapp-delete-product.db';
+    final file = File(path);
+    if (file.existsSync()) file.deleteSync();
+
+    CatalogLocalDataSourceImpl open() {
+      return CatalogLocalDataSourceImpl(
+        databasePath: path,
+        seedDemo: true,
+        clock: () => DateTime(2026, 11, 6, 12),
+        newId: () => 'id-delete',
+      );
+    }
+
+    final first = open();
+    final removed = await CatalogRepositoryImpl(
+      localDataSource: first,
+    ).deleteProduct('product-alho-500');
+    expect(removed.isRight(), isTrue);
+    await first.close();
+
+    final second = open();
+    final repo = CatalogRepositoryImpl(localDataSource: second);
+    expect(
+      await repo.getProduct('product-alho-500'),
+      const Left(ProductNotFoundFailure()),
+    );
+    expect((await repo.getProduct('product-cebola')).isRight(), isTrue);
+    await second.close();
+    if (file.existsSync()) file.deleteSync();
   });
 
   test('rejects a count that is not a whole number before it is stored', () {

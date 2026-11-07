@@ -26,10 +26,17 @@ class WorkspaceSimulatedDataSource {
       receipts: const [],
       products: const [
         StockProduct(
+          id: 'product-alho-500',
+          name: 'Alho 500 g',
+          unit: StockUnit.piece,
+          available: 60,
+          low: false,
+        ),
+        StockProduct(
           id: 'product-alho',
-          name: 'Alho',
-          unit: StockUnit.kilogram,
-          available: 500,
+          name: 'Alho 1 kg',
+          unit: StockUnit.piece,
+          available: 40,
           low: false,
         ),
         StockProduct(
@@ -87,6 +94,20 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.kilogram,
           available: 6,
           low: true,
+        ),
+        StockProduct(
+          id: 'product-melancia',
+          name: 'Melancia',
+          unit: StockUnit.piece,
+          available: 18,
+          low: false,
+        ),
+        StockProduct(
+          id: 'product-ovos',
+          name: 'Bandeja de ovos',
+          unit: StockUnit.piece,
+          available: 30,
+          low: false,
         ),
       ],
       street: street,

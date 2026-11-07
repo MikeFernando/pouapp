@@ -26,11 +26,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('login_email')),
-      'ana.souza@pouapp.dev',
+      'mike@gmail.com',
     );
     await tester.enterText(
       find.byKey(const Key('login_password')),
-      'senha-dev',
+      'mike@123',
     );
     await tester.tap(find.byKey(const Key('login_submit')));
     await tester.pumpAndSettle();
@@ -39,10 +39,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('action_stock')));
     await tester.pumpAndSettle();
-    expect(find.text('Alho'), findsOneWidget);
+    expect(find.text('Alho 500 g'), findsOneWidget);
+    expect(find.text('Alho 1 kg'), findsOneWidget);
     expect(find.text('Cebola'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('Batata'),
+      find.byKey(const Key('catalog_list')),
+      const Offset(0, -200),
+    );
     expect(find.text('Batata'), findsOneWidget);
-    expect(_produce('assets/produce/alho.jpg'), findsOneWidget);
+    expect(_produce('assets/produce/alho.jpg'), findsWidgets);
     expect(_produce('assets/produce/cebola.jpg'), findsOneWidget);
     expect(_produce('assets/produce/batata.jpg'), findsOneWidget);
     await tester.dragUntilVisible(

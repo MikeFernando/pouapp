@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../domain/entities/catalog.dart';
 import '../../domain/entities/stock_operation.dart';
@@ -8,7 +10,7 @@ import '../../domain/rules/stock_rules.dart';
 import '../catalog_messages.dart';
 import 'load_montana_view.dart';
 
-const _street = Color(0xFF1E88E5);
+const _street = pouAppBlue;
 const _ink = Color(0xFF1C1C1E);
 const _muted = Color(0xFF6B7280);
 const _canvas = Color(0xFFF3F5F8);
@@ -759,7 +761,7 @@ class _DirectionBanner extends StatelessWidget {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1565C0),
+            color: pouAppBlue,
           ),
         ),
       ),
@@ -779,7 +781,7 @@ class _Surface extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1565C0),
+            color: Color(0x0F1E88E5),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),

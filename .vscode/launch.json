@@ -5,10 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "pouapp (Android Emulator)",
+            "cwd": "mobile",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "emulator-5554",
+            "program": "lib/main.dart",
+            "toolArgs": ["--no-dds"]
+        },
+        {
             "name": "mobile",
             "cwd": "mobile",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "toolArgs": ["--no-dds"]
         },
         {
             "name": "iPhone de Mike",

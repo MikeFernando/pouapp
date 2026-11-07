@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/domain/entities/customer_address.dart';
@@ -88,7 +90,7 @@ class _AddDeliveryPageState extends State<AddDeliveryPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Nova venda'),
       ),
@@ -134,7 +136,7 @@ class _AddDeliveryPageState extends State<AddDeliveryPage> {
                             children: [
                               const Icon(
                                 Icons.person_outline,
-                                color: Color(0xFF1E88E5),
+                                color: pouAppBlue,
                               ),
                               const SizedBox(width: 12),
                               Expanded(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../catalog/presentation/produce_assets.dart';
 import '../../domain/entities/sales_board.dart';
 import '../../domain/entities/stock_board.dart';
 import '../../domain/entities/street_ledger.dart';
@@ -49,8 +50,10 @@ class StreetBoardViewState extends State<StreetBoardView>
     with SingleTickerProviderStateMixin {
   final _routeKey = GlobalKey();
   final _availabilityKey = GlobalKey();
+  final _boardKey = GlobalKey();
   var _query = '';
   late final AnimationController _entrance;
+  late final ScrollController _scroll;
   WorkspaceMode? _mode;
 
   @override
@@ -60,6 +63,7 @@ class StreetBoardViewState extends State<StreetBoardView>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _scroll = ScrollController();
   }
 
   @override
@@ -74,6 +78,7 @@ class StreetBoardViewState extends State<StreetBoardView>
 
   @override
   void dispose() {
+    _scroll.dispose();
     _entrance.dispose();
     super.dispose();
   }
@@ -177,6 +182,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                   .toList();
         return ClipRect(
           child: Stack(
+            key: _boardKey,
             children: [
               Positioned(
                 top: 0,
@@ -204,6 +210,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                 bottom: 0,
                 child: SingleChildScrollView(
                   key: const Key('street_board_scroll'),
+                  controller: _scroll,
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.paddingOf(context).bottom + 16,
                   ),
@@ -330,16 +337,28 @@ class StreetBoardViewState extends State<StreetBoardView>
                             ),
                           ],
                           const SizedBox(height: 22),
-                          _SectionTitle(
-                            'Disponibilidade',
-                            titleKey: _availabilityKey,
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 10),
+                            child: _OnHeaderText(
+                              text: 'Disponibilidade',
+                              textKey: _availabilityKey,
+                              scroll: _scroll,
+                              boardKey: _boardKey,
+                              style: const TextStyle(
+                                fontSize: workspaceFontPrimary,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1C1C1E),
+                              ),
+                            ),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
-                            child: Text(
-                              'Carga atual da Montana',
-                              key: Key('montana_load_caption'),
-                              style: TextStyle(
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                            child: _OnHeaderText(
+                              text: 'Carga atual da Montana',
+                              textKey: const Key('montana_load_caption'),
+                              scroll: _scroll,
+                              boardKey: _boardKey,
+                              style: const TextStyle(
                                 fontSize: workspaceFontSecondary,
                                 color: Color(0xFF6B7280),
                               ),
@@ -821,7 +840,7 @@ class _DeliveryBoard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x141565C0),
+            color: Color(0x141E88E5),
             blurRadius: 24,
             offset: Offset(0, 10),
           ),
@@ -929,11 +948,150 @@ class _DeliveryBoard extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text, {this.titleKey});
+class _OnHeaderText extends StatefulWidget {
+  const _OnHeaderText({
+    required this.text,
+    required this.style,
+    required this.scroll,
+    required this.boardKey,
+    this.textKey,
+  });
 
   final String text;
-  final Key? titleKey;
+  final TextStyle style;
+  final ScrollController scroll;
+  final GlobalKey boardKey;
+  final Key? textKey;
+
+  @override
+  State<_OnHeaderText> createState() => _OnHeaderTextState();
+}
+
+class _OnHeaderTextState extends State<_OnHeaderText> {
+  Offset? _origin;
+  var _boardWidth = 1.0;
+  var _pending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scroll.addListener(_schedule);
+    _schedule();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OnHeaderText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scroll != widget.scroll) {
+      oldWidget.scroll.removeListener(_schedule);
+      widget.scroll.addListener(_schedule);
+    }
+    _schedule();
+  }
+
+  @override
+  void dispose() {
+    widget.scroll.removeListener(_schedule);
+    super.dispose();
+  }
+
+  void _schedule() {
+    if (_pending) return;
+    _pending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pending = false;
+      if (mounted) _measure();
+    });
+  }
+
+  void _measure() {
+    final textBox = context.findRenderObject() as RenderBox?;
+    final board =
+        widget.boardKey.currentContext?.findRenderObject() as RenderBox?;
+    if (textBox == null ||
+        board == null ||
+        !textBox.attached ||
+        !board.attached ||
+        !textBox.hasSize ||
+        !board.hasSize) {
+      return;
+    }
+    final origin = textBox.localToGlobal(Offset.zero, ancestor: board);
+    final width = board.size.width;
+    if (_origin == origin && _boardWidth == width) return;
+    setState(() {
+      _origin = origin;
+      _boardWidth = width;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(widget.text, key: widget.textKey, style: widget.style);
+    final origin = _origin;
+    if (origin == null) return label;
+    return Stack(
+      children: [
+        label,
+        ExcludeSemantics(
+          child: ClipPath(
+            clipper: _HeaderBlueClipper(
+              originOnBoard: origin,
+              boardWidth: _boardWidth,
+            ),
+            child: Text(
+              widget.text,
+              style: widget.style.copyWith(color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Keeps the portion of the title that has scrolled into the blue header.
+class _HeaderBlueClipper extends CustomClipper<Path> {
+  const _HeaderBlueClipper({
+    required this.originOnBoard,
+    required this.boardWidth,
+  });
+
+  final Offset originOnBoard;
+  final double boardWidth;
+
+  double _edge(double localX, Size size) {
+    final x = originOnBoard.dx + localX;
+    final t = boardWidth == 0 ? 0.0 : (x / boardWidth).clamp(0.0, 1.0);
+    final blueBottom = streetCurveExtra + headerCurveDrop(t);
+    return (blueBottom - originOnBoard.dy).clamp(0.0, size.height);
+  }
+
+  @override
+  Path getClip(Size size) {
+    final path = Path()..moveTo(0, 0);
+    const steps = 16;
+    for (var i = 0; i <= steps; i++) {
+      final x = size.width * i / steps;
+      path.lineTo(x, _edge(x, size));
+    }
+    path
+      ..lineTo(size.width, 0)
+      ..close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _HeaderBlueClipper oldDelegate) {
+    return oldDelegate.originOnBoard != originOnBoard ||
+        oldDelegate.boardWidth != boardWidth;
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -941,7 +1099,6 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 10),
       child: Text(
         text,
-        key: titleKey,
         style: const TextStyle(
           fontSize: workspaceFontPrimary,
           fontWeight: FontWeight.w700,
@@ -964,7 +1121,7 @@ class _SurfaceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1565C0),
+            color: Color(0x0F1E88E5),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),
@@ -1009,6 +1166,8 @@ class _ProductRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
+          _MontanaPhoto(name: product.name),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1067,6 +1226,30 @@ class _ProductRow extends StatelessWidget {
   }
 }
 
+class _MontanaPhoto extends StatelessWidget {
+  const _MontanaPhoto({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = produceAsset(name);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: ColoredBox(
+        color: const Color(0xFFF7F8FA),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: photo == null
+              ? const Icon(Icons.eco_outlined, color: Color(0xFF9CA3AF))
+              : Image.asset(photo, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+}
+
 class _ShortcutGrid extends StatelessWidget {
   const _ShortcutGrid({required this.shortcuts});
 
@@ -1108,7 +1291,7 @@ class _ShortcutButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1565C0),
+            color: Color(0x0F1E88E5),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),

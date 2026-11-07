@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../../injection_container.dart';
 import '../../../catalog/domain/entities/catalog.dart';
+import '../../../catalog/domain/rules/stock_rules.dart';
+import '../../../catalog/presentation/produce_assets.dart';
 import '../../../catalog/domain/repositories/catalog_repository.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/domain/entities/customer_note.dart';
@@ -36,7 +39,7 @@ class _VisitCustomerPageState extends State<VisitCustomerPage> {
   String? _error;
   Customer? _customer;
   CustomerNote? _note;
-  List<CatalogProduct> _products = const [];
+  List<ProductStock> _products = const [];
   VoiceVisit? _visit;
 
   @override
@@ -92,7 +95,7 @@ class _VisitCustomerPageState extends State<VisitCustomerPage> {
         (_) => const [],
         (snapshot) => [
           for (final row in snapshot.products)
-            if (row.product.active) row.product,
+            if (row.product.active) row,
         ],
       );
     });
@@ -117,7 +120,7 @@ class _VisitCustomerPageState extends State<VisitCustomerPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         elevation: 0,
         titleTextStyle: const TextStyle(
@@ -357,7 +360,7 @@ class _Card extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1565C0),
+            color: Color(0x0F1E88E5),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),
@@ -486,29 +489,10 @@ class _OrderNote extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         for (final line in order.lines)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    line.productName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1C1C1E),
-                    ),
-                  ),
-                ),
-                Text(
-                  '${formatSaleQuantity(line.quantity, line.unit)} · ${formatBrl(line.totalCents)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
+          _ProduceRow(
+            name: line.productName,
+            detail:
+                '${formatSaleQuantity(line.quantity, line.unit)} · ${formatBrl(line.totalCents)}',
           ),
         const SizedBox(height: 8),
         _Total(cents: order.totalCents),
@@ -551,38 +535,13 @@ class _DraftNote extends StatelessWidget {
           )
         else
           for (var index = 0; index < lines.length; index++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          lines[index].name,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1C1C1E),
-                          ),
-                        ),
-                        Text(
-                          '${_quantity(lines[index])} · ${formatBrl(lines[index].totalCents)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    key: Key('edit_${lines[index].name}'),
-                    onPressed: () => onEdit(index),
-                    child: const Text('Editar'),
-                  ),
-                ],
+            _ProduceRow(
+              name: lines[index].name,
+              detail:
+                  '${_quantity(lines[index])} · ${formatBrl(lines[index].totalCents)}',
+              trailing: _EditPill(
+                tapKey: Key('edit_${lines[index].name}'),
+                onTap: () => onEdit(index),
               ),
             ),
         const SizedBox(height: 8),
@@ -594,7 +553,7 @@ class _DraftNote extends StatelessWidget {
           child: FilledButton.icon(
             key: const Key('add_visit_product'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1E88E5),
+              backgroundColor: pouAppBlue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -606,6 +565,97 @@ class _DraftNote extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EditPill extends StatelessWidget {
+  const _EditPill({required this.onTap, required this.tapKey});
+
+  final VoidCallback onTap;
+  final Key tapKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: tapKey,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: const DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(0xFFFFF4CC),
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            'Editar',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF8A6A2F),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProduceRow extends StatelessWidget {
+  const _ProduceRow({required this.name, required this.detail, this.trailing});
+
+  final String name;
+  final String detail;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = produceAsset(name);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: ColoredBox(
+              color: const Color(0xFFF7F8FA),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: photo == null
+                    ? const Icon(Icons.eco_outlined, color: Color(0xFF9CA3AF))
+                    : Image.asset(photo, fit: BoxFit.contain),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1C1E),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
     );
   }
 }
@@ -660,50 +710,111 @@ String _quantity(NoteLine line) {
 class _ProductPicker extends StatelessWidget {
   const _ProductPicker({required this.products});
 
-  final List<CatalogProduct> products;
+  final List<ProductStock> products;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Adicionar produto'),
       ),
       body: products.isEmpty
           ? const Center(child: Text('Nenhum produto cadastrado.'))
           : ListView.separated(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               itemCount: products.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final product = products[index];
+                final stock = products[index];
+                final product = stock.product;
                 return Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     key: Key('visit_product_${product.id}'),
-                    borderRadius: BorderRadius.circular(14),
                     onTap: () => Navigator.of(context).pop(product),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
+                          _PickerPhoto(name: product.name),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              product.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            formatBrl(product.salePriceCents),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        product.name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1C1C1E),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFD8F5E4),
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(8),
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 4,
+                                        ),
+                                        child: Text(
+                                          'Ativo',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF146C43),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'SKU: ${_pickerSku(product)}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Estoque: ${formatBaseQuantity(product.unit, stock.total)}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      formatBrl(product.salePriceCents),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1C1C1E),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -715,6 +826,39 @@ class _ProductPicker extends StatelessWidget {
             ),
     );
   }
+}
+
+class _PickerPhoto extends StatelessWidget {
+  const _PickerPhoto({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = produceAsset(name);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: ColoredBox(
+        color: const Color(0xFFF7F8FA),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: photo == null
+              ? const Icon(Icons.eco_outlined, color: Color(0xFF9CA3AF))
+              : Image.asset(photo, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+}
+
+String _pickerSku(CatalogProduct product) {
+  final stored = product.sku?.trim() ?? '';
+  if (stored.isNotEmpty) return stored.toUpperCase();
+  final raw = product.id.startsWith('product-')
+      ? product.id.substring('product-'.length)
+      : product.id;
+  return raw.toUpperCase();
 }
 
 class _LineEdit {

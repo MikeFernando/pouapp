@@ -13,5 +13,7 @@ String? produceAsset(String name) {
   if (text.contains('mamao') || text.contains('mamão')) {
     return 'assets/produce/mamao.jpg';
   }
+  if (text.contains('melancia')) return 'assets/produce/melancia.jpg';
+  if (text.contains('ovo')) return 'assets/produce/ovos.jpg';
   return null;
 }

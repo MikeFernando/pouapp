@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../../workspace/data/receivable_store.dart';
 import '../../../workspace/presentation/bloc/company_operation_bloc.dart';
@@ -12,7 +14,7 @@ import '../../../workspace/presentation/pages/charge_page.dart';
 import '../../../workspace/presentation/pages/receipt_page.dart';
 import '../../domain/entities/customer.dart';
 
-const noteActionColor = Color(0xFF1E88E5);
+const noteActionColor = pouAppBlue;
 
 ButtonStyle notePrimaryButton() {
   return FilledButton.styleFrom(

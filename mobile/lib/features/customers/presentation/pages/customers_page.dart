@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart' as di;
 import '../../../assistant/presentation/widgets/voice_mic.dart';
 import '../../domain/entities/customer.dart';
@@ -121,8 +123,8 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                 child: OutlinedButton(
                   key: const Key('customer_add'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1565C0),
-                    side: const BorderSide(color: Color(0xFF1565C0)),
+                    foregroundColor: pouAppBlue,
+                    side: const BorderSide(color: pouAppBlue),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -144,7 +146,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
 
   PreferredSizeWidget _titleBar() {
     return AppBar(
-      backgroundColor: const Color(0xFF1E88E5),
+      backgroundColor: pouAppBlue,
       foregroundColor: Colors.white,
       title: const Text('Cliente'),
       actions: [

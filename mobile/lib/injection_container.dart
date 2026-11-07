@@ -15,6 +15,7 @@ import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/get_current_user.dart';
 import 'features/auth/domain/usecases/login.dart';
 import 'features/auth/domain/usecases/logout.dart';
+import 'features/auth/domain/usecases/register_account.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/catalog/data/datasources/catalog_local_data_source.dart';
 import 'features/catalog/data/repositories/catalog_repository_impl.dart';
@@ -53,16 +54,22 @@ final sl = GetIt.instance;
 Future<void> init() async {
   //! Features - Auth
   sl.registerFactory(
-    () => AuthBloc(login: sl(), getCurrentUser: sl(), logout: sl()),
+    () => AuthBloc(
+      login: sl(),
+      registerAccount: sl(),
+      getCurrentUser: sl(),
+      logout: sl(),
+    ),
   );
   sl.registerLazySingleton(() => Login(sl()));
+  sl.registerLazySingleton(() => RegisterAccount(sl()));
   sl.registerLazySingleton(() => GetCurrentUser(sl()));
   sl.registerLazySingleton(() => Logout(sl()));
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(remoteDataSource: sl(), localDataSource: sl()),
   );
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    SimulatedAuthRemoteDataSource.new,
+    () => SimulatedAuthRemoteDataSource(sharedPreferences: sl()),
   );
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(sharedPreferences: sl()),

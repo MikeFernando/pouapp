@@ -9,6 +9,13 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Creates an account and starts its session.
+  Future<Either<Failure, User>> register({
+    required String name,
+    required String email,
+    required String password,
+  });
+
   Future<Either<Failure, User?>> getCurrentUser();
 
   Future<Either<Failure, Unit>> logout();

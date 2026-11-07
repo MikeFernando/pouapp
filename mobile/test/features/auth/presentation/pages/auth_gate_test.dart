@@ -9,11 +9,14 @@ import 'package:pouapp/features/auth/domain/entities/user.dart';
 import 'package:pouapp/features/auth/domain/usecases/get_current_user.dart';
 import 'package:pouapp/features/auth/domain/usecases/login.dart';
 import 'package:pouapp/features/auth/domain/usecases/logout.dart';
+import 'package:pouapp/features/auth/domain/usecases/register_account.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_event.dart';
 import 'package:pouapp/features/auth/presentation/pages/auth_gate.dart';
 
 class MockLogin extends Mock implements Login {}
+
+class MockRegisterAccount extends Mock implements RegisterAccount {}
 
 class MockGetCurrentUser extends Mock implements GetCurrentUser {}
 
@@ -21,6 +24,7 @@ class MockLogout extends Mock implements Logout {}
 
 void main() {
   late MockLogin mockLogin;
+  late MockRegisterAccount mockRegister;
   late MockGetCurrentUser mockGetCurrentUser;
   late MockLogout mockLogout;
 
@@ -39,6 +43,7 @@ void main() {
 
   setUp(() {
     mockLogin = MockLogin();
+    mockRegister = MockRegisterAccount();
     mockGetCurrentUser = MockGetCurrentUser();
     mockLogout = MockLogout();
     when(() => mockGetCurrentUser(any()))
@@ -51,6 +56,7 @@ void main() {
         home: BlocProvider(
           create: (_) => AuthBloc(
             login: mockLogin,
+            registerAccount: mockRegister,
             getCurrentUser: mockGetCurrentUser,
             logout: mockLogout,
           )..add(const AuthSessionRequested()),

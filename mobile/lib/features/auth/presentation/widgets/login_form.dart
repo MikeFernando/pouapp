@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import '../validation/login_validators.dart';
 
 class LoginForm extends StatefulWidget {
-  const LoginForm({super.key});
+  const LoginForm({super.key, required this.onCreateAccount});
+
+  final VoidCallback onCreateAccount;
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -154,9 +157,7 @@ class _LoginFormState extends State<LoginForm> {
                         const SizedBox(height: 24),
                         FilledButton(
                           key: const Key('login_submit'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
-                          ),
+                          style: pouAppPrimaryButtonStyle(),
                           onPressed: isSubmitting ? null : _submit,
                           child: isSubmitting
                               ? const SizedBox(
@@ -164,10 +165,22 @@ class _LoginFormState extends State<LoginForm> {
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
+                                    color: Colors.white,
                                     semanticsLabel: 'Entrando',
                                   ),
                                 )
                               : const Text('Entrar'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          key: const Key('create_account'),
+                          onPressed: isSubmitting
+                              ? null
+                              : widget.onCreateAccount,
+                          style: TextButton.styleFrom(
+                            foregroundColor: pouAppBlue,
+                          ),
+                          child: const Text('Criar conta'),
                         ),
                       ],
                     ),

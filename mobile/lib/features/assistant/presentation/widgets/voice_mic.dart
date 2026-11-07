@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../../injection_container.dart';
 import '../../../customers/domain/usecases/customer_use_cases.dart';
 import '../../../customers/presentation/customer_routes.dart';
@@ -127,7 +128,7 @@ class VoiceAssistantButton extends StatelessWidget {
         key: const Key('voice_assistant_button'),
         heroTag: null,
         tooltip: 'Assistente de voz',
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         onPressed: () {
           final session = VoiceSession.current;

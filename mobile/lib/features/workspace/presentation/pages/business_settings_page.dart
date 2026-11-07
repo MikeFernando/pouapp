@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../data/receivable_store.dart';
 import '../../domain/entities/receivable.dart';
@@ -49,7 +51,7 @@ class _BusinessSettingsPageState extends State<BusinessSettingsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1B4F72),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Chave Pix'),
       ),

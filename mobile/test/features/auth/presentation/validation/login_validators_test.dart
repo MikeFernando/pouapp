@@ -28,4 +28,39 @@ void main() {
       expect(validatePassword('senha-dev'), isNull);
     });
   });
+
+  group('validateName', () {
+    test('should require a name', () {
+      expect(validateName(null), 'Informe o nome.');
+      expect(validateName('   '), 'Informe o nome.');
+    });
+
+    test('should accept a name', () {
+      expect(validateName(' Ana Souza '), isNull);
+    });
+  });
+
+  group('validateNewPassword', () {
+    test('should require a password of at least 6 characters', () {
+      expect(validateNewPassword(null), 'Informe a senha.');
+      expect(validateNewPassword(''), 'Informe a senha.');
+      expect(
+        validateNewPassword('12345'),
+        'A senha deve ter pelo menos 6 caracteres.',
+      );
+      expect(validateNewPassword('123456'), isNull);
+    });
+  });
+
+  group('validatePasswordConfirmation', () {
+    test('should require the same password', () {
+      expect(validatePasswordConfirmation(null, '123456'), 'Confirme a senha.');
+      expect(validatePasswordConfirmation('', '123456'), 'Confirme a senha.');
+      expect(
+        validatePasswordConfirmation('1234567', '123456'),
+        'As senhas não coincidem.',
+      );
+      expect(validatePasswordConfirmation('123456', '123456'), isNull);
+    });
+  });
 }

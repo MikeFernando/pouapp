@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../data/receivable_store.dart';
 import '../../domain/entities/receivable.dart';
@@ -87,7 +89,7 @@ class _ReceiptPageState extends State<ReceiptPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Receber pagamento'),
       ),
@@ -341,7 +343,7 @@ class _OpeningDebtPageState extends State<OpeningDebtPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Saldo inicial de dívida'),
       ),

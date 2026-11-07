@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../domain/entities/workspace_mode.dart';
 
 /// Colors of one operational mode. Widgets read this extension instead of
@@ -24,13 +26,13 @@ class WorkspaceColors extends ThemeExtension<WorkspaceColors> {
   final Color onNav;
 
   static const rua = WorkspaceColors(
-    header: Color(0xFF1E88E5),
+    header: pouAppBlue,
     onHeader: Colors.white,
-    accent: Color(0xFF1565C0),
+    accent: pouAppBlue,
     accentSoft: Color(0xFFE3F2FD),
-    highlight: Color(0xFF1E88E5),
+    highlight: pouAppBlue,
     navBackground: Colors.white,
-    onNav: Color(0xFF1565C0),
+    onNav: pouAppBlue,
   );
 
   static const gestao = WorkspaceColors(

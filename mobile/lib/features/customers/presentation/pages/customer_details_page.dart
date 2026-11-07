@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../assistant/presentation/voice_attendance.dart';
 import '../../../catalog/domain/entities/catalog.dart';
 import '../../../catalog/domain/repositories/catalog_repository.dart';
 import '../../../catalog/domain/rules/stock_rules.dart';
 import '../../../catalog/presentation/catalog_messages.dart';
+import '../../../catalog/presentation/produce_assets.dart';
 import '../../../workspace/domain/entities/stock_board.dart';
 import '../../../workspace/domain/entities/street_ledger.dart';
 import '../../../workspace/presentation/bloc/company_operation_bloc.dart';
@@ -161,7 +163,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         return Scaffold(
           backgroundColor: const Color(0xFFF3F5F8),
           appBar: AppBar(
-            backgroundColor: const Color(0xFF1E88E5),
+            backgroundColor: pouAppBlue,
             foregroundColor: Colors.white,
             titleTextStyle: const TextStyle(
               fontSize: 18,
@@ -436,21 +438,14 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final products =
         context.read<CompanyOperationBloc>().state.operation?.products ??
         const <StockProduct>[];
-    final picked = await Navigator.of(context).push<_CatalogRow>(
+    final picked = await Navigator.of(context).push<_CatalogSelection>(
       MaterialPageRoute(
         builder: (_) => _ProductCatalogPage(products: products),
       ),
     );
     if (picked == null || !mounted) return;
-    final result = await _showItemEditSheet(
-      context,
-      name: picked.product.name,
-      quantity: 1,
-      unitPriceCents: picked.priceCents,
-    );
-    if (result == null || !mounted) return;
-    final unit = _catalogUnit(picked.product.unit);
-    final quantity = baseQuantityFromDisplay(unit, result.quantity);
+    final unit = _catalogUnit(picked.row.product.unit);
+    final quantity = baseQuantityFromDisplay(unit, picked.quantity);
     if (quantity == null) {
       _rememberFailure(null);
       return;
@@ -458,11 +453,11 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     await _persistLines([
       for (final line in note.lines) NoteLineDraft.fromLine(line),
       NoteLineDraft(
-        productId: picked.product.id,
-        name: picked.product.name,
+        productId: picked.row.product.id,
+        name: picked.row.product.name,
         unit: unit,
         quantity: quantity,
-        unitPriceCents: result.unitPriceCents,
+        unitPriceCents: picked.unitPriceCents,
       ),
     ]);
   }
@@ -676,7 +671,7 @@ class _DueDateCard extends StatelessWidget {
                 onPressed: onPick,
                 icon: const Icon(
                   Icons.calendar_today_outlined,
-                  color: Color(0xFF1E88E5),
+                  color: pouAppBlue,
                 ),
               ),
             ],
@@ -755,7 +750,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
                           }),
                           icon: const Icon(
                             Icons.chevron_left,
-                            color: Color(0xFF1E88E5),
+                            color: pouAppBlue,
                           ),
                         ),
                         Expanded(
@@ -787,7 +782,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
                           }),
                           icon: const Icon(
                             Icons.chevron_right,
-                            color: Color(0xFF1E88E5),
+                            color: pouAppBlue,
                           ),
                         ),
                       ],
@@ -909,7 +904,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: selected
-                  ? const Color(0xFF1E88E5)
+                  ? pouAppBlue
                   : today
                   ? const Color(0xFFE5E7EB)
                   : null,
@@ -1057,7 +1052,7 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
                   ),
                   Icon(
                     _open ? Icons.expand_less : Icons.expand_more,
-                    color: const Color(0xFF64B5F6),
+                    color: pouAppBlue,
                   ),
                 ],
               ),
@@ -1128,6 +1123,7 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
   final _searchController = TextEditingController();
   var _searching = false;
   final _created = <_CatalogRow>[];
+  final _removed = <String>{};
 
   @override
   void dispose() {
@@ -1138,12 +1134,14 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
   List<_CatalogRow> get _rows {
     final rows = [
       for (final product in widget.products)
-        _CatalogRow(
-          product: product,
-          sku: _skuFromId(product.id),
-          priceCents: 0,
-        ),
-      ..._created,
+        if (!_removed.contains(product.id))
+          _CatalogRow(
+            product: product,
+            sku: _skuFromId(product.id),
+            priceCents: 0,
+          ),
+      for (final created in _created)
+        if (!_removed.contains(created.product.id)) created,
     ];
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) return rows;
@@ -1161,7 +1159,7 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF00B0E8),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         titleTextStyle: const TextStyle(
           fontSize: 16,
@@ -1223,7 +1221,7 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
                       final row = rows[index];
                       return _ProductCard(
                         row: row,
-                        onTap: () => Navigator.of(context).pop(row),
+                        onTap: () => _open(row),
                       );
                     },
                   ),
@@ -1256,6 +1254,51 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
     );
   }
 
+  Future<void> _open(_CatalogRow row) async {
+    final result = await _showItemEditSheet(
+      context,
+      name: row.product.name,
+      quantity: 1,
+      unitPriceCents: row.priceCents,
+      canDelete: true,
+    );
+    if (!mounted || result == null) return;
+    if (result.deleted) {
+      await _delete(row);
+      return;
+    }
+    Navigator.of(context).pop(
+      _CatalogSelection(
+        row: row,
+        quantity: result.quantity,
+        unitPriceCents: result.unitPriceCents,
+      ),
+    );
+  }
+
+  Future<void> _delete(_CatalogRow row) async {
+    if (di.sl.isRegistered<CatalogRepository>()) {
+      final result = await di.sl<CatalogRepository>().deleteProduct(
+        row.product.id,
+      );
+      if (!mounted) return;
+      final message = result.fold<String?>(
+        catalogFailureMessage,
+        (_) => null,
+      );
+      if (message != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+        return;
+      }
+      if (di.sl.isRegistered<CompanyOperationBloc>()) {
+        di.sl<CompanyOperationBloc>().add(const CompanyOperationRequested());
+      }
+    }
+    setState(() => _removed.add(row.product.id));
+  }
+
   Future<void> _register() async {
     final created = await Navigator.of(context).push<_CatalogRow>(
       MaterialPageRoute(builder: (_) => const _ProductCreatePage()),
@@ -1263,6 +1306,18 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
     if (created == null || !mounted) return;
     setState(() => _created.add(created));
   }
+}
+
+class _CatalogSelection {
+  const _CatalogSelection({
+    required this.row,
+    required this.quantity,
+    required this.unitPriceCents,
+  });
+
+  final _CatalogRow row;
+  final double quantity;
+  final int unitPriceCents;
 }
 
 class _ProductCard extends StatelessWidget {
@@ -1281,74 +1336,109 @@ class _ProductCard extends StatelessWidget {
         key: Key('catalog_${row.product.id}'),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(12),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      row.product.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1C1E),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Color(0xFFD8F5E4),
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        'Ativo',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF146C43),
+              _CatalogPhoto(name: row.product.name),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            row.product.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1C1C1E),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Color(0xFFD8F5E4),
+                            borderRadius: BorderRadius.all(Radius.circular(8)),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Text(
+                              'Ativo',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF146C43),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'SKU: ${row.sku}',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Estoque: ${_formatStock(row.product.available)}',
+                    const SizedBox(height: 8),
+                    Text(
+                      'SKU: ${row.sku}',
                       style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF6B7280),
                       ),
                     ),
-                  ),
-                  Text(
-                    formatBrl(row.priceCents),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1C1C1E),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Estoque: ${_formatStock(row.product.available)} ${_stockUnitLabel(row.product)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          formatBrl(row.priceCents),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogPhoto extends StatelessWidget {
+  const _CatalogPhoto({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = produceAsset(name);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: ColoredBox(
+        color: const Color(0xFFF7F8FA),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: photo == null
+              ? const Icon(Icons.eco_outlined, color: Color(0xFF9CA3AF))
+              : Image.asset(photo, fit: BoxFit.contain),
         ),
       ),
     );
@@ -1384,7 +1474,7 @@ class _ProductCreatePageState extends State<_ProductCreatePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF00B0E8),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         titleTextStyle: const TextStyle(
           fontSize: 16,
@@ -1562,6 +1652,16 @@ String _skuFromId(String id) {
   return raw.toUpperCase();
 }
 
+String _stockUnitLabel(StockProduct product) {
+  return switch (product.unit) {
+    StockUnit.kilogram => 'kg',
+    StockUnit.piece => 'un',
+    StockUnit.bunch => product.available == 1 ? 'maço' : 'maços',
+    StockUnit.box => 'cx',
+    StockUnit.dozen => product.available == 1 ? 'dúzia' : 'dúzias',
+  };
+}
+
 String _formatStock(double value) {
   if (value != value.roundToDouble()) {
     return value.toStringAsFixed(3).replaceAll('.', ',');
@@ -1594,6 +1694,8 @@ class _NoteLineRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _CatalogPhoto(name: line.name),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1792,7 +1894,7 @@ class _SaleItemsPageState extends State<_SaleItemsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         titleTextStyle: const TextStyle(
           fontSize: 16,
@@ -1875,12 +1977,14 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final quantity = formatSaleQuantity(line.quantity, line.unit);
+    final quantity = line.quantity.toStringAsFixed(1);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _CatalogPhoto(name: line.productName),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1925,10 +2029,17 @@ class _ItemRow extends StatelessWidget {
 }
 
 class _ItemEdit {
-  const _ItemEdit({required this.quantity, required this.unitPriceCents});
+  const _ItemEdit({required this.quantity, required this.unitPriceCents})
+    : deleted = false;
+
+  const _ItemEdit.deleted()
+    : quantity = 0,
+      unitPriceCents = 0,
+      deleted = true;
 
   final double quantity;
   final int unitPriceCents;
+  final bool deleted;
 }
 
 Future<_ItemEdit?> _showItemEditSheet(
@@ -1936,6 +2047,7 @@ Future<_ItemEdit?> _showItemEditSheet(
   required String name,
   required double quantity,
   required int unitPriceCents,
+  bool canDelete = false,
 }) {
   return showModalBottomSheet<_ItemEdit>(
     context: context,
@@ -1949,6 +2061,7 @@ Future<_ItemEdit?> _showItemEditSheet(
       name: name,
       quantity: quantity,
       unitPriceCents: unitPriceCents,
+      canDelete: canDelete,
     ),
   );
 }
@@ -1958,11 +2071,13 @@ class _ItemEditSheet extends StatefulWidget {
     required this.name,
     required this.quantity,
     required this.unitPriceCents,
+    this.canDelete = false,
   });
 
   final String name;
   final double quantity;
   final int unitPriceCents;
+  final bool canDelete;
 
   @override
   State<_ItemEditSheet> createState() => _ItemEditSheetState();
@@ -2020,12 +2135,33 @@ class _ItemEditSheetState extends State<_ItemEditSheet> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    widget.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      _CatalogPhoto(name: widget.name),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          widget.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (widget.canDelete)
+                        TextButton(
+                          key: const Key('delete_product'),
+                          onPressed: _delete,
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFB42318),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: const Text('Excluir'),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -2104,7 +2240,7 @@ class _ItemEditSheetState extends State<_ItemEditSheet> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF1E88E5)),
+                        borderSide: const BorderSide(color: pouAppBlue),
                       ),
                     ),
                   ),
@@ -2147,6 +2283,31 @@ class _ItemEditSheetState extends State<_ItemEditSheet> {
     );
   }
 
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Excluir produto'),
+          content: Text('Excluir ${widget.name}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              key: const Key('confirm_delete_product'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Excluir'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    Navigator.of(context).pop(const _ItemEdit.deleted());
+  }
+
   void _changeQuantity(double delta) {
     final next = _quantity + delta;
     if (next < 1) return;
@@ -2181,7 +2342,7 @@ class _StepButton extends StatelessWidget {
     return IconButton(
       onPressed: enabled ? onPressed : null,
       icon: Icon(icon),
-      color: const Color(0xFF1565C0),
+      color: pouAppBlue,
       disabledColor: const Color(0xFFB0B7C3),
       iconSize: 22,
     );

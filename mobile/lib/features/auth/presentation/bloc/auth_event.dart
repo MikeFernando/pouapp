@@ -27,6 +27,27 @@ class AuthLoginSubmitted extends AuthEvent {
   String toString() => 'AuthLoginSubmitted(email: $email)';
 }
 
+class AuthRegisterSubmitted extends AuthEvent {
+  const AuthRegisterSubmitted({
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+
+  final String name;
+  final String email;
+  final String password;
+
+  @override
+  List<Object?> get props => [name, email, password];
+
+  @override
+  bool get stringify => false;
+
+  @override
+  String toString() => 'AuthRegisterSubmitted(name: $name, email: $email)';
+}
+
 class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }

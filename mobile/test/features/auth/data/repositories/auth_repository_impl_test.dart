@@ -141,6 +141,104 @@ void main() {
     );
   });
 
+  group('register', () {
+    const tName = 'Carla Lima';
+    const tNewEmail = 'carla@pouapp.dev';
+    const tNewUser = UserModel(
+      id: 'user-carla-pouapp-dev',
+      name: tName,
+      email: tNewEmail,
+    );
+
+    test('should return the created user and cache the session', () async {
+      when(
+        () => mockRemoteDataSource.register(
+          name: tName,
+          email: tNewEmail,
+          password: tPassword,
+        ),
+      ).thenAnswer((_) async => tNewUser);
+      when(() => mockLocalDataSource.cacheUser(tNewUser))
+          .thenAnswer((_) async {});
+
+      final result = await repository.register(
+        name: tName,
+        email: tNewEmail,
+        password: tPassword,
+      );
+
+      expect(result, const Right(tNewUser));
+      verify(() => mockLocalDataSource.cacheUser(tNewUser)).called(1);
+    });
+
+    test(
+      'should return EmailAlreadyRegisteredFailure and skip the cache',
+      () async {
+        when(
+          () => mockRemoteDataSource.register(
+            name: tName,
+            email: tEmail,
+            password: tPassword,
+          ),
+        ).thenThrow(EmailAlreadyRegisteredException());
+
+        final result = await repository.register(
+          name: tName,
+          email: tEmail,
+          password: tPassword,
+        );
+
+        expect(result, const Left(EmailAlreadyRegisteredFailure()));
+        verifyZeroInteractions(mockLocalDataSource);
+      },
+    );
+
+    test(
+      'should return ServerFailure when simulated auth is disabled',
+      () async {
+        when(
+          () => mockRemoteDataSource.register(
+            name: tName,
+            email: tNewEmail,
+            password: tPassword,
+          ),
+        ).thenThrow(SimulatedAuthDisabledException());
+
+        final result = await repository.register(
+          name: tName,
+          email: tNewEmail,
+          password: tPassword,
+        );
+
+        expect(result, const Left(ServerFailure()));
+        verifyZeroInteractions(mockLocalDataSource);
+      },
+    );
+
+    test(
+      'should return CacheFailure when the session cannot be stored',
+      () async {
+        when(
+          () => mockRemoteDataSource.register(
+            name: tName,
+            email: tNewEmail,
+            password: tPassword,
+          ),
+        ).thenAnswer((_) async => tNewUser);
+        when(() => mockLocalDataSource.cacheUser(tNewUser))
+            .thenThrow(CacheException());
+
+        final result = await repository.register(
+          name: tName,
+          email: tNewEmail,
+          password: tPassword,
+        );
+
+        expect(result, const Left(CacheFailure()));
+      },
+    );
+  });
+
   group('getCurrentUser', () {
     test('should return the cached user', () async {
       // arrange

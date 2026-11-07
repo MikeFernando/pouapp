@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../../../injection_container.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
@@ -131,7 +133,7 @@ class _ChargePageState extends State<ChargePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Enviar cobrança Pix'),
       ),

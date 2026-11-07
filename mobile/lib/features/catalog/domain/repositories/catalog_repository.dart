@@ -30,7 +30,7 @@ abstract class CatalogRepository {
     required bool active,
   });
 
-  /// Refused when the product already has stock history.
+  /// Removes the product and its stock from this phone.
   Future<Either<Failure, Unit>> deleteProduct(String id);
 
   Future<Either<Failure, StockDraft>> ensureStockDraft(StockOperationKind kind);

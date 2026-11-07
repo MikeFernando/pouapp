@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../domain/entities/catalog.dart';
 import '../../domain/rules/stock_rules.dart';
 import '../produce_assets.dart';
 
-const _blue = Color(0xFF1E88E5);
+const _blue = pouAppBlue;
 const _ink = Color(0xFF1C1C1E);
 const _muted = Color(0xFF6B7280);
 const _canvas = Color(0xFFF4F7FB);
@@ -218,7 +220,7 @@ class _TruckBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: const [
                   BoxShadow(
-                    color: Color(0x141565C0),
+                    color: Color(0x141E88E5),
                     blurRadius: 12,
                     offset: Offset(0, 4),
                   ),

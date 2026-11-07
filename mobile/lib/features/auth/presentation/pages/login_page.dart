@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 
-import '../../../assistant/presentation/widgets/voice_mic.dart';
 import '../widgets/login_form.dart';
+import '../widgets/register_form.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  var _creatingAccount = false;
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       resizeToAvoidBottomInset: true,
-      floatingActionButton: VoiceAssistantButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: SafeArea(child: LoginForm()),
+      body: SafeArea(
+        child: _creatingAccount
+            ? RegisterForm(
+                onSignIn: () => setState(() => _creatingAccount = false),
+              )
+            : LoginForm(
+                onCreateAccount: () => setState(() => _creatingAccount = true),
+              ),
+      ),
     );
   }
 }

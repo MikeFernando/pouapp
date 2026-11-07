@@ -266,6 +266,18 @@ void main() {
     expect(find.text('Produtos'), findsOneWidget);
     expect(find.text('Cadastrar novo produto'), findsOneWidget);
     expect(find.text('Alface crespa'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/produce/alface.jpg')),
+      findsWidgets,
+    );
+    await tester.tap(find.byKey(const Key('catalog_product-alface')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete_product')));
+    await tester.pumpAndSettle();
+    expect(find.text('Excluir Alface crespa?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm_delete_product')));
+    await tester.pumpAndSettle();
+    expect(find.text('Alface crespa'), findsNothing);
     expect(find.text('Laranja pera'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('catalog_product-mamao')),
@@ -273,11 +285,18 @@ void main() {
     );
     expect(find.text('Mamão formosa'), findsOneWidget);
     expect(find.text('SKU: MAMAO'), findsOneWidget);
-    expect(find.text('Estoque: 8'), findsOneWidget);
+    expect(find.text('Estoque: 8 kg'), findsOneWidget);
     await tester.tap(find.byKey(const Key('catalog_product-mamao')));
     await tester.pumpAndSettle();
     expect(find.text('Quantidade'), findsOneWidget);
     expect(find.text('Preço'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.image(const AssetImage('assets/produce/mamao.jpg')),
+      ),
+      findsOneWidget,
+    );
     final price = tester.widget<TextField>(find.byKey(const Key('item_price')));
     expect(
       price.keyboardType,
@@ -289,6 +308,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mamão formosa'), findsOneWidget);
     expect(find.text('Itens (1)'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/produce/mamao.jpg')),
+      findsOneWidget,
+    );
     expect(find.text('1.0 x R\$ 5,00'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('customer_open_balance'))).data,
@@ -336,7 +359,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Venda 1042'), findsOneWidget);
     expect(find.text('Banana nanica'), findsOneWidget);
-    expect(find.text('10 kg x R\$ 18,64'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/produce/banana.jpg')),
+      findsOneWidget,
+    );
+    expect(find.text('10.0 x R\$ 18,64'), findsOneWidget);
     expect(find.text('Editar'), findsWidgets);
   });
 

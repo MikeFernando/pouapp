@@ -25,6 +25,19 @@ class AuthLoginInProgress extends AuthState {
   const AuthLoginInProgress();
 }
 
+class AuthRegisterInProgress extends AuthState {
+  const AuthRegisterInProgress();
+}
+
+class AuthRegisterFailure extends AuthState {
+  const AuthRegisterFailure({required this.message});
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
+}
+
 class Authenticated extends AuthState {
   const Authenticated({required this.user, this.errorMessage});
 

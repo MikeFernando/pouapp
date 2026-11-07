@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'app/authenticated_shell.dart';
+import 'app/pou_app_colors.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
@@ -23,7 +24,13 @@ class PouApp extends StatelessWidget {
     return MaterialApp(
       title: 'PouApp',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1B4F72)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: pouAppBlue,
+        ).copyWith(primary: pouAppBlue),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: pouAppBlue,
+          foregroundColor: Colors.white,
+        ),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),

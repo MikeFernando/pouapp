@@ -42,6 +42,31 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, User>> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final user = await remoteDataSource.register(
+        name: name,
+        email: email,
+        password: password,
+      );
+      await localDataSource.cacheUser(user);
+      return Right(user);
+    } on EmailAlreadyRegisteredException {
+      return const Left(EmailAlreadyRegisteredFailure());
+    } on SimulatedAuthDisabledException {
+      return const Left(ServerFailure());
+    } on ServerException {
+      return const Left(ServerFailure());
+    } on CacheException {
+      return const Left(CacheFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, User?>> getCurrentUser() async {
     try {
       final user = await localDataSource.getCachedUser();

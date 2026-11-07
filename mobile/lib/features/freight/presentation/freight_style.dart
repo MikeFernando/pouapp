@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/pou_app_colors.dart';
+
 import '../domain/entities/freight_ledger.dart';
 import 'freight_labels.dart';
 
-const freightBlue = Color(0xFF1E88E5);
-const freightAccent = Color(0xFF1565C0);
+const freightBlue = pouAppBlue;
+const freightAccent = pouAppBlue;
 const freightSoft = Color(0xFFE3F2FD);
 const freightCanvas = Color(0xFFF4F6F8);
 const freightInk = Color(0xFF1C1C1E);

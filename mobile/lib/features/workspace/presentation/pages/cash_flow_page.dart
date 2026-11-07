@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/company_indicators.dart';
 import '../bloc/company_operation_bloc.dart';
@@ -23,7 +25,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: pouAppBlue,
         foregroundColor: Colors.white,
         title: const Text('Fluxo de caixa diário'),
       ),
@@ -163,7 +165,7 @@ class _MonthSwitcher extends StatelessWidget {
           IconButton(
             tooltip: 'Mês anterior',
             onPressed: onPrevious,
-            icon: const Icon(Icons.chevron_left, color: Color(0xFF1565C0)),
+            icon: const Icon(Icons.chevron_left, color: pouAppBlue),
           ),
           Expanded(
             child: Text(
@@ -171,7 +173,7 @@ class _MonthSwitcher extends StatelessWidget {
               key: const Key('cash_flow_month'),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Color(0xFF1565C0),
+                color: pouAppBlue,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -180,7 +182,7 @@ class _MonthSwitcher extends StatelessWidget {
           IconButton(
             tooltip: 'Próximo mês',
             onPressed: onNext,
-            icon: const Icon(Icons.chevron_right, color: Color(0xFF1565C0)),
+            icon: const Icon(Icons.chevron_right, color: pouAppBlue),
           ),
         ],
       ),
@@ -312,7 +314,7 @@ class _FlowCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _FlowLine(
-              color: const Color(0xFF1565C0),
+              color: pouAppBlue,
               label: 'Saldo',
               value: payments == null
                   ? indicatorUnavailable
@@ -388,7 +390,7 @@ class _DayRow extends StatelessWidget {
                   expanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
-                  color: const Color(0xFF1565C0),
+                  color: pouAppBlue,
                 ),
               ],
             ),
@@ -407,7 +409,7 @@ class _DayRow extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _FlowLine(
-                color: const Color(0xFF1565C0),
+                color: pouAppBlue,
                 label: 'Saldo',
                 value: indicatorUnavailable,
               ),

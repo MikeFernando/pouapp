@@ -48,11 +48,11 @@ void main() {
 
       await tester.enterText(
         find.byKey(const Key('login_email')),
-        'ana.souza@pouapp.dev',
+        'mike@gmail.com',
       );
       await tester.enterText(
         find.byKey(const Key('login_password')),
-        'senha-dev',
+        'mike@123',
       );
       await tester.tap(find.byKey(const Key('login_submit')));
       await tester.pump();
@@ -99,7 +99,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('login_submit')), findsOneWidget);
-      expect(find.text('Ana Souza'), findsNothing);
+      expect(find.text('Mike'), findsNothing);
       expect(find.byKey(const Key('customer_search')), findsNothing);
 
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));

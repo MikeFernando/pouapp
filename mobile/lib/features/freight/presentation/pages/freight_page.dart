@@ -591,7 +591,7 @@ class _FreightCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1565C0),
+            color: Color(0x0F1E88E5),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),

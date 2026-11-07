@@ -76,11 +76,11 @@ void main() {
     expect(confirm.foregroundColor?.resolve(idle), Colors.white);
     expect(confirm.minimumSize?.resolve(idle), const Size.fromHeight(52));
 
-    await _pickLoad(tester, 'product-alho', '40');
+    await _pickLoad(tester, 'product-cebola', '40');
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Depósito 460 kg'), findsOneWidget);
+    expect(find.textContaining('Depósito 560 kg'), findsOneWidget);
     expect(find.textContaining('Montana 40 kg'), findsOneWidget);
   });
 
@@ -96,7 +96,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('action_load')));
     await tester.pumpAndSettle();
-    await _pickLoad(tester, 'product-alho', '40');
+    await _pickLoad(tester, 'product-cebola', '40');
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));
@@ -108,7 +108,7 @@ void main() {
     expect(
       tester
           .widget<TextField>(
-            find.byKey(const Key('load_quantity_product-alho')),
+            find.byKey(const Key('load_quantity_product-cebola')),
           )
           .controller!
           .text,
@@ -117,14 +117,14 @@ void main() {
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
     expect(find.text('A carga da Montana continua igual.'), findsOneWidget);
-    expect(find.textContaining('Depósito 460 kg'), findsOneWidget);
+    expect(find.textContaining('Depósito 560 kg'), findsOneWidget);
     expect(find.textContaining('Montana 40 kg'), findsOneWidget);
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('action_load')));
     await tester.pumpAndSettle();
-    final quantity = find.byKey(const Key('load_quantity_product-alho'));
+    final quantity = find.byKey(const Key('load_quantity_product-cebola'));
     await tester.scrollUntilVisible(
       quantity,
       300,
@@ -135,7 +135,7 @@ void main() {
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Depósito 500 kg'), findsOneWidget);
+    expect(find.textContaining('Depósito 600 kg'), findsOneWidget);
     expect(find.textContaining('Montana 40 kg'), findsNothing);
   });
 
@@ -150,18 +150,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('action_load')));
     await tester.pumpAndSettle();
-    await _pickLoad(tester, 'product-alho', '600');
+    await _pickLoad(tester, 'product-cebola', '700');
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('stock_operation_error')), findsOneWidget);
-    expect(find.textContaining('Alho'), findsWidgets);
-    expect(find.byKey(const Key('load_quantity_product-alho')), findsOneWidget);
+    expect(find.textContaining('Cebola'), findsWidgets);
+    expect(find.byKey(const Key('load_quantity_product-cebola')), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.textContaining('Depósito 500 kg'), findsOneWidget);
-    expect(find.textContaining('Depósito 500 kg · Montana'), findsNothing);
+    expect(find.textContaining('Depósito 600 kg'), findsOneWidget);
+    expect(find.textContaining('Depósito 600 kg · Montana'), findsNothing);
   });
 
   testWidgets('the street shortcut shows the current Montana load', (
@@ -171,11 +171,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('login_email')),
-      'ana.souza@pouapp.dev',
+      'mike@gmail.com',
     );
     await tester.enterText(
       find.byKey(const Key('login_password')),
-      'senha-dev',
+      'mike@123',
     );
     await tester.tap(find.byKey(const Key('login_submit')));
     await tester.pump();

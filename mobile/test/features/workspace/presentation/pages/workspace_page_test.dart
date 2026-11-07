@@ -28,12 +28,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('login_email')),
-      'ana.souza@pouapp.dev',
+      'mike@gmail.com',
     );
-    await tester.enterText(
-      find.byKey(const Key('login_password')),
-      'senha-dev',
-    );
+    await tester.enterText(find.byKey(const Key('login_password')), 'mike@123');
     await tester.tap(find.byKey(const Key('login_submit')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
@@ -80,7 +77,7 @@ void main() {
               find.byKey(const Key('visit_balance_visit-primavera')),
             )
             .data,
-        'R\$ 186,40',
+        'R\$ 33,60',
       );
       expect(find.text('22/10/2026'), findsNothing);
       expect(find.text('Abrir endereço'), findsNothing);
@@ -248,10 +245,21 @@ void main() {
       expect(find.byKey(const Key('customer_whatsapp')), findsOneWidget);
       expect(find.text('Nota 1042'), findsOneWidget);
       expect(find.textContaining('Banana nanica'), findsOneWidget);
+      expect(find.text('1 kg · R\$ 5,90'), findsWidgets);
+      expect(find.text('Alface crespa'), findsOneWidget);
+      expect(find.text('1 maço · R\$ 3,50'), findsOneWidget);
       expect(find.text('Valor da nota'), findsWidgets);
-      expect(find.text('R\$ 186,40'), findsOneWidget);
+      expect(find.text('R\$ 33,60'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('add_visit_product')),
+        300,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('visit_customer_profile')),
+          matching: find.byType(Scrollable),
+        ),
+      );
       expect(find.text('Adicionar produto'), findsOneWidget);
-      expect(find.textContaining('Tomate italiano'), findsNothing);
+      expect(find.text('Batata'), findsNothing);
     });
 
     testWidgets('should restore the last mode after a new launch', (
