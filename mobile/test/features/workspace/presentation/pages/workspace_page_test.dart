@@ -2,7 +2,6 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pouapp/app/pou_app_colors.dart';
 import 'package:pouapp/features/catalog/data/datasources/catalog_local_data_source.dart';
 import 'package:pouapp/features/workspace/data/datasources/workspace_simulated_data_source.dart';
 import 'package:pouapp/features/workspace/domain/entities/company_operation.dart';
@@ -65,7 +64,6 @@ void main() {
       expect(find.byKey(const Key('header_month_billed')), findsOneWidget);
       expect(find.byKey(const Key('header_month_delta')), findsOneWidget);
       expect(find.textContaining('R\$'), findsWidgets);
-      expect(find.text('Disponibilidade'), findsWidgets);
       expect(
         tester
             .widget<Text>(
@@ -94,45 +92,11 @@ void main() {
       expect(find.byKey(const Key('workspace_header')), findsOneWidget);
       expect(find.text('Gestão'), findsNothing);
       expect(find.text('Resumo do mês'), findsNothing);
-      expect(find.text('Financeiro'), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Produtos'), findsOneWidget);
+      expect(find.text('Clientes'), findsOneWidget);
+      expect(find.text('Financeiro'), findsOneWidget);
       expect(find.text('Marina Costa'), findsWidgets);
-    });
-
-    testWidgets('load matches nova venda and return is an outline', (
-      tester,
-    ) async {
-      await signIn(tester);
-
-      ButtonStyle styleOf(Key key) {
-        return tester.widget<FilledButton>(find.byKey(key)).style!;
-      }
-
-      const idle = <WidgetState>{};
-      final sale = styleOf(const Key('action_new_sale'));
-      final load = styleOf(const Key('load_montana'));
-      expect(load.minimumSize?.resolve(idle), sale.minimumSize?.resolve(idle));
-      expect(
-        load.backgroundColor?.resolve(idle),
-        sale.backgroundColor?.resolve(idle),
-      );
-      expect(
-        load.foregroundColor?.resolve(idle),
-        sale.foregroundColor?.resolve(idle),
-      );
-      expect(load.shape?.resolve(idle), sale.shape?.resolve(idle));
-
-      final back = tester
-          .widget<OutlinedButton>(find.byKey(const Key('return_warehouse')))
-          .style!;
-      expect(back.backgroundColor?.resolve(idle), pouCanvas);
-      expect(sale.foregroundColor?.resolve(idle), Colors.white);
-      expect(back.foregroundColor?.resolve(idle), pouInk);
-      expect(
-        back.side?.resolve(idle)?.color,
-        sale.backgroundColor?.resolve(idle),
-      );
-      expect(back.minimumSize?.resolve(idle), sale.minimumSize?.resolve(idle));
-      expect(back.shape?.resolve(idle), sale.shape?.resolve(idle));
     });
 
     testWidgets('opens customer details and notes from the visit name', (
@@ -213,7 +177,7 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byKey(const Key('close_add_delivery')));
       await tester.pumpAndSettle();
 
       expect(find.text('João Oliveira'), findsOneWidget);

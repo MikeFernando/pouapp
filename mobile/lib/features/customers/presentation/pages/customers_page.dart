@@ -30,12 +30,11 @@ class PeopleCustomersView extends StatefulWidget {
 }
 
 class _PeopleCustomersViewState extends State<PeopleCustomersView> {
-  final _searchController = TextEditingController();
-  var _searching = false;
+  final _search = TextEditingController();
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -43,10 +42,53 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F7),
-      appBar: _searching ? _searchBar(context) : _titleBar(),
       body: SafeArea(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                key: const Key('customer_search'),
+                controller: _search,
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFF0E0D0F),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Pesquisar cliente',
+                  hintStyle: const TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (value) {
+                  context.read<CustomersBloc>().add(
+                    CustomersSearchChanged(value),
+                  );
+                },
+              ),
+            ),
             Expanded(
               child: BlocBuilder<CustomersBloc, CustomersState>(
                 builder: (context, state) {
@@ -141,60 +183,6 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
           ],
         ),
       ),
-    );
-  }
-
-  PreferredSizeWidget _titleBar() {
-    return AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Cliente'),
-      actions: [
-        IconButton(
-          key: const Key('customer_search_button'),
-          tooltip: 'Pesquisar',
-          onPressed: () => setState(() => _searching = true),
-          icon: const Icon(Icons.search),
-        ),
-      ],);
-  }
-
-  PreferredSizeWidget _searchBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      foregroundColor: const Color(0xFF0E0D0F),
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      automaticallyImplyLeading: false,
-      titleSpacing: 0,
-      title: TextField(
-        key: const Key('customer_search'),
-        controller: _searchController,
-        autofocus: true,
-        style: const TextStyle(fontSize: 16, color: Color(0xFF0E0D0F)),
-        textInputAction: TextInputAction.search,
-        decoration: const InputDecoration(
-          hintText: 'Nome ou Documento',
-          hintStyle: TextStyle(fontSize: 16, color: Color(0xFFB0B7C3)),
-          prefixIcon: Icon(Icons.search, color: Color(0xFF6B7280)),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-        ),
-        onChanged: (value) {
-          context.read<CustomersBloc>().add(CustomersSearchChanged(value));
-        },
-      ),
-      actions: [
-        IconButton(
-          key: const Key('customer_search_close'),
-          tooltip: 'Fechar',
-          onPressed: () {
-            _searchController.clear();
-            context.read<CustomersBloc>().add(const CustomersSearchChanged(''));
-            setState(() => _searching = false);
-          },
-          icon: const Icon(Icons.close, color: Color(0xFF5C7C99)),
-        ),
-      ],
     );
   }
 

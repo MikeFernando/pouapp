@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
-import '../../../catalog/presentation/produce_assets.dart';
 import '../../domain/entities/sales_board.dart';
-import '../../domain/entities/stock_board.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../bloc/company_operation_bloc.dart';
 import '../operation_labels.dart';
@@ -15,30 +13,20 @@ class StreetBoardView extends StatefulWidget {
     super.key,
     required this.valuesHidden,
     required this.onNewSale,
-    required this.onCustomers,
-    required this.onRegisterReceipt,
     required this.onComplete,
     required this.onPostpone,
     required this.onRemove,
     required this.onOpenCustomer,
     required this.onOpenSale,
-    required this.onOpenFreight,
-    required this.onLoadMontana,
-    required this.onReturnToWarehouse,
   });
 
   final bool valuesHidden;
   final VoidCallback onNewSale;
-  final VoidCallback? onCustomers;
-  final VoidCallback onRegisterReceipt;
   final ValueChanged<RouteVisit> onComplete;
   final ValueChanged<RouteVisit> onPostpone;
   final ValueChanged<RouteVisit> onRemove;
   final ValueChanged<RouteVisit> onOpenCustomer;
   final ValueChanged<RecentSale> onOpenSale;
-  final VoidCallback onOpenFreight;
-  final VoidCallback onLoadMontana;
-  final VoidCallback onReturnToWarehouse;
 
   @override
   State<StreetBoardView> createState() => StreetBoardViewState();
@@ -47,8 +35,6 @@ class StreetBoardView extends StatefulWidget {
 class StreetBoardViewState extends State<StreetBoardView>
     with SingleTickerProviderStateMixin {
   final _routeKey = GlobalKey();
-  final _availabilityKey = GlobalKey();
-  var _query = '';
   late final AnimationController _entrance;
   late final ScrollController _scroll;
 
@@ -94,8 +80,6 @@ class StreetBoardViewState extends State<StreetBoardView>
 
   void showRoute() => _reveal(_routeKey);
 
-  void showAvailability() => _reveal(_availabilityKey);
-
   void _reveal(GlobalKey key) {
     final target = key.currentContext;
     if (target == null) return;
@@ -128,20 +112,10 @@ class StreetBoardViewState extends State<StreetBoardView>
             ),
           );
         }
-        final colors = workspaceColorsOf(context);
         final saleButton = FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
           backgroundColor: pouInk,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        );
-        final returnButton = OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          backgroundColor: pouCanvas,
-          foregroundColor: pouInk,
-          side: const BorderSide(color: pouInk),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -153,19 +127,6 @@ class StreetBoardViewState extends State<StreetBoardView>
             if (visit.day != ledger.day) visit,
         ]..sort((a, b) => a.day.compareTo(b.day));
         final progress = visitProgress(ledger);
-        final normalized = _query.trim().toLowerCase();
-        final onTruck = [
-          for (final product in operation.products)
-            if (product.montana > 0) product,
-        ];
-        final products = normalized.isEmpty
-            ? onTruck
-            : onTruck
-                  .where(
-                    (product) =>
-                        product.name.toLowerCase().contains(normalized),
-                  )
-                  .toList();
         return ClipRect(
           child: Stack(
             children: [
@@ -209,34 +170,6 @@ class StreetBoardViewState extends State<StreetBoardView>
                               onPressed: widget.onNewSale,
                               icon: const Icon(Icons.person_add_outlined, color: pouCanvas,),
                               label: const Text('Adicionar', style: TextStyle(color: pouCanvas,),),
-                            ),
-                          ),
-                          const SizedBox(height: 22),
-                          rise(
-                            _ShortcutGrid(
-                              shortcuts: [
-                                _Shortcut(
-                                  icon: Icons.local_shipping_outlined,
-                                  label: 'Frete',
-                                  onTap: widget.onOpenFreight,
-                                ),
-                                _Shortcut(
-                                  key: const Key('open_customers_button'),
-                                  icon: Icons.groups_outlined,
-                                  label: 'Clientes',
-                                  onTap: widget.onCustomers,
-                                ),
-                                _Shortcut(
-                                  icon: Icons.payments_outlined,
-                                  label: 'Recebimento',
-                                  onTap: widget.onRegisterReceipt,
-                                ),
-                                _Shortcut(
-                                  icon: Icons.inventory_2_outlined,
-                                  label: 'Disponibilidade',
-                                  onTap: showAvailability,
-                                ),
-                              ],
                             ),
                           ),
                           if (later.isNotEmpty) ...[
@@ -302,145 +235,6 @@ class StreetBoardViewState extends State<StreetBoardView>
                               ),
                             ),
                           ],
-                          const SizedBox(height: 22),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, bottom: 10),
-                            child: Text(
-                              'Disponibilidade',
-                              key: _availabilityKey,
-                              style: const TextStyle(
-                                fontSize: workspaceFontPrimary,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0E0D0F),
-                              ),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
-                            child: Text(
-                              'Carga atual da Montana',
-                              key: Key('montana_load_caption'),
-                              style: TextStyle(
-                                fontSize: workspaceFontSecondary,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                FilledButton(
-                                  key: const Key('load_montana'),
-                                  style: saleButton,
-                                  onPressed: widget.onLoadMontana,
-                                  child: const Text('Carregar Montana'),
-                                ),
-                                const SizedBox(height: 8),
-                                OutlinedButton(
-                                  key: const Key('return_warehouse'),
-                                  style: returnButton,
-                                  onPressed: widget.onReturnToWarehouse,
-                                  child: const Text('Retornar ao depósito'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          rise(
-                            _SurfaceCard(
-                              child: Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      12,
-                                      12,
-                                      12,
-                                    ),
-                                    child: TextField(
-                                      key: const Key('availability_search'),
-                                      style: const TextStyle(
-                                        fontSize: workspaceFontPrimary,
-                                        color: Color(0xFF0E0D0F),
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: 'Buscar produto',
-                                        hintStyle: const TextStyle(
-                                          fontSize: workspaceFontPrimary,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                        prefixIcon: const Icon(
-                                          Icons.search,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                        filled: true,
-                                        fillColor: const Color(0xFFE9E8EB),
-                                        isDense: true,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                            ),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: colors.highlight,
-                                          ),
-                                        ),
-                                      ),
-                                      onChanged: (value) =>
-                                          setState(() => _query = value),
-                                    ),
-                                  ),
-                                  if (products.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        4,
-                                        16,
-                                        16,
-                                      ),
-                                      child: Text(
-                                        normalized.isEmpty
-                                            ? 'A Montana está sem carga.'
-                                            : 'Nenhum produto encontrado.',
-                                        style: TextStyle(
-                                          fontSize: workspaceFontSecondary,
-                                          color: Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    for (
-                                      var index = 0;
-                                      index < products.length;
-                                      index++
-                                    ) ...[
-                                      if (index > 0) const _Hairline(),
-                                      _ProductRow(
-                                        product: products[index],
-                                        valuesHidden: valuesHidden,
-                                      ),
-                                    ],
-                                  const SizedBox(height: 4),
-                                ],
-                              ),
-                            ),
-                          ),
                           const SizedBox(height: 22),
                           const _SectionTitle('Vendas recentes'),
                           rise(
@@ -755,20 +549,6 @@ class _SwipeAction extends StatelessWidget {
   }
 }
 
-class _Shortcut {
-  const _Shortcut({
-    this.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final Key? key;
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-}
-
 class _DeliveryBoard extends StatelessWidget {
   const _DeliveryBoard({
     required this.titleKey,
@@ -970,197 +750,6 @@ class _Hairline extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: Color(0xFFE9E8EB),
-    );
-  }
-}
-
-class _ProductRow extends StatelessWidget {
-  const _ProductRow({required this.product, required this.valuesHidden});
-
-  final StockProduct product;
-  final bool valuesHidden;
-
-  @override
-  Widget build(BuildContext context) {
-    final low = product.low;
-    return Padding(
-      key: Key('product_${product.id}'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          _MontanaPhoto(name: product.name),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: workspaceFontPrimary,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0E0D0F),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: low
-                        ? const Color(0xFFFFF4E5)
-                        : const Color(0xFFD8F5E4),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    child: Text(
-                      'Na Montana',
-                      style: TextStyle(
-                        fontSize: workspaceFontSecondary,
-                        fontWeight: FontWeight.w600,
-                        color: low
-                            ? const Color(0xFFB45309)
-                            : const Color(0xFF146C43),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            formatQuantity(product.montana, product.unit, hidden: valuesHidden),
-            key: Key('product_qty_${product.id}'),
-            style: const TextStyle(
-              fontSize: workspaceFontPrimary,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0E0D0F),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MontanaPhoto extends StatelessWidget {
-  const _MontanaPhoto({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    final photo = produceAsset(name);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: ColoredBox(
-        color: const Color(0xFFE9E8EB),
-        child: SizedBox(
-          width: 64,
-          height: 64,
-          child: photo == null
-              ? const Icon(Icons.eco_outlined, color: Color(0xFF9CA3AF))
-              : Image.asset(photo, fit: BoxFit.contain),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShortcutGrid extends StatelessWidget {
-  const _ShortcutGrid({required this.shortcuts});
-
-  final List<_Shortcut> shortcuts;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - 12) / 2;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final shortcut in shortcuts)
-              SizedBox(
-                width: width,
-                height: 72,
-                child: _ShortcutButton(shortcut: shortcut),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _ShortcutButton extends StatelessWidget {
-  const _ShortcutButton({required this.shortcut});
-
-  final _Shortcut shortcut;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = workspaceColorsOf(context);
-    return DecoratedBox(
-      key: shortcut.key,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x140E0D0F),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: shortcut.onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.accentSoft,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Icon(shortcut.icon, size: 20, color: colors.accent),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      shortcut.label,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: workspaceFontPrimary,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0E0D0F),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

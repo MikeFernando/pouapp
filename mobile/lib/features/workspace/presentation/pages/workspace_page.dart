@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/nav_glyphs.dart';
 import '../../../../app/pou_app_colors.dart';
+import '../../../../app/rounded_navigation_scaffold.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../catalog/domain/entities/stock_operation.dart';
-import '../../../catalog/presentation/pages/stock_operation_page.dart';
-import '../../../freight/presentation/pages/freight_page.dart';
+import '../../../catalog/presentation/pages/products_page.dart';
+import '../../../customers/presentation/pages/customers_page.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
@@ -16,27 +17,25 @@ import '../street_actions.dart';
 import '../theme/workspace_colors.dart';
 import '../widgets/street_board_view.dart';
 import 'add_delivery_page.dart';
+import 'business_settings_page.dart';
+import 'finance_page.dart';
 import 'provisional_action_page.dart';
 import 'visit_customer_page.dart';
 
 class WorkspacePage extends StatelessWidget {
-  const WorkspacePage({super.key, this.onOpenCustomers});
-
-  final VoidCallback? onOpenCustomers;
+  const WorkspacePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: loadedCompanyOperation(),
-      child: WorkspaceView(onOpenCustomers: onOpenCustomers),
+      child: const WorkspaceView(),
     );
   }
 }
 
 class WorkspaceView extends StatefulWidget {
-  const WorkspaceView({super.key, this.onOpenCustomers});
-
-  final VoidCallback? onOpenCustomers;
+  const WorkspaceView({super.key});
 
   @override
   State<WorkspaceView> createState() => _WorkspaceViewState();
@@ -44,6 +43,16 @@ class WorkspaceView extends StatefulWidget {
 
 class _WorkspaceViewState extends State<WorkspaceView> {
   final _valuesHidden = false;
+  final _built = <int>{0};
+  var _tab = 0;
+  var _adding = false;
+
+  void _openTab(int index) {
+    setState(() {
+      _tab = index;
+      _built.add(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,51 +64,101 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     };
     if (user == null) return const SizedBox.shrink();
 
-    final loggingOut = auth is AuthLogoutInProgress;
     final logoutError = auth is Authenticated ? auth.errorMessage : null;
 
     return Theme(
       data: workspaceTheme(Theme.of(context)),
       child: Builder(
         builder: (context) {
-          return Scaffold(
+          return RoundedNavigationScaffold(
             key: const Key('workspace_home'),
-            backgroundColor: pouCanvas,
-            body: Column(
-              children: [
-                _WorkspaceHeader(
-                  message: logoutError,
-                  billed: _monthBilled(context),
-                ),
-                Expanded(
-                  child: StreetBoardView(
-                    valuesHidden: _valuesHidden,
-                    onNewSale: _addDeliveryPerson,
-                    onCustomers: loggingOut ? null : widget.onOpenCustomers,
-                    onRegisterReceipt: () {},
-                    onComplete: _completeVisit,
-                    onPostpone: _postponeVisit,
-                    onRemove: _removeVisit,
-                    onOpenCustomer: _openVisitCustomer,
-                    onOpenSale: (sale) => _openProvisional(
-                      'Venda ${sale.code}',
-                      'A venda ${sale.code} também está na conta da cliente.',
+            selectedIndex: _tab,
+            onSelected: _openTab,
+            destinations: const [
+              RoundedNavigationDestination(
+                glyph: NavGlyphKind.home,
+                label: 'Home',
+              ),
+              RoundedNavigationDestination(
+                glyph: NavGlyphKind.products,
+                label: 'Produtos',
+              ),
+              RoundedNavigationDestination(
+                glyph: NavGlyphKind.customers,
+                label: 'Clientes',
+              ),
+              RoundedNavigationDestination(
+                glyph: NavGlyphKind.finance,
+                label: 'Financeiro',
+              ),
+            ],
+            content: LayoutBuilder(
+              builder: (context, constraints) {
+                Widget fill(Widget child) {
+                  return SizedBox(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    child: child,
+                  );
+                }
+
+                return IndexedStack(
+                  index: _tab,
+                  children: [
+                    fill(
+                      Stack(
+                        children: [
+                          Column(
+                            children: [
+                              _WorkspaceHeader(
+                                message: logoutError,
+                                billed: _monthBilled(context),
+                                snapshot: _monthSnapshot(context),
+                              ),
+                              Expanded(
+                                child: StreetBoardView(
+                                  valuesHidden: _valuesHidden,
+                                  onNewSale: _addDeliveryPerson,
+                                  onComplete: _completeVisit,
+                                  onPostpone: _postponeVisit,
+                                  onRemove: _removeVisit,
+                                  onOpenCustomer: _openVisitCustomer,
+                                  onOpenSale: (sale) => _openProvisional(
+                                    'Venda ${sale.code}',
+                                    'A venda ${sale.code} também está na conta da cliente.',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_adding)
+                            Positioned.fill(
+                              child: _AddCover(
+                                onClose: () => setState(() => _adding = false),
+                                child: const AddDeliveryPage(),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    onOpenFreight: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const FreightPage(),
-                        ),
-                      );
-                    },
-                    onLoadMontana: () =>
-                        _openStockOperation(StockOperationKind.load),
-                    onReturnToWarehouse: () => _openStockOperation(
-                      StockOperationKind.returnToWarehouse,
+                    fill(
+                      _built.contains(1)
+                          ? const ProductsPage()
+                          : const SizedBox.shrink(),
                     ),
-                  ),
-                ),
-              ],
+                    fill(
+                      _built.contains(2)
+                          ? const CustomersPage()
+                          : const SizedBox.shrink(),
+                    ),
+                    fill(
+                      _built.contains(3)
+                          ? const FinancePage()
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                );
+              },
             ),
           );
         },
@@ -123,13 +182,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   }
 
   void _addDeliveryPerson() {
-    final bloc = context.read<CompanyOperationBloc>();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            BlocProvider.value(value: bloc, child: const AddDeliveryPage()),
-      ),
-    );
+    setState(() => _adding = true);
   }
 
   void _completeVisit(RouteVisit visit) {
@@ -163,15 +216,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     applyStreetChange(context, RemoveRouteVisit(visit.id));
   }
 
-  Future<void> _openStockOperation(StockOperationKind kind) async {
-    final bloc = context.read<CompanyOperationBloc>();
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => StockOperationPage(kind: kind)),
-    );
-    if (!mounted) return;
-    bloc.add(const CompanyOperationRequested());
-  }
-
   void _openProvisional(String title, String detail) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -187,35 +231,43 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       today: DateTime.now(),
     );
   }
+
+  MonthSnapshot _monthSnapshot(BuildContext context) {
+    final operation = context.watch<CompanyOperationBloc>().state.operation;
+    final now = DateTime.now();
+    return monthSnapshot(
+      sales: operation?.postedSales ?? const [],
+      month: DateTime(now.year, now.month),
+      today: now,
+    );
+  }
 }
 
 class _WorkspaceHeader extends StatelessWidget {
-  const _WorkspaceHeader({required this.message, required this.billed});
+  const _WorkspaceHeader({
+    required this.message,
+    required this.billed,
+    required this.snapshot,
+  });
 
   final String? message;
   final MonthBilledDelta billed;
+  final MonthSnapshot snapshot;
 
   static const _ink = pouInk;
-  static const _gain = Color(0xFF34C759);
-  static const _loss = Color(0xFFE53935);
-  static const _gainSoft = Color(0xFFE4F6E5);
-  static const _lossSoft = Color(0xFFFDECEA);
+  static const _muted = Color(0xFF9A9AA2);
 
   @override
   Widget build(BuildContext context) {
-    final up = billed.deltaCents >= 0;
-    final deltaColor = up ? _gain : _loss;
-    final deltaStyle = TextStyle(
-      color: deltaColor,
-      fontSize: 15,
-      fontWeight: FontWeight.w600,
-      height: 1,
-    );
+    final fraction = (snapshot.receivedPercent / 100).clamp(0.0, 1.0);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: pouInk,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarContrastEnforced: false,
       ),
       child: ColoredBox(
         key: const Key('workspace_header'),
@@ -223,100 +275,118 @@ class _WorkspaceHeader extends StatelessWidget {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 14, 16),
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    _HeaderAvatar(),
-                    SizedBox(width: 10),
-                    Text(
-                      'Sandy',
-                      style: TextStyle(
-                        color: _ink,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
-                        height: 1.1,
+                    const _HeaderAvatar(),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Sandy',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
                       ),
                     ),
-                    Spacer(),
-                    Icon(Icons.notifications_none, color: _ink, size: 26),
+                    _HeaderRoundIcon(
+                      icon: Icons.settings_outlined,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const BusinessSettingsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    const _HeaderRoundIcon(icon: Icons.notifications_none),
                   ],
                 ),
                 const SizedBox(height: 22),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 1, right: 1),
-                        child: Text(
-                          r'$',
-                          style: TextStyle(
-                            color: _ink,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w600,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _usdNumber(billed.billedCents),
-                        key: const Key('header_month_billed'),
-                        style: const TextStyle(
-                          color: _ink,
-                          fontSize: 40,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1.3,
-                          height: 1,
-                        ),
-                      ),
-                    ],
+                const Text(
+                  'Recebido',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _signedUsd(billed.deltaCents),
-                      key: const Key('header_month_delta'),
-                      style: deltaStyle,
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '\$${_usdNumber(snapshot.receivedCents)}',
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 40,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.2,
+                      height: 1,
                     ),
-                    if (billed.hasPercent) ...[
-                      const SizedBox(width: 8),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: up ? _gainSoft : _lossSoft,
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(20),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: Text(
-                            _signedPercent(billed.deltaPercent),
-                            key: const Key('header_month_percent'),
-                            style: deltaStyle,
-                          ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Faturado',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
+                    ),
+                    Text(
+                      '\$${_usdNumber(billed.billedCents)}',
+                      key: const Key('header_month_billed'),
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
+                ),
+                if (fraction > 0) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: fraction,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _ink,
+                          borderRadius: BorderRadius.all(Radius.circular(2)),
+                        ),
+                        child: SizedBox(height: 3, width: double.infinity),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Text(
+                  'Em aberto \$${_usdNumber(snapshot.openCents)}',
+                  key: const Key('header_month_delta'),
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (message != null) ...[
                   const SizedBox(height: 8),
-                  Text(
-                    message!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: _ink),
-                  ),
+                  Text(message!, style: const TextStyle(color: _ink)),
                 ],
               ],
             ),
@@ -339,23 +409,42 @@ class _WorkspaceHeader extends StatelessWidget {
     }
     return '$buffer.$fraction';
   }
+}
 
-  static String _signedUsd(int cents) {
-    final sign = cents > 0
-        ? '+ '
-        : cents < 0
-        ? '- '
-        : '';
-    return '$sign\$${_usdNumber(cents.abs())}';
-  }
+class _HeaderRoundIcon extends StatelessWidget {
+  const _HeaderRoundIcon({required this.icon, this.onTap});
 
-  static String _signedPercent(double percent) {
-    final sign = percent > 0
-        ? '+ '
-        : percent < 0
-        ? '- '
-        : '';
-    return '$sign${percent.abs().toStringAsFixed(2)}%';
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: pouInk.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Icon(icon, color: pouInk, size: 22),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -367,9 +456,75 @@ class _HeaderAvatar extends StatelessWidget {
     return const ClipOval(
       child: Image(
         image: AssetImage('assets/header_avatar.png'),
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         fit: BoxFit.cover,
+      ),
+    );
+  }
+}
+
+/// Covers the home content, sliding down from the top and stopping above the bar.
+class _AddCover extends StatefulWidget {
+  const _AddCover({required this.onClose, required this.child});
+
+  final VoidCallback onClose;
+  final Widget child;
+
+  @override
+  State<_AddCover> createState() => _AddCoverState();
+}
+
+class _AddCoverState extends State<_AddCover>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _close() async {
+    await _controller.reverse();
+    if (mounted) widget.onClose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, -1),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic)),
+      child: ColoredBox(
+        color: const Color(0xFFF6F5F7),
+        child: Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  key: const Key('close_add_delivery'),
+                  tooltip: 'Fechar',
+                  onPressed: _close,
+                  icon: const Icon(Icons.close, color: pouInk),
+                ),
+              ),
+            ),
+            Expanded(child: widget.child),
+          ],
+        ),
       ),
     );
   }

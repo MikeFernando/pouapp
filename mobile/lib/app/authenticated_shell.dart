@@ -92,11 +92,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     }
     return MaterialPageRoute<void>(
       settings: settings,
-      builder: (context) => WorkspacePage(
-        onOpenCustomers: () {
-          Navigator.of(context).pushNamed(CustomerRoutes.customers);
-        },
-      ),
+      builder: (context) => const WorkspacePage(),
     );
   }
 }

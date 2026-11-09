@@ -32,11 +32,6 @@ import 'features/customers/domain/usecases/customer_use_cases.dart';
 import 'features/customers/presentation/bloc/customer_details_bloc.dart';
 import 'features/customers/presentation/bloc/customer_form_bloc.dart';
 import 'features/customers/presentation/bloc/customers_bloc.dart';
-import 'features/freight/data/datasources/freight_local_data_source.dart';
-import 'features/freight/data/repositories/freight_repository_impl.dart';
-import 'features/freight/domain/repositories/freight_repository.dart';
-import 'features/freight/domain/usecases/freight_use_cases.dart';
-import 'features/freight/presentation/bloc/freight_bloc.dart';
 import 'features/workspace/data/operation_store.dart';
 import 'features/workspace/data/sync_worker.dart';
 import 'features/workspace/data/delivery_store.dart';
@@ -185,19 +180,6 @@ Future<void> init() async {
       readStreetOrigin: () => sl<WorkspaceLocalDataSource>().readStreetLedger(),
       openCustomerDatabase: () => sl<CustomerLocalDataSource>().database(),
     ),
-  );
-
-  //! Features - Freight
-  sl.registerFactory(
-    () => FreightBloc(getLedger: sl(), applyChange: sl(), getCustomers: sl()),
-  );
-  sl.registerLazySingleton(() => GetFreightLedger(sl()));
-  sl.registerLazySingleton(() => ApplyFreightChange(sl()));
-  sl.registerLazySingleton<FreightRepository>(
-    () => FreightRepositoryImpl(localDataSource: sl()),
-  );
-  sl.registerLazySingleton<FreightLocalDataSource>(
-    () => FreightLocalDataSourceImpl(sharedPreferences: sl()),
   );
 
   //! Core

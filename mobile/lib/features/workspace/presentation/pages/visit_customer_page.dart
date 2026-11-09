@@ -118,14 +118,25 @@ class _VisitCustomerPageState extends State<VisitCustomerPage> {
     ];
     final draft = _note;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F7),
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
+      backgroundColor: pouAppBlue,
+      appBar: AppBar(
+        backgroundColor: pouAppBlue,
+        foregroundColor: pouCanvas,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
-        title: Text(title),),
-      body: _loading
+        title: Text(title),
+      ),
+      body: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: ColoredBox(
+          color: const Color(0xFFF6F5F7),
+          child: _loading
           ? const Center(
               child: CircularProgressIndicator(
                 semanticsLabel: 'Carregando cliente',
@@ -177,6 +188,8 @@ class _VisitCustomerPageState extends State<VisitCustomerPage> {
                 ),
               ],
             ),
+        ),
+      ),
     );
   }
 
@@ -710,11 +723,22 @@ class _ProductPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F7),
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Adicionar produto'),),
-      body: products.isEmpty
-          ? const Center(child: Text('Nenhum produto cadastrado.'))
-          : ListView.separated(
+      backgroundColor: pouAppBlue,
+      appBar: AppBar(
+        backgroundColor: pouAppBlue,
+        foregroundColor: pouCanvas,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Adicionar produto'),
+      ),
+      body: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: ColoredBox(
+          color: const Color(0xFFF6F5F7),
+          child: products.isEmpty
+              ? const Center(child: Text('Nenhum produto cadastrado.'))
+              : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               itemCount: products.length,
               separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -815,6 +839,8 @@ class _ProductPicker extends StatelessWidget {
                 );
               },
             ),
+          ),
+        ),
     );
   }
 }

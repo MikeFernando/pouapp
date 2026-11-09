@@ -87,10 +87,9 @@ class _AddDeliveryPageState extends State<AddDeliveryPage> {
         if (!onRoute.contains(customer.id)) customer,
     ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F7),
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Nova venda'),),
-      body: _loading
+    return ColoredBox(
+      color: const Color(0xFFF6F5F7),
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _failed
           ? const Center(child: Text('Não foi possível carregar as pessoas.'))

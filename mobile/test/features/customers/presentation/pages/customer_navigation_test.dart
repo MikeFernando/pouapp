@@ -44,7 +44,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('customer_search')), findsNothing);
-      expect(find.byKey(const Key('open_customers_button')), findsNothing);
+      expect(find.text('Clientes'), findsNothing);
 
       await tester.enterText(
         find.byKey(const Key('login_email')),
@@ -60,37 +60,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('workspace_home')), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('open_customers_button')),
-        200,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('street_board_scroll')),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Scrollable &&
-                widget.axisDirection == AxisDirection.down,
-          ),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('open_customers_button')));
+      await tester.tap(find.text('Clientes'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Cliente'), findsOneWidget);
       expect(find.byKey(const Key('customer_empty')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('customer_search_button')));
-      await tester.pumpAndSettle();
-      expect(find.text('Nome ou Documento'), findsOneWidget);
       expect(find.text('Cliente'), findsNothing);
-      await tester.tap(find.byKey(const Key('customer_search_close')));
-      await tester.pumpAndSettle();
-      expect(find.text('Cliente'), findsOneWidget);
 
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('workspace_home')), findsOneWidget);
-      expect(find.byKey(const Key('customer_search')), findsNothing);
+      expect(
+        find.byKey(const Key('customer_search'), skipOffstage: true),
+        findsNothing,
+      );
 
       tester
           .element(find.byKey(const Key('workspace_home')))

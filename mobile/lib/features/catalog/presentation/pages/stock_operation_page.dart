@@ -8,15 +8,15 @@ import '../../domain/entities/stock_operation.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../domain/rules/stock_rules.dart';
 import '../catalog_messages.dart';
-import 'load_montana_view.dart';
 
 const _ink = Color(0xFF0E0D0F);
 const _muted = Color(0xFF6B7280);
 const _canvas = pouCanvas;
 const _fieldFill = pouSurface;
 
-PreferredSizeWidget _operationBar(String title) {
+PreferredSizeWidget _operationBar(String title, {bool implyLeading = true}) {
   return AppBar(
+    automaticallyImplyLeading: implyLeading,
     backgroundColor: pouInk,
     foregroundColor: pouCanvas,
     titleTextStyle: const TextStyle(
@@ -100,15 +100,11 @@ class _LineEntry {
 class _StockOperationPageState extends State<StockOperationPage> {
   final _reason = TextEditingController();
   final _lines = <_LineEntry>[];
-  final _amounts = <String, TextEditingController>{};
   var _loading = true;
   var _saving = false;
   String? _error;
   String? _draftId;
-  var _query = '';
   List<CatalogProduct> _products = const [];
-  List<ProductStock> _rows = const [];
-  final _onMontana = <String, int>{};
   StockLocationCode _location = StockLocationCode.warehouse;
 
   @override
@@ -125,9 +121,6 @@ class _StockOperationPageState extends State<StockOperationPage> {
     _reason.dispose();
     for (final line in _lines) {
       line.dispose();
-    }
-    for (final amount in _amounts.values) {
-      amount.dispose();
     }
     super.dispose();
   }
@@ -161,37 +154,7 @@ class _StockOperationPageState extends State<StockOperationPage> {
       line.dispose();
     }
     _lines.clear();
-    for (final amount in _amounts.values) {
-      amount.dispose();
-    }
-    _amounts.clear();
-    _onMontana.clear();
-    for (final row in snapshot!.products) {
-      final onTruck = row.balances[StockLocationCode.montana] ?? 0;
-      if (onTruck > 0) _onMontana[row.product.id] = onTruck;
-    }
-    if (widget.kind == StockOperationKind.load) {
-      if (draft!.lines.isNotEmpty) {
-        for (final line in draft!.lines) {
-          if (line.quantity <= 0) continue;
-          final product = byId[line.productId];
-          _amounts[line.productId] = TextEditingController(
-            text: product == null
-                ? '${line.quantity}'
-                : editBaseQuantity(product.unit, line.quantity),
-          );
-        }
-      } else {
-        for (final entry in _onMontana.entries) {
-          final product = byId[entry.key];
-          _amounts[entry.key] = TextEditingController(
-            text: product == null
-                ? '${entry.value}'
-                : editBaseQuantity(product.unit, entry.value),
-          );
-        }
-      }
-    } else if (draft!.lines.isEmpty) {
+    if (draft!.lines.isEmpty) {
       _lines.add(_LineEntry());
     } else {
       for (final line in draft!.lines) {
@@ -210,7 +173,6 @@ class _StockOperationPageState extends State<StockOperationPage> {
       _loading = false;
       _draftId = draft!.id;
       _products = products;
-      _rows = snapshot!.products;
       _location = draft!.location ?? _location;
       _reason.text = draft!.reason ?? '';
     });
@@ -218,39 +180,6 @@ class _StockOperationPageState extends State<StockOperationPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.kind == StockOperationKind.load) {
-      return Scaffold(
-        backgroundColor: _canvas,
-        appBar: _operationBar(stockOperationTitle(widget.kind)),
-        body: _loading
-            ? Center(
-                child: CircularProgressIndicator(
-                  color: widget.accent,
-                  semanticsLabel: 'Carregando a movimentação',
-                ),
-              )
-            : _draftId == null
-            ? Center(child: Text(_error ?? 'Não foi possível abrir a carga.'))
-            : LoadMontanaView(
-                accent: widget.accent,
-                rows: [
-                  for (final row in _rows)
-                    if (row.product.active ||
-                        _amounts.containsKey(row.product.id))
-                      row,
-                ],
-                amounts: _amounts,
-                query: _query,
-                onQueryChanged: (value) => setState(() => _query = value),
-                onAdd: _addToLoad,
-                onStep: _stepLoad,
-                onAmountEdited: () => setState(() {}),
-                saving: _saving,
-                error: _error,
-                onConfirm: _confirm,
-              ),
-      );
-    }
     final transfer = widget.kind == StockOperationKind.returnToWarehouse;
     return Scaffold(
       backgroundColor: _canvas,
@@ -418,125 +347,9 @@ class _StockOperationPageState extends State<StockOperationPage> {
     );
   }
 
-  void _addToLoad(String productId) {
-    if (_amounts.containsKey(productId) || _saving) return;
-    setState(() {
-      _error = null;
-      _amounts[productId] = TextEditingController(text: '1');
-    });
-  }
-
-  void _stepLoad(String productId, int direction) {
-    final amount = _amounts[productId];
-    final product = _product(productId);
-    if (amount == null || product == null || _saving) return;
-    final current = parseBaseQuantity(product.unit, amount.text) ?? 0;
-    final step = product.unit == CatalogUnit.kilogram ? 1000 : 1;
-    final ceiling = _loadCeiling(productId);
-    var next = current + direction * step;
-    if (next > ceiling) next = ceiling;
-    if (next <= 0) {
-      setState(() {
-        _amounts.remove(productId)?.dispose();
-      });
-      return;
-    }
-    amount.text = editBaseQuantity(product.unit, next);
-    setState(() => _error = null);
-  }
-
-  CatalogProduct? _product(String productId) {
-    for (final row in _rows) {
-      if (row.product.id == productId) return row.product;
-    }
-    return null;
-  }
-
-  int _available(String productId) {
-    for (final row in _rows) {
-      if (row.product.id == productId) {
-        return row.balances[StockLocationCode.warehouse] ?? 0;
-      }
-    }
-    return 0;
-  }
-
-  int _loadCeiling(String productId) {
-    return _available(productId) + (_onMontana[productId] ?? 0);
-  }
-
-  Future<void> _confirmLoad(String draftId) async {
-    final desired = <StockDraftLine>[];
-    final seen = <String>{};
-    for (final entry in _amounts.entries) {
-      final product = _product(entry.key);
-      if (product == null) {
-        setState(() => _error = 'Escolha o produto.');
-        return;
-      }
-      final quantity = parseBaseQuantity(product.unit, entry.value.text);
-      if (quantity == null) {
-        setState(() {
-          _error = product.unit == CatalogUnit.kilogram
-              ? 'Informe o peso em quilos, por exemplo 1,5.'
-              : 'Unidade, maço, caixa e dúzia usam quantidade inteira.';
-        });
-        return;
-      }
-      if (quantity < 0) continue;
-      seen.add(product.id);
-      desired.add(StockDraftLine(productId: product.id, quantity: quantity));
-    }
-    for (final entry in _onMontana.entries) {
-      if (seen.contains(entry.key) || entry.value <= 0) continue;
-      desired.add(StockDraftLine(productId: entry.key, quantity: 0));
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final result = await sl<CatalogRepository>().adjustMontanaLoad(
-      id: draftId,
-      desired: desired,
-    );
-    if (!mounted) return;
-    result.fold(
-      (failure) {
-        final message = catalogFailureMessage(failure);
-        if (message == 'A carga da Montana continua igual.') {
-          final messenger = ScaffoldMessenger.of(context);
-          Navigator.of(context).pop(false);
-          messenger.showSnackBar(SnackBar(content: Text(message)));
-          return;
-        }
-        setState(() {
-          _saving = false;
-          _error = message;
-        });
-      },
-      (record) {
-        final messenger = ScaffoldMessenger.of(context);
-        Navigator.of(context).pop(true);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              record.alreadyRecorded
-                  ? 'Esta confirmação já foi registrada.'
-                  : 'Movimentação registrada.',
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _confirm() async {
     final draftId = _draftId;
     if (draftId == null || _saving) return;
-    if (widget.kind == StockOperationKind.load) {
-      await _confirmLoad(draftId);
-      return;
-    }
     _saving = true;
     final byId = {for (final product in _products) product.id: product};
     final parsed = <StockDraftLine>[];

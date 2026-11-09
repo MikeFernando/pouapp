@@ -161,8 +161,14 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 sales.status == BoardStatus.loading);
         final ledger = operation?.street;
         return Scaffold(
-          backgroundColor: const Color(0xFFF6F5F7),
-          appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
+          backgroundColor: pouAppBlue,
+          appBar: AppBar(
+            backgroundColor: pouAppBlue,
+            foregroundColor: pouCanvas,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            titleTextStyle: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -179,8 +185,15 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 },
                 icon: Icon(_searching ? Icons.close : Icons.search),
               ),
-            ],),
-          body: LayoutBuilder(
+            ],
+          ),
+          body: ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(32),
+            ),
+            child: ColoredBox(
+              color: const Color(0xFFF6F5F7),
+              child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 88),
@@ -298,6 +311,8 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 ),
               );
             },
+              ),
+            ),
           ),
         );
       },
