@@ -499,7 +499,7 @@ class _Answer extends StatelessWidget {
     if (message.isEmpty) return const SizedBox.shrink();
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F7F2),
+        color: const Color(0xFFF6F5F7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE3E5DF)),
       ),

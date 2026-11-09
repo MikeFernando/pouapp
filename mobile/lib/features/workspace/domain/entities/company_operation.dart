@@ -5,7 +5,7 @@ import 'sales_board.dart';
 import 'stock_board.dart';
 import 'street_ledger.dart';
 
-/// One company snapshot. Rua and Gestão are two readings of this same record.
+/// One company snapshot shared by Entregas and the customer account.
 class CompanyOperation extends Equatable {
   const CompanyOperation({
     required this.summary,

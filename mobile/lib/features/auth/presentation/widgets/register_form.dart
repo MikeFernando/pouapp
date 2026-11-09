@@ -232,7 +232,7 @@ class _RegisterFormState extends State<RegisterForm> {
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: pouInk,
                                     semanticsLabel: 'Criando conta',
                                   ),
                                 )

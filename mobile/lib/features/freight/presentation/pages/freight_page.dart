@@ -164,8 +164,8 @@ class FreightBoard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      key: const Key('freight_new_job'),
                       style: freightFilledWide,
+key: const Key('freight_new_job'),
                       onPressed: () => _openJobForm(context),
                       child: const Text('Novo frete'),
                     ),
@@ -270,8 +270,8 @@ class _NextTrip extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                key: const Key('freight_open_trip'),
-                style: freightFilledWide,
+                      style: freightFilledWide,
+key: const Key('freight_open_trip'),
                 onPressed: () => openFreightTrip(context, trip.id),
                 child: const Text('Abrir viagem'),
               ),

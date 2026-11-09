@@ -47,7 +47,6 @@ import 'features/workspace/data/repositories/workspace_repository_impl.dart';
 import 'features/workspace/domain/repositories/workspace_repository.dart';
 import 'features/workspace/domain/usecases/workspace_use_cases.dart';
 import 'features/workspace/presentation/bloc/company_operation_bloc.dart';
-import 'features/workspace/presentation/bloc/workspace_mode_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -137,11 +136,7 @@ Future<void> init() async {
   );
 
   //! Features - Workspace
-  // Mode preference uses shared_preferences. The company record is simulated.
-  sl.registerFactory(() => WorkspaceModeBloc(getMode: sl(), saveMode: sl()));
   sl.registerLazySingleton(() => CompanyOperationBloc(getOperation: sl()));
-  sl.registerLazySingleton(() => GetWorkspaceMode(sl()));
-  sl.registerLazySingleton(() => SaveWorkspaceMode(sl()));
   sl.registerLazySingleton(() => GetCompanyOperation(sl()));
   sl.registerLazySingleton(() => ApplyStreetChange(sl()));
   sl.registerLazySingleton(

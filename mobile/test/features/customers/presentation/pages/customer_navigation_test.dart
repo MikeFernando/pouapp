@@ -59,7 +59,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('workspace_mode_rua')), findsOneWidget);
+      expect(find.byKey(const Key('workspace_home')), findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const Key('open_customers_button')),
         200,
@@ -89,11 +89,11 @@ void main() {
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('workspace_mode_rua')), findsOneWidget);
+      expect(find.byKey(const Key('workspace_home')), findsOneWidget);
       expect(find.byKey(const Key('customer_search')), findsNothing);
 
       tester
-          .element(find.byKey(const Key('workspace_mode_rua')))
+          .element(find.byKey(const Key('workspace_home')))
           .read<AuthBloc>()
           .add(const AuthLogoutRequested());
       await tester.pumpAndSettle();

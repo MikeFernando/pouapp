@@ -139,7 +139,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         }
         if (customer == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Cliente')),
+            appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Cliente')),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -161,11 +161,8 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 sales.status == BoardStatus.loading);
         final ledger = operation?.street;
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F5F8),
-          appBar: AppBar(
-            backgroundColor: pouAppBlue,
-            foregroundColor: Colors.white,
-            titleTextStyle: const TextStyle(
+          backgroundColor: const Color(0xFFF6F5F7),
+          appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -182,8 +179,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 },
                 icon: Icon(_searching ? Icons.close : Icons.search),
               ),
-            ],
-          ),
+            ],),
           body: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
@@ -374,7 +370,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFF3F4F8),
+      backgroundColor: const Color(0xFFF6F5F7),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -545,7 +541,7 @@ class _CustomerOwedCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
+                    color: Color(0xFF0E0D0F),
                   ),
                 ),
               ),
@@ -557,7 +553,7 @@ class _CustomerOwedCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
+                    color: Color(0xFF0E0D0F),
                   ),
                 ),
               ],
@@ -592,7 +588,7 @@ class _SituationBar extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
+                    color: Color(0xFF0E0D0F),
                   ),
                 ),
               ),
@@ -651,7 +647,7 @@ class _DueDateCard extends StatelessWidget {
                   children: [
                     const Text(
                       'Vencimento',
-                      style: TextStyle(fontSize: 16, color: Color(0xFF1C1C1E)),
+                      style: TextStyle(fontSize: 16, color: Color(0xFF0E0D0F)),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -660,7 +656,7 @@ class _DueDateCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1C1E),
+                        color: Color(0xFF0E0D0F),
                       ),
                     ),
                   ],
@@ -737,7 +733,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1C1E),
+                        color: Color(0xFF0E0D0F),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -761,7 +757,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
                                 _months[_month.month - 1],
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  color: Color(0xFF1C1C1E),
+                                  color: Color(0xFF0E0D0F),
                                 ),
                               ),
                               const SizedBox(width: 28),
@@ -769,7 +765,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
                                 '${_month.year}',
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  color: Color(0xFF1C1C1E),
+                                  color: Color(0xFF0E0D0F),
                                 ),
                               ),
                             ],
@@ -851,7 +847,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1C1E),
+                            color: Color(0xFF0E0D0F),
                           ),
                         ),
                       ),
@@ -866,17 +862,6 @@ class _DueDateSheetState extends State<_DueDateSheet> {
               width: double.infinity,
               child: FilledButton(
                 key: const Key('due_confirm'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E9E4A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
                 onPressed: () => Navigator.of(context).pop(_selected),
                 child: const Text('Confirmar'),
               ),
@@ -906,7 +891,7 @@ class _DueDateSheetState extends State<_DueDateSheet> {
               color: selected
                   ? pouAppBlue
                   : today
-                  ? const Color(0xFFE5E7EB)
+                  ? const Color(0xFFE9E8EB)
                   : null,
               shape: BoxShape.circle,
             ),
@@ -1046,7 +1031,7 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1C1E),
+                        color: Color(0xFF0E0D0F),
                       ),
                     ),
                   ),
@@ -1157,11 +1142,8 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
   Widget build(BuildContext context) {
     final rows = _rows;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        titleTextStyle: const TextStyle(
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.white,
@@ -1182,8 +1164,7 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
             },
             icon: Icon(_searching ? Icons.close : Icons.search),
           ),
-        ],
-      ),
+        ],),
       body: Column(
         children: [
           if (_searching)
@@ -1233,17 +1214,6 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
               width: double.infinity,
               child: FilledButton(
                 key: const Key('register_product'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E9E4A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
                 onPressed: _register,
                 child: const Text('Cadastrar novo produto'),
               ),
@@ -1353,7 +1323,7 @@ class _ProductCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF1C1C1E),
+                              color: Color(0xFF0E0D0F),
                             ),
                           ),
                         ),
@@ -1405,7 +1375,7 @@ class _ProductCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1C1E),
+                            color: Color(0xFF0E0D0F),
                           ),
                         ),
                       ],
@@ -1432,7 +1402,7 @@ class _CatalogPhoto extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
-        color: const Color(0xFFF7F8FA),
+        color: const Color(0xFFE9E8EB),
         child: SizedBox(
           width: 64,
           height: 64,
@@ -1472,17 +1442,13 @@ class _ProductCreatePageState extends State<_ProductCreatePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        titleTextStyle: const TextStyle(
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
-        title: const Text('Novo produto'),
-      ),
+        title: const Text('Novo produto'),),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -1515,17 +1481,6 @@ class _ProductCreatePageState extends State<_ProductCreatePage> {
             height: 56,
             child: FilledButton(
               key: const Key('new_product_save'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF2E9E4A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
               onPressed: _save,
               child: const Text('Salvar'),
             ),
@@ -1705,7 +1660,7 @@ class _NoteLineRow extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
+                    color: Color(0xFF0E0D0F),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1892,17 +1847,13 @@ class _SaleItemsPageState extends State<_SaleItemsPage> {
   Widget build(BuildContext context) {
     final order = widget.order;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        titleTextStyle: const TextStyle(
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
-        title: Text('Venda ${order.code}'),
-      ),
+        title: Text('Venda ${order.code}'),),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -2171,7 +2122,7 @@ class _ItemEditSheetState extends State<_ItemEditSheet> {
                   const SizedBox(height: 8),
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF4F6F8),
+                      color: const Color(0xFFF6F5F7),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -2222,10 +2173,10 @@ class _ItemEditSheetState extends State<_ItemEditSheet> {
                       prefixStyle: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1C1C1E),
+                        color: Color(0xFF0E0D0F),
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFF4F6F8),
+                      fillColor: const Color(0xFFF6F5F7),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 16,
@@ -2261,17 +2212,6 @@ class _ItemEditSheetState extends State<_ItemEditSheet> {
                 height: 56,
                 child: FilledButton(
                   key: const Key('item_save'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E9E4A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                   onPressed: _save,
                   child: const Text('Salvar'),
                 ),

@@ -122,7 +122,7 @@ class _ChargePageState extends State<ChargePage> {
     final profile = _profile;
     if (_loading || customer == null || account == null || profile == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Enviar cobrança Pix')),
+        appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Enviar cobrança Pix')),
         body: _error == null
             ? const Center(child: CircularProgressIndicator())
             : Center(child: Text(_error!)),
@@ -131,12 +131,8 @@ class _ChargePageState extends State<ChargePage> {
     final draft = _draft(customer, account, profile);
     final phone = _phone(customer);
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Enviar cobrança Pix'),
-      ),
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Enviar cobrança Pix'),),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

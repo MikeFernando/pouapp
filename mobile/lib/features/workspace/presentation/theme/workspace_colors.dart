@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/pou_app_colors.dart';
 
-import '../../domain/entities/workspace_mode.dart';
-
-/// Colors of one operational mode. Widgets read this extension instead of
+/// Colors of the deliveries workspace. Widgets read this extension instead of
 /// picking their own accent.
 class WorkspaceColors extends ThemeExtension<WorkspaceColors> {
   const WorkspaceColors({
@@ -26,23 +24,13 @@ class WorkspaceColors extends ThemeExtension<WorkspaceColors> {
   final Color onNav;
 
   static const rua = WorkspaceColors(
-    header: pouAppBlue,
-    onHeader: Colors.white,
-    accent: pouAppBlue,
-    accentSoft: Color(0xFFE3F2FD),
-    highlight: pouAppBlue,
-    navBackground: Colors.white,
-    onNav: pouAppBlue,
-  );
-
-  static const gestao = WorkspaceColors(
-    header: Color(0xFF1B3A2F),
-    onHeader: Colors.white,
-    accent: Color(0xFF2E7D32),
-    accentSoft: Color(0xFFE8F5E9),
-    highlight: Color(0xFF43A047),
-    navBackground: Color(0xFF1B3A2F),
-    onNav: Colors.white,
+    header: pouInk,
+    onHeader: pouCanvas,
+    accent: pouAccent,
+    accentSoft: pouSurface,
+    highlight: pouAccent,
+    navBackground: pouCanvas,
+    onNav: pouInk,
   );
 
   @override
@@ -96,13 +84,27 @@ TextStyle _sized(TextStyle? style, double fontSize) {
   );
 }
 
-ThemeData workspaceTheme(ThemeData base, WorkspaceMode mode) {
-  final colors = mode == WorkspaceMode.gestao
-      ? WorkspaceColors.gestao
-      : WorkspaceColors.rua;
+ThemeData workspaceTheme(ThemeData base) {
+  const colors = WorkspaceColors.rua;
   final text = base.textTheme;
   return base.copyWith(
-    colorScheme: base.colorScheme.copyWith(primary: colors.accent),
+    colorScheme: base.colorScheme.copyWith(
+      primary: pouInk,
+      onPrimary: pouCanvas,
+      secondary: colors.accent,
+      onSecondary: Colors.white,
+      surface: pouCanvas,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: pouInk,
+        foregroundColor: Colors.white,
+        textStyle: const TextStyle(
+          fontSize: workspaceFontPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
     extensions: [colors],
     textTheme: text.copyWith(
       bodyLarge: _sized(text.bodyLarge, workspaceFontPrimary),
@@ -114,14 +116,6 @@ ThemeData workspaceTheme(ThemeData base, WorkspaceMode mode) {
       labelLarge: _sized(text.labelLarge, workspaceFontSecondary),
       labelMedium: _sized(text.labelMedium, workspaceFontSecondary),
       labelSmall: _sized(text.labelSmall, workspaceFontSecondary),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        textStyle: const TextStyle(
-          fontSize: workspaceFontPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(

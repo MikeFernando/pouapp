@@ -5,17 +5,17 @@ import '../../../app/pou_app_colors.dart';
 import '../domain/entities/freight_ledger.dart';
 import 'freight_labels.dart';
 
-const freightBlue = pouAppBlue;
-const freightAccent = pouAppBlue;
-const freightSoft = Color(0xFFE3F2FD);
-const freightCanvas = Color(0xFFF4F6F8);
-const freightInk = Color(0xFF1C1C1E);
+const freightBlue = pouInk;
+const freightAccent = pouAccent;
+const freightSoft = pouSurface;
+const freightCanvas = pouCanvas;
+const freightInk = pouInk;
 const freightMuted = Color(0xFF6B7280);
 
 AppBar freightBar(String title) {
   return AppBar(
     backgroundColor: freightBlue,
-    foregroundColor: Colors.white,
+    foregroundColor: pouCanvas,
     title: Text(
       title,
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -24,7 +24,7 @@ AppBar freightBar(String title) {
 }
 
 final freightFilled = FilledButton.styleFrom(
-  backgroundColor: freightBlue,
+  backgroundColor: pouInk,
   foregroundColor: Colors.white,
   minimumSize: const Size(0, 44),
   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -33,7 +33,7 @@ final freightFilled = FilledButton.styleFrom(
 );
 
 final freightFilledWide = FilledButton.styleFrom(
-  backgroundColor: freightBlue,
+  backgroundColor: pouInk,
   foregroundColor: Colors.white,
   minimumSize: const Size.fromHeight(52),
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -41,9 +41,9 @@ final freightFilledWide = FilledButton.styleFrom(
 );
 
 final freightOutlined = OutlinedButton.styleFrom(
-  foregroundColor: freightAccent,
-  backgroundColor: Colors.white,
-  side: const BorderSide(color: freightAccent),
+  foregroundColor: pouInk,
+  backgroundColor: pouCanvas,
+  side: const BorderSide(color: pouInk),
   minimumSize: const Size(0, 44),
   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -51,9 +51,9 @@ final freightOutlined = OutlinedButton.styleFrom(
 );
 
 final freightOutlinedWide = OutlinedButton.styleFrom(
-  foregroundColor: freightAccent,
-  backgroundColor: Colors.white,
-  side: const BorderSide(color: freightAccent),
+  foregroundColor: pouInk,
+  backgroundColor: pouCanvas,
+  side: const BorderSide(color: pouInk),
   minimumSize: const Size.fromHeight(52),
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -63,9 +63,9 @@ InputDecoration freightField(String label) {
   return InputDecoration(
     labelText: label,
     filled: true,
-    fillColor: const Color(0xFFF3F4F6),
+    fillColor: pouSurface,
     labelStyle: const TextStyle(fontSize: 14, color: freightMuted),
-    floatingLabelStyle: const TextStyle(color: freightAccent),
+    floatingLabelStyle: const TextStyle(color: pouInk),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide.none,
@@ -76,7 +76,7 @@ InputDecoration freightField(String label) {
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: freightBlue),
+      borderSide: const BorderSide(color: pouAccent),
     ),
   );
 }
@@ -114,7 +114,7 @@ class FreightPill extends StatelessWidget {
         ? const Color(0xFF146C43)
         : warn
         ? const Color(0xFFB45309)
-        : freightAccent;
+        : pouInk;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: background,

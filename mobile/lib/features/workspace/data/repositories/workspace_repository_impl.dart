@@ -9,7 +9,6 @@ import '../../domain/entities/company_operation.dart';
 import '../../domain/entities/posted_sale.dart';
 import '../../domain/entities/stock_board.dart';
 import '../../domain/entities/street_ledger.dart';
-import '../../domain/entities/workspace_mode.dart';
 import '../../domain/failures/street_failure.dart';
 import '../../domain/repositories/workspace_repository.dart';
 import '../../domain/rules/month_board.dart';
@@ -41,25 +40,6 @@ class WorkspaceRepositoryImpl implements WorkspaceRepository {
   final DeliveryStore? deliveryStore;
   final CustomerRepository? customers;
   final DateTime Function() _clock;
-
-  @override
-  Future<Either<Failure, WorkspaceMode>> getMode() async {
-    try {
-      return Right(localDataSource.readMode());
-    } on CacheException {
-      return const Left(CacheFailure());
-    }
-  }
-
-  @override
-  Future<Either<Failure, Unit>> saveMode(WorkspaceMode mode) async {
-    try {
-      await localDataSource.saveMode(mode);
-      return const Right(unit);
-    } on CacheException {
-      return const Left(CacheFailure());
-    }
-  }
 
   @override
   Future<Either<Failure, CompanyOperation>> getOperation() async {

@@ -49,12 +49,8 @@ class _BusinessSettingsPageState extends State<BusinessSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Chave Pix'),
-      ),
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Chave Pix'),),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

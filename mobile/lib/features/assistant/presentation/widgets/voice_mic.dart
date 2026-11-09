@@ -128,7 +128,7 @@ class VoiceAssistantButton extends StatelessWidget {
         key: const Key('voice_assistant_button'),
         heroTag: null,
         tooltip: 'Assistente de voz',
-        backgroundColor: pouAppBlue,
+        backgroundColor: pouInk,
         foregroundColor: Colors.white,
         onPressed: () {
           final session = VoiceSession.current;

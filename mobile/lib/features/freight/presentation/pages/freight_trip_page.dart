@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../workspace/presentation/theme/workspace_colors.dart';
 import '../../domain/entities/freight_ledger.dart';
 import '../bloc/freight_bloc.dart';
@@ -32,10 +33,7 @@ class FreightTripPage extends StatelessWidget {
           length: 2,
           child: Scaffold(
             backgroundColor: freightCanvas,
-            appBar: AppBar(
-              backgroundColor: freightBlue,
-              foregroundColor: Colors.white,
-              title: Text(
+            appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: Text(
                 trip.name,
                 style: const TextStyle(
                   fontSize: 16,
@@ -44,9 +42,9 @@ class FreightTripPage extends StatelessWidget {
               ),
               bottom: const TabBar(
                 isScrollable: true,
-                indicatorColor: Colors.white,
-                labelColor: Colors.white,
-                unselectedLabelColor: Color(0xFFD6E9F8),
+                indicatorColor: pouCanvas,
+                labelColor: pouCanvas,
+                unselectedLabelColor: pouSurface,
                 labelStyle: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -56,8 +54,7 @@ class FreightTripPage extends StatelessWidget {
                   Tab(text: 'Ida para Curitiba'),
                   Tab(text: 'Volta para Apiaí'),
                 ],
-              ),
-            ),
+              ),),
             body: Column(
               children: [
                 Padding(
@@ -162,8 +159,8 @@ class _TripSummary extends StatelessWidget {
                   if (trip.status != FreightTripStatus.completed &&
                       trip.status != FreightTripStatus.cancelled)
                     FilledButton(
-                      key: const Key('freight_complete_trip'),
                       style: freightFilled,
+                      key: const Key('freight_complete_trip'),
                       onPressed: () =>
                           submitFreight(context, CompleteFreightTrip(trip.id)),
                       child: const Text('Concluir viagem'),
@@ -228,8 +225,8 @@ class _TripSummary extends StatelessWidget {
               child: const Text('Cancelar'),
             ),
             FilledButton(
+                      style: freightFilled,
               key: const Key('freight_expense_save'),
-              style: freightFilled,
               onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Salvar'),
             ),
@@ -366,16 +363,16 @@ class _TripJobCard extends StatelessWidget {
                 children: [
                   if (job.status == FreightStatus.scheduled)
                     FilledButton(
-                      key: Key('freight_collect_${job.id}'),
                       style: freightFilled,
+                      key: Key('freight_collect_${job.id}'),
                       onPressed: () =>
                           submitFreight(context, CollectFreight(job.id)),
                       child: const Text('Coletar'),
                     ),
                   if (job.status == FreightStatus.collected)
                     FilledButton(
-                      key: Key('freight_deliver_${job.id}'),
                       style: freightFilled,
+                      key: Key('freight_deliver_${job.id}'),
                       onPressed: () =>
                           submitFreight(context, DeliverFreight(job.id)),
                       child: const Text('Entregar'),
@@ -426,8 +423,8 @@ class _TripJobCard extends StatelessWidget {
               child: const Text('Cancelar'),
             ),
             FilledButton(
+                      style: freightFilled,
               key: const Key('freight_receipt_save'),
-              style: freightFilled,
               onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Receber'),
             ),

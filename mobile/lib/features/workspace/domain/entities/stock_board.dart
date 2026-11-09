@@ -107,21 +107,6 @@ class StockProduct extends Equatable {
   List<Object?> get props => [id, name, unit, available, low, montana];
 }
 
-class StockBoard extends Equatable {
-  const StockBoard({
-    required this.summary,
-    required this.receipts,
-    required this.products,
-  });
-
-  final StockSummary summary;
-  final List<StockReceipt> receipts;
-  final List<StockProduct> products;
-
-  @override
-  List<Object?> get props => [summary, receipts, products];
-}
-
 /// Totals stay separated by unit. Kilograms are never added to boxes or pieces.
 Map<StockUnit, double> receivedTotalsByUnit(List<ReceiptLine> lines) {
   final totals = <StockUnit, double>{};

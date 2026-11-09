@@ -1,13 +1,9 @@
-import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pouapp/core/error/exceptions.dart';
-import 'package:pouapp/core/error/failures.dart';
 import 'package:pouapp/features/workspace/data/datasources/workspace_local_data_source.dart';
 import 'package:pouapp/features/workspace/data/datasources/workspace_simulated_data_source.dart';
 import 'package:pouapp/features/workspace/data/repositories/workspace_repository_impl.dart';
 import 'package:pouapp/features/workspace/domain/entities/street_ledger.dart';
-import 'package:pouapp/features/workspace/domain/entities/workspace_mode.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockWorkspaceLocalDataSource extends Mock
@@ -26,23 +22,6 @@ void main() {
       localDataSource: localDataSource,
       simulatedDataSource: simulatedDataSource,
     );
-  });
-
-  test('should return CacheFailure when the mode cannot be read', () async {
-    when(() => localDataSource.readMode()).thenThrow(CacheException());
-
-    final result = await repository.getMode();
-
-    expect(result, const Left(CacheFailure()));
-  });
-
-  test('should return CacheFailure when the mode cannot be saved', () async {
-    when(() => localDataSource.saveMode(WorkspaceMode.gestao))
-        .thenThrow(CacheException());
-
-    final result = await repository.saveMode(WorkspaceMode.gestao);
-
-    expect(result, const Left(CacheFailure()));
   });
 
   test('should return one company record without mixing units', () async {
@@ -69,7 +48,7 @@ void main() {
     });
   });
 
-  test('should keep a street sale for gestão after a new read', () async {
+  test('should keep a street sale after a new read', () async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
     WorkspaceRepositoryImpl build() {

@@ -46,16 +46,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('workspace_mode_rua')), findsOneWidget);
+      expect(find.byKey(const Key('workspace_home')), findsOneWidget);
 
       await tester.pumpWidget(const PouApp());
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('workspace_mode_rua')), findsOneWidget);
+      expect(find.byKey(const Key('workspace_home')), findsOneWidget);
       expect(find.byKey(const Key('login_submit')), findsNothing);
 
       tester
-          .element(find.byKey(const Key('workspace_mode_rua')))
+          .element(find.byKey(const Key('workspace_home')))
           .read<AuthBloc>()
           .add(const AuthLogoutRequested());
       await tester.pumpAndSettle();
@@ -96,7 +96,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('workspace_mode_rua')), findsOneWidget);
+    expect(find.byKey(const Key('workspace_home')), findsOneWidget);
     expect(find.byIcon(Icons.mic), findsWidgets);
   });
 }

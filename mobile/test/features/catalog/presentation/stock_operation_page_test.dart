@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pouapp/app/pou_app_colors.dart';
 import 'package:pouapp/features/catalog/data/datasources/catalog_local_data_source.dart';
-import 'package:pouapp/features/catalog/presentation/pages/products_page.dart';
+import 'package:pouapp/features/catalog/domain/entities/catalog.dart';
+import 'package:pouapp/features/catalog/domain/entities/stock_operation.dart';
+import 'package:pouapp/features/catalog/domain/repositories/catalog_repository.dart';
+import 'package:pouapp/features/catalog/presentation/pages/stock_operation_page.dart';
 import 'package:pouapp/injection_container.dart' as di;
 import 'package:pouapp/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+Future<void> _openLoad(WidgetTester tester) async {
+  if (find.text('abrir carga').evaluate().isEmpty) {
+    await tester.pumpWidget(const MaterialApp(home: _LoadHost()));
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.text('abrir carga'));
+  await tester.pumpAndSettle();
+}
 
 Future<void> _pickLoad(
   WidgetTester tester,
@@ -21,6 +34,20 @@ Future<void> _pickLoad(
   await tester.pumpAndSettle();
   await tester.enterText(find.byKey(Key('load_quantity_$productId')), amount);
   await tester.pump();
+}
+
+Future<void> _expectOnion({
+  required int warehouseGrams,
+  required int montanaGrams,
+}) async {
+  final result = await di.sl<CatalogRepository>().load();
+  result.fold((_) => fail('expected the catalog'), (snapshot) {
+    final onion = snapshot.products.singleWhere(
+      (row) => row.product.id == 'product-cebola',
+    );
+    expect(onion.balances[StockLocationCode.warehouse], warehouseGrams);
+    expect(onion.balances[StockLocationCode.montana] ?? 0, montanaGrams);
+  });
 }
 
 void main() {
@@ -43,16 +70,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(home: ProductsPage()));
-    await tester.pumpAndSettle();
+    await _openLoad(tester);
 
     expect(find.text('Carregar Montana'), findsOneWidget);
-    expect(find.text('Retornar ao depósito'), findsOneWidget);
-    expect(find.text('Registrar perda'), findsOneWidget);
-    expect(find.text('Conferir estoque'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('action_load')));
-    await tester.pumpAndSettle();
     expect(find.text('Depósito → Montana'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
@@ -66,13 +86,13 @@ void main() {
     );
     expect(
       tester.widget<AppBar>(find.byType(AppBar)).backgroundColor,
-      const Color(0xFF1B3A2F),
+      pouInk,
     );
     const idle = <WidgetState>{};
     final confirm = tester
         .widget<FilledButton>(find.byKey(const Key('stock_operation_confirm')))
         .style!;
-    expect(confirm.backgroundColor?.resolve(idle), const Color(0xFF1B3A2F));
+    expect(confirm.backgroundColor?.resolve(idle), pouInk);
     expect(confirm.foregroundColor?.resolve(idle), Colors.white);
     expect(confirm.minimumSize?.resolve(idle), const Size.fromHeight(52));
 
@@ -80,8 +100,7 @@ void main() {
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Depósito 560 kg'), findsOneWidget);
-    expect(find.textContaining('Montana 40 kg'), findsOneWidget);
+    await _expectOnion(warehouseGrams: 560000, montanaGrams: 40000);
   });
 
   testWidgets('reopening the load keeps the cargo until it is removed', (
@@ -91,19 +110,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(home: ProductsPage()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('action_load')));
-    await tester.pumpAndSettle();
+    await _openLoad(tester);
     await _pickLoad(tester, 'product-cebola', '40');
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('action_load')));
-    await tester.pumpAndSettle();
+    await _openLoad(tester);
     expect(find.text('1 produto'), findsOneWidget);
     expect(
       tester
@@ -117,13 +131,11 @@ void main() {
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
     expect(find.text('A carga da Montana continua igual.'), findsOneWidget);
-    expect(find.textContaining('Depósito 560 kg'), findsOneWidget);
-    expect(find.textContaining('Montana 40 kg'), findsOneWidget);
+    await _expectOnion(warehouseGrams: 560000, montanaGrams: 40000);
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('action_load')));
-    await tester.pumpAndSettle();
+    await _openLoad(tester);
     final quantity = find.byKey(const Key('load_quantity_product-cebola'));
     await tester.scrollUntilVisible(
       quantity,
@@ -135,8 +147,7 @@ void main() {
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Depósito 600 kg'), findsOneWidget);
-    expect(find.textContaining('Montana 40 kg'), findsNothing);
+    await _expectOnion(warehouseGrams: 600000, montanaGrams: 0);
   });
 
   testWidgets('keeps the load draft when the warehouse cannot cover it', (
@@ -146,22 +157,21 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(home: ProductsPage()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('action_load')));
-    await tester.pumpAndSettle();
+    await _openLoad(tester);
     await _pickLoad(tester, 'product-cebola', '700');
     await tester.tap(find.byKey(const Key('stock_operation_confirm')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('stock_operation_error')), findsOneWidget);
     expect(find.textContaining('Cebola'), findsWidgets);
-    expect(find.byKey(const Key('load_quantity_product-cebola')), findsOneWidget);
+    expect(
+      find.byKey(const Key('load_quantity_product-cebola')),
+      findsOneWidget,
+    );
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.textContaining('Depósito 600 kg'), findsOneWidget);
-    expect(find.textContaining('Depósito 600 kg · Montana'), findsNothing);
+    await _expectOnion(warehouseGrams: 600000, montanaGrams: 0);
   });
 
   testWidgets('the street shortcut shows the current Montana load', (
@@ -173,10 +183,7 @@ void main() {
       find.byKey(const Key('login_email')),
       'mike@gmail.com',
     );
-    await tester.enterText(
-      find.byKey(const Key('login_password')),
-      'mike@123',
-    );
+    await tester.enterText(find.byKey(const Key('login_password')), 'mike@123');
     await tester.tap(find.byKey(const Key('login_submit')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
@@ -187,4 +194,27 @@ void main() {
     expect(find.byKey(const Key('load_montana')), findsOneWidget);
     expect(find.byKey(const Key('return_warehouse')), findsOneWidget);
   });
+}
+
+class _LoadHost extends StatelessWidget {
+  const _LoadHost();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    const StockOperationPage(kind: StockOperationKind.load),
+              ),
+            );
+          },
+          child: const Text('abrir carga'),
+        ),
+      ),
+    );
+  }
 }

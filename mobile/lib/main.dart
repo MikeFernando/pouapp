@@ -25,14 +25,37 @@ class PouApp extends StatelessWidget {
       title: 'PouApp',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: pouAppBlue,
-        ).copyWith(primary: pouAppBlue),
+          seedColor: pouAccent,
+        ).copyWith(
+          primary: pouInk,
+          onPrimary: pouCanvas,
+          secondary: pouAccent,
+          onSecondary: pouInk,
+          surface: pouCanvas,
+          onSurface: pouInk,
+        ),
+        scaffoldBackgroundColor: pouCanvas,
         appBarTheme: const AppBarTheme(
-          backgroundColor: pouAppBlue,
+          backgroundColor: pouInk,
+          foregroundColor: pouCanvas,
+          surfaceTintColor: Colors.transparent,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: pouInk,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: pouInk.withValues(alpha: 0.38),
+            disabledForegroundColor: Colors.white.withValues(alpha: 0.38),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: pouInk,
           foregroundColor: Colors.white,
         ),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: pouSurface,
           border: OutlineInputBorder(),
         ),
       ),

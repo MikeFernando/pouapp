@@ -6,12 +6,11 @@ import '../../domain/entities/catalog.dart';
 import '../../domain/rules/stock_rules.dart';
 import '../produce_assets.dart';
 
-const _blue = pouAppBlue;
-const _ink = Color(0xFF1C1C1E);
+const _ink = pouInk;
 const _muted = Color(0xFF6B7280);
-const _canvas = Color(0xFFF4F7FB);
-const _green = Color(0xFF2E9E4A);
-const _greenSoft = Color(0xFFE8F8EE);
+const _canvas = pouCanvas;
+const _green = pouAccent;
+const _greenSoft = pouSurface;
 
 class LoadMontanaView extends StatelessWidget {
   const LoadMontanaView({
@@ -26,7 +25,7 @@ class LoadMontanaView extends StatelessWidget {
     required this.saving,
     required this.error,
     required this.onConfirm,
-    this.accent = _blue,
+    this.accent = pouInk,
   });
 
   final Color accent;
@@ -220,7 +219,7 @@ class _TruckBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: const [
                   BoxShadow(
-                    color: Color(0x141E88E5),
+                    color: Color(0x1A0E0D0F),
                     blurRadius: 12,
                     offset: Offset(0, 4),
                   ),
@@ -303,7 +302,7 @@ class _ProductCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: selected ? _green : const Color(0xFFE5E7EB),
+          color: selected ? _green : const Color(0xFFE9E8EB),
           width: selected ? 1.5 : 1,
         ),
       ),
@@ -360,9 +359,9 @@ class _ProductCard extends StatelessWidget {
                 child: OutlinedButton(
                   key: Key('load_add_${product.id}'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _green,
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: _green),
+                    foregroundColor: pouInk,
+                    backgroundColor: pouCanvas,
+                    side: const BorderSide(color: pouInk),
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),

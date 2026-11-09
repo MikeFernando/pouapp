@@ -67,6 +67,61 @@ class MonthSnapshot {
   bool get empty => billedCents == 0;
 }
 
+/// Billed total for the calendar month of [today], versus the previous month.
+class MonthBilledDelta {
+  const MonthBilledDelta({
+    required this.billedCents,
+    required this.deltaCents,
+    required this.deltaPercent,
+    required this.hasPercent,
+  });
+
+  final int billedCents;
+  final int deltaCents;
+
+  /// Rounded percent change versus the previous month. Zero when [hasPercent]
+  /// is false.
+  final double deltaPercent;
+
+  /// False when the previous month had no billing, so a percent would mislead.
+  final bool hasPercent;
+}
+
+/// Confirmed sales billed this month, with the change from last month.
+MonthBilledDelta monthBilledDelta({
+  required Iterable<PostedSale> sales,
+  required DateTime today,
+}) {
+  final currentMonth = DateTime(today.year, today.month);
+  final previousMonth = DateTime(today.year, today.month - 1);
+  final current = monthSnapshot(
+    sales: sales,
+    month: currentMonth,
+    today: today,
+  );
+  final previous = monthSnapshot(
+    sales: sales,
+    month: previousMonth,
+    today: today,
+  );
+  final delta = current.billedCents - previous.billedCents;
+  if (previous.billedCents <= 0) {
+    return MonthBilledDelta(
+      billedCents: current.billedCents,
+      deltaCents: delta,
+      deltaPercent: 0,
+      hasPercent: false,
+    );
+  }
+  final percent = (delta * 100) / previous.billedCents;
+  return MonthBilledDelta(
+    billedCents: current.billedCents,
+    deltaCents: delta,
+    deltaPercent: percent,
+    hasPercent: true,
+  );
+}
+
 /// Confirmed sales of [month] that have already happened by [today].
 ///
 /// Received money is the part allocated to those sales. A receipt of another

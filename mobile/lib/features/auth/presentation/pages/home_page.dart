@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -25,7 +26,7 @@ class HomePage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('PouApp')),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('PouApp')),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

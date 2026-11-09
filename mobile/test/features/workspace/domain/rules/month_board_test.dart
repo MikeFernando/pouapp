@@ -258,4 +258,39 @@ void main() {
     expect(month.receivedCents, 4000);
     expect(month.openCents, 6000);
   });
+
+  test(
+    'month billed delta compares the current month with the previous one',
+    () {
+      final sales = [
+        sale(
+          id: 'october',
+          customerId: 'bia',
+          name: 'Bia',
+          total: 10000,
+          allocated: 10000,
+          occurredOn: '2026-10-20',
+        ),
+        sale(
+          id: 'november',
+          customerId: 'ana',
+          name: 'Ana',
+          total: 14830,
+          allocated: 5000,
+          occurredOn: '2026-11-02',
+        ),
+      ];
+
+      final delta = monthBilledDelta(sales: sales, today: today);
+      expect(delta.billedCents, 14830);
+      expect(delta.deltaCents, 4830);
+      expect(delta.hasPercent, isTrue);
+      expect(delta.deltaPercent, closeTo(48.3, 0.01));
+
+      final empty = monthBilledDelta(sales: const [], today: today);
+      expect(empty.billedCents, 0);
+      expect(empty.deltaCents, 0);
+      expect(empty.hasPercent, isFalse);
+    },
+  );
 }

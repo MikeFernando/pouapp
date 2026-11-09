@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 class ProvisionalActionPage extends StatelessWidget {
   const ProvisionalActionPage({
     super.key,
@@ -14,7 +16,7 @@ class ProvisionalActionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: Text(title)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

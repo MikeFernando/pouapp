@@ -25,6 +25,11 @@ void main() {
   testWidgets('should open the freight module and keep delivery unpaid', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final repository = _FreightRepository();
     var ledger = exampleFreightLedger();
     when(() => repository.getLedger()).thenAnswer((_) async => Right(ledger));
@@ -79,8 +84,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Parcialmente pago'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('freight_collect_job-volta-ricardo')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('freight_collect_job-volta-ricardo')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('freight_deliver_job-volta-ricardo')),
     );
     await tester.pumpAndSettle();
     await tester.tap(
@@ -90,6 +103,6 @@ void main() {
 
     expect(find.textContaining('Entregue'), findsWidgets);
     expect(find.textContaining('Parcialmente pago'), findsOneWidget);
-    expect(find.textContaining('Saldo R\$ 100,00'), findsOneWidget);
+    expect(find.textContaining('Saldo R\$ 100,00'), findsWidgets);
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../../injection_container.dart' as di;
 import '../../domain/entities/customer.dart';
 import '../../domain/validation/customer_validators.dart';
@@ -92,11 +93,9 @@ class _CustomerFormViewState extends State<CustomerFormView> {
             }
           },
           child: Scaffold(
-            appBar: AppBar(
-              title: Text(
+            appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: Text(
                 state.customerId == null ? 'Novo cliente' : 'Editar cliente',
-              ),
-            ),
+              ),),
             body: _body(context, state, saving),
             bottomNavigationBar: _actions(context, state, saving),
           ),

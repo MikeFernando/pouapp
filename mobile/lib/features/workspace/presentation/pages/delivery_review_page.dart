@@ -90,7 +90,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
     final account = _account;
     if (_loading || note == null || account == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Confirmar entrega')),
+        appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Confirmar entrega')),
         body: _error == null
             ? const Center(child: CircularProgressIndicator())
             : Center(child: Text(_error!)),
@@ -132,12 +132,8 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
       creditUses: creditUses,
     );
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Confirmar entrega'),
-      ),
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Confirmar entrega'),),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

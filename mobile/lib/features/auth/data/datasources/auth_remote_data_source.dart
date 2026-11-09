@@ -40,9 +40,8 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
   SimulatedAuthRemoteDataSource({
     this.delay = const Duration(milliseconds: 300),
     bool? enabled,
-    SharedPreferences? sharedPreferences,
-  }) : enabled = enabled ?? simulatedAuthEnabled,
-       _sharedPreferences = sharedPreferences;
+    this._sharedPreferences,
+  }) : enabled = enabled ?? simulatedAuthEnabled;
 
   final Duration delay;
   final bool enabled;

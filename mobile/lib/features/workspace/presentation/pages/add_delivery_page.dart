@@ -88,12 +88,8 @@ class _AddDeliveryPageState extends State<AddDeliveryPage> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Nova venda'),
-      ),
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Nova venda'),),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _failed

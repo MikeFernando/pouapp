@@ -42,7 +42,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
+      backgroundColor: const Color(0xFFF6F5F7),
       appBar: _searching ? _searchBar(context) : _titleBar(),
       body: SafeArea(
         child: Column(
@@ -98,7 +98,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1C1C1E),
+                                    color: Color(0xFF0E0D0F),
                                   ),
                                 ),
                                 onTap: () => _openDetails(
@@ -123,8 +123,8 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                 child: OutlinedButton(
                   key: const Key('customer_add'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: pouAppBlue,
-                    side: const BorderSide(color: pouAppBlue),
+                    foregroundColor: pouInk,
+                    side: const BorderSide(color: pouInk),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -145,10 +145,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   }
 
   PreferredSizeWidget _titleBar() {
-    return AppBar(
-      backgroundColor: pouAppBlue,
-      foregroundColor: Colors.white,
-      title: const Text('Cliente'),
+    return AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Cliente'),
       actions: [
         IconButton(
           key: const Key('customer_search_button'),
@@ -156,15 +153,14 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
           onPressed: () => setState(() => _searching = true),
           icon: const Icon(Icons.search),
         ),
-      ],
-    );
+      ],);
   }
 
   PreferredSizeWidget _searchBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
-      foregroundColor: const Color(0xFF1C1C1E),
+      foregroundColor: const Color(0xFF0E0D0F),
       elevation: 0,
       scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
@@ -173,7 +169,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
         key: const Key('customer_search'),
         controller: _searchController,
         autofocus: true,
-        style: const TextStyle(fontSize: 16, color: Color(0xFF1C1C1E)),
+        style: const TextStyle(fontSize: 16, color: Color(0xFF0E0D0F)),
         textInputAction: TextInputAction.search,
         decoration: const InputDecoration(
           hintText: 'Nome ou Documento',
@@ -237,7 +233,7 @@ class _CustomersViewState extends State<CustomersView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Clientes')),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Clientes')),
       floatingActionButtonLocation: const AboveVoiceMicLocation(),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('customer_add'),

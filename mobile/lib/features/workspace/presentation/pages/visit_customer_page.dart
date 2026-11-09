@@ -118,18 +118,13 @@ class _VisitCustomerPageState extends State<VisitCustomerPage> {
     ];
     final draft = _note;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        titleTextStyle: const TextStyle(
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
-        title: Text(title),
-      ),
+        title: Text(title),),
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(
@@ -340,7 +335,7 @@ class _SectionTitle extends StatelessWidget {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w800,
-          color: Color(0xFF1C1C1E),
+          color: Color(0xFF0E0D0F),
         ),
       ),
     );
@@ -360,7 +355,7 @@ class _Card extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1E88E5),
+            color: Color(0x140E0D0F),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),
@@ -400,7 +395,7 @@ class _Fact extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1C1C1E),
+                color: Color(0xFF0E0D0F),
               ),
             ),
           ),
@@ -450,7 +445,7 @@ class _PhoneRow extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   color: enabled
                       ? const Color(0xFF1B8A4B)
-                      : const Color(0xFF1C1C1E),
+                      : const Color(0xFF0E0D0F),
                 ),
               ),
             ),
@@ -484,7 +479,7 @@ class _OrderNote extends StatelessWidget {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1C1C1E),
+            color: Color(0xFF0E0D0F),
           ),
         ),
         const SizedBox(height: 10),
@@ -524,7 +519,7 @@ class _DraftNote extends StatelessWidget {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1C1C1E),
+            color: Color(0xFF0E0D0F),
           ),
         ),
         const SizedBox(height: 10),
@@ -553,7 +548,7 @@ class _DraftNote extends StatelessWidget {
           child: FilledButton.icon(
             key: const Key('add_visit_product'),
             style: FilledButton.styleFrom(
-              backgroundColor: pouAppBlue,
+              backgroundColor: pouInk,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -619,7 +614,7 @@ class _ProduceRow extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: ColoredBox(
-              color: const Color(0xFFF7F8FA),
+              color: const Color(0xFFE9E8EB),
               child: SizedBox(
                 width: 56,
                 height: 56,
@@ -639,7 +634,7 @@ class _ProduceRow extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
+                    color: Color(0xFF0E0D0F),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -684,7 +679,7 @@ class _Total extends StatelessWidget {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1C1C1E),
+            color: Color(0xFF0E0D0F),
           ),
         ),
       ],
@@ -715,12 +710,8 @@ class _ProductPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Adicionar produto'),
-      ),
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Adicionar produto'),),
       body: products.isEmpty
           ? const Center(child: Text('Nenhum produto cadastrado.'))
           : ListView.separated(
@@ -755,7 +746,7 @@ class _ProductPicker extends StatelessWidget {
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1C1C1E),
+                                          color: Color(0xFF0E0D0F),
                                         ),
                                       ),
                                     ),
@@ -809,7 +800,7 @@ class _ProductPicker extends StatelessWidget {
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFF1C1C1E),
+                                        color: Color(0xFF0E0D0F),
                                       ),
                                     ),
                                   ],
@@ -839,7 +830,7 @@ class _PickerPhoto extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
-        color: const Color(0xFFF7F8FA),
+        color: const Color(0xFFE9E8EB),
         child: SizedBox(
           width: 64,
           height: 64,

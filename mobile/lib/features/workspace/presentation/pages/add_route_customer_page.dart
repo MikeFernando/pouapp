@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../domain/entities/street_ledger.dart';
 
 class AddRouteCustomerPage extends StatefulWidget {
@@ -24,7 +25,7 @@ class _AddRouteCustomerPageState extends State<AddRouteCustomerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Adicionar ao roteiro')),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Adicionar ao roteiro')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

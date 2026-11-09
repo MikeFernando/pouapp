@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../domain/entities/street_ledger.dart';
 
 class VisitAddressPage extends StatelessWidget {
@@ -10,7 +11,7 @@ class VisitAddressPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Endereço')),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Endereço')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

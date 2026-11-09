@@ -67,8 +67,8 @@ class _FreightTripFormPageState extends State<FreightTripFormPage> {
           ),
           const SizedBox(height: 24),
           FilledButton(
-            key: const Key('freight_trip_save'),
-            style: freightFilledWide,
+                      style: freightFilledWide,
+key: const Key('freight_trip_save'),
             onPressed: _saving ? null : _save,
             child: const Text('Salvar'),
           ),
@@ -247,8 +247,8 @@ class _FreightJobFormPageState extends State<FreightJobFormPage> {
           ),
           const SizedBox(height: 24),
           FilledButton(
-            key: const Key('freight_job_save'),
-            style: freightFilledWide,
+                      style: freightFilledWide,
+key: const Key('freight_job_save'),
             onPressed: _saving ? null : () => _save(draft: false),
             child: const Text('Salvar'),
           ),
@@ -282,7 +282,7 @@ class _FreightJobFormPageState extends State<FreightJobFormPage> {
                 child: const Text('Cancelar'),
               ),
               FilledButton(
-                style: freightFilled,
+                      style: freightFilled,
                 onPressed: () => Navigator.pop(dialogContext, true),
                 child: const Text('Confirmar'),
               ),

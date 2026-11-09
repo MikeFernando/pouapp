@@ -121,18 +121,3 @@ class TeamPending extends Equatable {
   @override
   List<Object?> get props => [id, personName, task];
 }
-
-class SalesBoard extends Equatable {
-  const SalesBoard({
-    required this.summary,
-    required this.deliveries,
-    required this.sales,
-  });
-
-  final SalesSummary summary;
-  final List<DeliveryStop> deliveries;
-  final List<RecentSale> sales;
-
-  @override
-  List<Object?> get props => [summary, deliveries, sales];
-}

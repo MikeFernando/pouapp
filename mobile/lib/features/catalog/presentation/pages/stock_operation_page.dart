@@ -10,16 +10,15 @@ import '../../domain/rules/stock_rules.dart';
 import '../catalog_messages.dart';
 import 'load_montana_view.dart';
 
-const _street = pouAppBlue;
-const _ink = Color(0xFF1C1C1E);
+const _ink = Color(0xFF0E0D0F);
 const _muted = Color(0xFF6B7280);
-const _canvas = Color(0xFFF3F5F8);
-const _fieldFill = Color(0xFFF3F4F6);
+const _canvas = pouCanvas;
+const _fieldFill = pouSurface;
 
-AppBar _operationBar(String title, {Color header = _street}) {
+PreferredSizeWidget _operationBar(String title) {
   return AppBar(
-    backgroundColor: header,
-    foregroundColor: Colors.white,
+    backgroundColor: pouInk,
+    foregroundColor: pouCanvas,
     titleTextStyle: const TextStyle(
       fontSize: 18,
       fontWeight: FontWeight.w600,
@@ -38,8 +37,8 @@ ButtonStyle _confirmButton(Color accent) => FilledButton.styleFrom(
 );
 
 ButtonStyle _addButton(Color accent) => OutlinedButton.styleFrom(
-  backgroundColor: Colors.white,
-  foregroundColor: accent,
+  backgroundColor: pouCanvas,
+  foregroundColor: pouInk,
   side: BorderSide(color: accent),
   minimumSize: const Size.fromHeight(52),
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -49,7 +48,7 @@ ButtonStyle _addButton(Color accent) => OutlinedButton.styleFrom(
 InputDecoration _fieldDecoration(
   String label, {
   String? hint,
-  Color accent = _street,
+  Color accent = pouInk,
 }) {
   const radius = BorderRadius.all(Radius.circular(12));
   return InputDecoration(
@@ -78,12 +77,10 @@ class StockOperationPage extends StatefulWidget {
   const StockOperationPage({
     super.key,
     required this.kind,
-    this.header = _street,
-    this.accent = _street,
+    this.accent = pouInk,
   });
 
   final StockOperationKind kind;
-  final Color header;
   final Color accent;
 
   @override
@@ -224,10 +221,7 @@ class _StockOperationPageState extends State<StockOperationPage> {
     if (widget.kind == StockOperationKind.load) {
       return Scaffold(
         backgroundColor: _canvas,
-        appBar: _operationBar(
-          stockOperationTitle(widget.kind),
-          header: widget.header,
-        ),
+        appBar: _operationBar(stockOperationTitle(widget.kind)),
         body: _loading
             ? Center(
                 child: CircularProgressIndicator(
@@ -260,10 +254,7 @@ class _StockOperationPageState extends State<StockOperationPage> {
     final transfer = widget.kind == StockOperationKind.returnToWarehouse;
     return Scaffold(
       backgroundColor: _canvas,
-      appBar: _operationBar(
-        stockOperationTitle(widget.kind),
-        header: widget.header,
-      ),
+      appBar: _operationBar(stockOperationTitle(widget.kind)),
       body: _loading
           ? Center(
               child: CircularProgressIndicator(
@@ -609,139 +600,6 @@ class _StockOperationPageState extends State<StockOperationPage> {
   }
 }
 
-class StockOperationDetailPage extends StatefulWidget {
-  const StockOperationDetailPage({
-    super.key,
-    required this.operationId,
-    this.header = _street,
-  });
-
-  final String operationId;
-  final Color header;
-
-  @override
-  State<StockOperationDetailPage> createState() =>
-      _StockOperationDetailPageState();
-}
-
-class _StockOperationDetailPageState extends State<StockOperationDetailPage> {
-  var _loading = true;
-  String? _error;
-  StockOperationRecord? _record;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final result = await sl<CatalogRepository>().stockOperation(
-      widget.operationId,
-    );
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _loading = false;
-        _error = catalogFailureMessage(failure);
-      }),
-      (record) => setState(() {
-        _loading = false;
-        _record = record;
-      }),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final record = _record;
-    return Scaffold(
-      backgroundColor: _canvas,
-      appBar: _operationBar(
-        record == null ? 'Movimentação' : stockOperationTitle(record.kind),
-        header: widget.header,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null || record == null
-          ? Center(child: Text(_error ?? 'Movimentação não encontrada.'))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(
-                  _when(record.occurredOn),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (record.origin != null && record.destination != null)
-                  Text(
-                    '${locationName(record.origin!)} → ${locationName(record.destination!)}',
-                    key: const Key('operation_direction'),
-                  ),
-                if (record.location != null)
-                  Text(
-                    locationName(record.location!),
-                    key: const Key('operation_location'),
-                  ),
-                if (record.reason != null) ...[
-                  const SizedBox(height: 8),
-                  Text(record.reason!, key: const Key('operation_reason')),
-                ],
-                const SizedBox(height: 16),
-                for (final line in record.lines)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _Surface(
-                      child: ListTile(
-                        key: Key('operation_line_${line.productId}'),
-                        title: Text(
-                          line.productName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: _ink,
-                          ),
-                        ),
-                        subtitle: Text(
-                          _lineText(record.kind, line),
-                          style: const TextStyle(fontSize: 14, color: _muted),
-                        ),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Esta movimentação não gera venda, dívida, receita ou despesa.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-                ),
-              ],
-            ),
-    );
-  }
-
-  String _lineText(StockOperationKind kind, StockOperationLine line) {
-    if (kind == StockOperationKind.count) {
-      final counted = formatBaseQuantity(line.unit, line.quantity);
-      final previous = formatBaseQuantity(
-        line.unit,
-        line.previousQuantity ?? 0,
-      );
-      final delta = formatBaseQuantity(line.unit, line.delta ?? 0);
-      return 'Contado $counted · saldo anterior $previous · diferença $delta';
-    }
-    return formatBaseQuantity(line.unit, line.quantity);
-  }
-
-  String _when(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
-  }
-}
-
 class _DirectionBanner extends StatelessWidget {
   const _DirectionBanner({super.key, required this.text});
 
@@ -751,7 +609,7 @@ class _DirectionBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
+        color: pouSurface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -761,7 +619,7 @@ class _DirectionBanner extends StatelessWidget {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: pouAppBlue,
+            color: pouAccent,
           ),
         ),
       ),
@@ -781,7 +639,7 @@ class _Surface extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1E88E5),
+            color: Color(0x140E0D0F),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),

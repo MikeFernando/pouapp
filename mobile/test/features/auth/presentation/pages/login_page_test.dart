@@ -187,7 +187,7 @@ void main() {
     );
     expect(
       button.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      pouAppBlue,
+      pouInk,
     );
     expect(
       button.style?.foregroundColor?.resolve(const <WidgetState>{}),

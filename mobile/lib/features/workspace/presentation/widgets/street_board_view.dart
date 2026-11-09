@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../catalog/presentation/produce_assets.dart';
 import '../../domain/entities/sales_board.dart';
 import '../../domain/entities/stock_board.dart';
 import '../../domain/entities/street_ledger.dart';
-import '../../domain/entities/workspace_mode.dart';
 import '../bloc/company_operation_bloc.dart';
-import '../bloc/workspace_mode_bloc.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
-import 'workspace_header_curve.dart';
 
 class StreetBoardView extends StatefulWidget {
   const StreetBoardView({
@@ -50,11 +48,9 @@ class StreetBoardViewState extends State<StreetBoardView>
     with SingleTickerProviderStateMixin {
   final _routeKey = GlobalKey();
   final _availabilityKey = GlobalKey();
-  final _boardKey = GlobalKey();
   var _query = '';
   late final AnimationController _entrance;
   late final ScrollController _scroll;
-  WorkspaceMode? _mode;
 
   @override
   void initState() {
@@ -62,18 +58,8 @@ class StreetBoardViewState extends State<StreetBoardView>
     _entrance = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    );
+    )..forward();
     _scroll = ScrollController();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final mode = context.watch<WorkspaceModeBloc>().state.mode;
-    if (_mode == mode) return;
-    final opening = mode == WorkspaceMode.rua && _mode != WorkspaceMode.rua;
-    _mode = mode;
-    if (opening) _entrance.forward(from: 0);
   }
 
   @override
@@ -145,17 +131,17 @@ class StreetBoardViewState extends State<StreetBoardView>
         final colors = workspaceColorsOf(context);
         final saleButton = FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          backgroundColor: colors.highlight,
-          foregroundColor: colors.onHeader,
+          backgroundColor: pouInk,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
         );
         final returnButton = OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          backgroundColor: Colors.white,
-          foregroundColor: colors.highlight,
-          side: BorderSide(color: colors.highlight),
+          backgroundColor: pouCanvas,
+          foregroundColor: pouInk,
+          side: const BorderSide(color: pouInk),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -182,27 +168,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                   .toList();
         return ClipRect(
           child: Stack(
-            key: _boardKey,
             children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: streetCurveHeight - headerCurveSide,
-                child: IgnorePointer(
-                  child: OverflowBox(
-                    alignment: Alignment.bottomCenter,
-                    minHeight: streetCurveHeight,
-                    maxHeight: streetCurveHeight,
-                    child: CustomPaint(
-                      painter: HeaderCurvePainter(
-                        colors.header,
-                        extra: streetCurveExtra,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
               Positioned(
                 top: 16,
                 left: 16,
@@ -241,8 +207,8 @@ class StreetBoardViewState extends State<StreetBoardView>
                               key: const Key('action_new_sale'),
                               style: saleButton,
                               onPressed: widget.onNewSale,
-                              icon: const Icon(Icons.person_add_outlined),
-                              label: const Text('Adicionar'),
+                              icon: const Icon(Icons.person_add_outlined, color: pouCanvas,),
+                              label: const Text('Adicionar', style: TextStyle(color: pouCanvas,),),
                             ),
                           ),
                           const SizedBox(height: 22),
@@ -311,7 +277,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                                                     fontSize:
                                                         workspaceFontPrimary,
                                                     fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF1C1C1E),
+                                                    color: Color(0xFF0E0D0F),
                                                   ),
                                                 ),
                                               ),
@@ -339,26 +305,22 @@ class StreetBoardViewState extends State<StreetBoardView>
                           const SizedBox(height: 22),
                           Padding(
                             padding: const EdgeInsets.only(left: 4, bottom: 10),
-                            child: _OnHeaderText(
-                              text: 'Disponibilidade',
-                              textKey: _availabilityKey,
-                              scroll: _scroll,
-                              boardKey: _boardKey,
+                            child: Text(
+                              'Disponibilidade',
+                              key: _availabilityKey,
                               style: const TextStyle(
                                 fontSize: workspaceFontPrimary,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF1C1C1E),
+                                color: Color(0xFF0E0D0F),
                               ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                            child: _OnHeaderText(
-                              text: 'Carga atual da Montana',
-                              textKey: const Key('montana_load_caption'),
-                              scroll: _scroll,
-                              boardKey: _boardKey,
-                              style: const TextStyle(
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
+                            child: Text(
+                              'Carga atual da Montana',
+                              key: Key('montana_load_caption'),
+                              style: TextStyle(
                                 fontSize: workspaceFontSecondary,
                                 color: Color(0xFF6B7280),
                               ),
@@ -400,7 +362,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                                       key: const Key('availability_search'),
                                       style: const TextStyle(
                                         fontSize: workspaceFontPrimary,
-                                        color: Color(0xFF1C1C1E),
+                                        color: Color(0xFF0E0D0F),
                                       ),
                                       decoration: InputDecoration(
                                         hintText: 'Buscar produto',
@@ -413,7 +375,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                                           color: Color(0xFF9CA3AF),
                                         ),
                                         filled: true,
-                                        fillColor: const Color(0xFFF3F4F6),
+                                        fillColor: const Color(0xFFE9E8EB),
                                         isDense: true,
                                         contentPadding:
                                             const EdgeInsets.symmetric(
@@ -645,7 +607,7 @@ class _VisitCardState extends State<_VisitCard> {
                             fontWeight: FontWeight.w700,
                             color: visit.status == VisitStatus.completed
                                 ? const Color(0xFF8B97C2)
-                                : const Color(0xFF1C1C1E),
+                                : const Color(0xFF0E0D0F),
                             decoration: visit.status == VisitStatus.completed
                                 ? TextDecoration.lineThrough
                                 : TextDecoration.none,
@@ -663,7 +625,7 @@ class _VisitCardState extends State<_VisitCard> {
                         fontWeight: FontWeight.w700,
                         color: visit.status == VisitStatus.completed
                             ? const Color(0xFF8B97C2)
-                            : const Color(0xFF1C1C1E),
+                            : const Color(0xFF0E0D0F),
                       ),
                     ),
                   ],
@@ -683,7 +645,7 @@ class _VisitCheck extends StatelessWidget {
   final bool done;
   final VoidCallback? onTap;
 
-  static const _blue = Color(0xFF7C8FE0);
+  static const _blue = pouAccent;
 
   @override
   Widget build(BuildContext context) {
@@ -840,7 +802,7 @@ class _DeliveryBoard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x141E88E5),
+            color: Color(0x1A0E0D0F),
             blurRadius: 24,
             offset: Offset(0, 10),
           ),
@@ -869,7 +831,7 @@ class _DeliveryBoard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: workspaceFontPrimary,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1C1E),
+                            color: Color(0xFF0E0D0F),
                           ),
                         ),
                       ),
@@ -928,7 +890,7 @@ class _DeliveryBoard extends StatelessWidget {
                   thickness: 1,
                   indent: 16,
                   endIndent: 16,
-                  color: Color(0xFFF3F4F6),
+                  color: Color(0xFFE9E8EB),
                 ),
                 _VisitCard(
                   visit: today[index],
@@ -948,146 +910,6 @@ class _DeliveryBoard extends StatelessWidget {
   }
 }
 
-class _OnHeaderText extends StatefulWidget {
-  const _OnHeaderText({
-    required this.text,
-    required this.style,
-    required this.scroll,
-    required this.boardKey,
-    this.textKey,
-  });
-
-  final String text;
-  final TextStyle style;
-  final ScrollController scroll;
-  final GlobalKey boardKey;
-  final Key? textKey;
-
-  @override
-  State<_OnHeaderText> createState() => _OnHeaderTextState();
-}
-
-class _OnHeaderTextState extends State<_OnHeaderText> {
-  Offset? _origin;
-  var _boardWidth = 1.0;
-  var _pending = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.scroll.addListener(_schedule);
-    _schedule();
-  }
-
-  @override
-  void didUpdateWidget(covariant _OnHeaderText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.scroll != widget.scroll) {
-      oldWidget.scroll.removeListener(_schedule);
-      widget.scroll.addListener(_schedule);
-    }
-    _schedule();
-  }
-
-  @override
-  void dispose() {
-    widget.scroll.removeListener(_schedule);
-    super.dispose();
-  }
-
-  void _schedule() {
-    if (_pending) return;
-    _pending = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pending = false;
-      if (mounted) _measure();
-    });
-  }
-
-  void _measure() {
-    final textBox = context.findRenderObject() as RenderBox?;
-    final board =
-        widget.boardKey.currentContext?.findRenderObject() as RenderBox?;
-    if (textBox == null ||
-        board == null ||
-        !textBox.attached ||
-        !board.attached ||
-        !textBox.hasSize ||
-        !board.hasSize) {
-      return;
-    }
-    final origin = textBox.localToGlobal(Offset.zero, ancestor: board);
-    final width = board.size.width;
-    if (_origin == origin && _boardWidth == width) return;
-    setState(() {
-      _origin = origin;
-      _boardWidth = width;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = Text(widget.text, key: widget.textKey, style: widget.style);
-    final origin = _origin;
-    if (origin == null) return label;
-    return Stack(
-      children: [
-        label,
-        ExcludeSemantics(
-          child: ClipPath(
-            clipper: _HeaderBlueClipper(
-              originOnBoard: origin,
-              boardWidth: _boardWidth,
-            ),
-            child: Text(
-              widget.text,
-              style: widget.style.copyWith(color: Colors.white),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Keeps the portion of the title that has scrolled into the blue header.
-class _HeaderBlueClipper extends CustomClipper<Path> {
-  const _HeaderBlueClipper({
-    required this.originOnBoard,
-    required this.boardWidth,
-  });
-
-  final Offset originOnBoard;
-  final double boardWidth;
-
-  double _edge(double localX, Size size) {
-    final x = originOnBoard.dx + localX;
-    final t = boardWidth == 0 ? 0.0 : (x / boardWidth).clamp(0.0, 1.0);
-    final blueBottom = streetCurveExtra + headerCurveDrop(t);
-    return (blueBottom - originOnBoard.dy).clamp(0.0, size.height);
-  }
-
-  @override
-  Path getClip(Size size) {
-    final path = Path()..moveTo(0, 0);
-    const steps = 16;
-    for (var i = 0; i <= steps; i++) {
-      final x = size.width * i / steps;
-      path.lineTo(x, _edge(x, size));
-    }
-    path
-      ..lineTo(size.width, 0)
-      ..close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant _HeaderBlueClipper oldDelegate) {
-    return oldDelegate.originOnBoard != originOnBoard ||
-        oldDelegate.boardWidth != boardWidth;
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -1102,7 +924,7 @@ class _SectionTitle extends StatelessWidget {
         style: const TextStyle(
           fontSize: workspaceFontPrimary,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF1C1C1E),
+          color: Color(0xFF0E0D0F),
         ),
       ),
     );
@@ -1121,7 +943,7 @@ class _SurfaceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1E88E5),
+            color: Color(0x140E0D0F),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),
@@ -1147,7 +969,7 @@ class _Hairline extends StatelessWidget {
       thickness: 1,
       indent: 16,
       endIndent: 16,
-      color: Color(0xFFF3F4F6),
+      color: Color(0xFFE9E8EB),
     );
   }
 }
@@ -1179,7 +1001,7 @@ class _ProductRow extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: workspaceFontPrimary,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
+                    color: Color(0xFF0E0D0F),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1217,7 +1039,7 @@ class _ProductRow extends StatelessWidget {
             style: const TextStyle(
               fontSize: workspaceFontPrimary,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1C1E),
+              color: Color(0xFF0E0D0F),
             ),
           ),
         ],
@@ -1237,7 +1059,7 @@ class _MontanaPhoto extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
-        color: const Color(0xFFF7F8FA),
+        color: const Color(0xFFE9E8EB),
         child: SizedBox(
           width: 64,
           height: 64,
@@ -1291,7 +1113,7 @@ class _ShortcutButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F1E88E5),
+            color: Color(0x140E0D0F),
             blurRadius: 16,
             offset: Offset(0, 6),
           ),
@@ -1329,7 +1151,7 @@ class _ShortcutButton extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: workspaceFontPrimary,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1C1C1E),
+                        color: Color(0xFF0E0D0F),
                       ),
                     ),
                   ),
@@ -1396,7 +1218,7 @@ class _SaleTile extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: workspaceFontPrimary,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1C1C1E),
+                      color: Color(0xFF0E0D0F),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1418,7 +1240,7 @@ class _SaleTile extends StatelessWidget {
               style: const TextStyle(
                 fontSize: workspaceFontPrimary,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1C1C1E),
+                color: Color(0xFF0E0D0F),
               ),
             ),
           ],

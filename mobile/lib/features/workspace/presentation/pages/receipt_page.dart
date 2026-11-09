@@ -87,12 +87,8 @@ class _ReceiptPageState extends State<ReceiptPage> {
             allowCredit: _allowCredit,
           );
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F8),
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Receber pagamento'),
-      ),
+      backgroundColor: const Color(0xFFF6F5F7),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Receber pagamento'),),
       body: _loading || account == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -342,11 +338,7 @@ class _OpeningDebtPageState extends State<OpeningDebtPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: pouAppBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Saldo inicial de dívida'),
-      ),
+      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Saldo inicial de dívida'),),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

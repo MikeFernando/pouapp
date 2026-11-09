@@ -119,7 +119,7 @@ A simulação segue o modo de compilação do Flutter, o mesmo critério de `kDe
 Fluxo:
 
 1. Ao abrir, o `AuthBloc` consulta a sessão.
-2. Com sessão válida, abre a tela principal de Rua ou Gestão, com o nome e o e-mail.
+2. Com sessão válida, abre a tela de Entregas, com o nome e o e-mail.
 3. Sem sessão, abre o login.
 4. O botão Sair apaga a sessão e volta ao login sem empilhar rota. O botão Voltar não retorna à tela autenticada.
 
@@ -151,13 +151,11 @@ Para substituir o banco local pela API, implemente outro `CustomerRepository` e 
 
 ## Tela principal
 
-Depois do login, a mesma sessão abre a empresa em dois modos: **Rua** (vendas e entregas) e **Gestão** (financeiro, equipe e estoque). O seletor fica no topo. A última escolha é gravada em `shared_preferences`, na chave `workspace_mode` (`rua` ou `gestao`), e restaurada na abertura. Um modo ausente ou desconhecido volta para Rua. Valores antigos `sales` e `stock` ainda são lidos.
+Depois do login, a sessão abre Entregas. A cor do cabeçalho fica em `WorkspaceColors`.
 
-Os dois modos leem o mesmo registro da empresa. A troca muda a tela, os atalhos e as cores; não cria outro estoque nem outra venda. As cores ficam em `WorkspaceColors`: azul na rua, verde na gestão.
+A tela principal é o roteiro de clientes do dia. Dá para incluir ou remover clientes, mudar a ordem das visitas e atender cada conta: venda, entrega e pagamento ficam em registros separados. Concluir a visita não quita a conta. Uma correção de compra guarda o valor anterior. O aviso pelo WhatsApp fica fora do aplicativo. O roteiro fica no aparelho, na chave `street_ledger` de `shared_preferences`.
 
-Na rua, a tela principal é o roteiro de clientes do dia. Dá para incluir ou remover clientes, mudar a ordem das visitas e atender cada conta: venda, entrega e pagamento ficam em registros separados. Concluir a visita não quita a conta. Uma correção de compra guarda o valor anterior. O aviso pelo WhatsApp fica fora do aplicativo. O que for vendido ou recebido na rua entra no financeiro da gestão. O roteiro fica no aparelho, na chave `street_ledger` de `shared_preferences`.
-
-Clientes abre o fluxo já existente. Receber mercadoria, pesagem e perda ou ajuste continuam como destino provisório e dizem que nada foi salvo. A conferência de um recebimento do Ceasa é só leitura. Não há balança, nota fiscal nem serviço externo.
+Clientes abre o fluxo já existente. Carregar a Montana e retornar mercadoria ao depósito continuam na mesma tela. Não há balança, nota fiscal nem serviço externo.
 
 ## Como executar o aplicativo
 
