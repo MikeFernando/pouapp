@@ -5,7 +5,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_state.dart';
 import '../widgets/session_loading_view.dart';
 import 'home_page.dart';
-import 'login_page.dart';
+import 'unauthenticated_shell.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key, this.authenticatedPage});
@@ -21,7 +21,7 @@ class AuthGate extends StatelessWidget {
           AuthInitial() || AuthChecking() => const SessionLoadingView(),
           Authenticated() ||
           AuthLogoutInProgress() => authenticatedPage ?? const HomePage(),
-          _ => const LoginPage(),
+          _ => const UnauthenticatedShell(),
         };
       },
     );

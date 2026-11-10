@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
 import '../../../../injection_container.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../customers/domain/validation/customer_validators.dart';
 import '../../data/receivable_store.dart';
 import '../../domain/entities/receivable.dart';
@@ -150,7 +154,7 @@ class _BusinessSettingsPageState extends State<BusinessSettingsPage> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'Chave Pix',
+                        'Configurações',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -331,6 +335,57 @@ class _BusinessSettingsPageState extends State<BusinessSettingsPage> {
                           child: Text(_saving ? 'Salvando…' : 'Salvar chave'),
                         ),
                       ),
+                      const SizedBox(height: 28),
+                      const Divider(height: 1, color: Color(0xFFE9E8EB)),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Conta',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      BlocBuilder<AuthBloc, AuthState>(
+                        builder: (context, state) {
+                          final loggingOut = state is AuthLogoutInProgress;
+                          return SizedBox(
+                            height: 54,
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              key: const Key('logout_button'),
+                              onPressed: loggingOut || _saving
+                                  ? null
+                                  : () => _logout(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFB42318),
+                                side: const BorderSide(
+                                  color: Color(0xFFF2C7C3),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              child: loggingOut
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFB42318),
+                                        semanticsLabel: 'Saindo',
+                                      ),
+                                    )
+                                  : const Text('Sair da conta'),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -339,6 +394,11 @@ class _BusinessSettingsPageState extends State<BusinessSettingsPage> {
         ),
       ),
     );
+  }
+
+  void _logout(BuildContext context) {
+    Navigator.of(context).pop(false);
+    context.read<AuthBloc>().add(const AuthLogoutRequested());
   }
 
   String _typeHint(PixKeyType type) {

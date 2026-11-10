@@ -81,7 +81,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('login_submit')), findsOneWidget);
+    expect(find.byKey(const Key('welcome_order_now')), findsOneWidget);
+    expect(find.byKey(const Key('login_submit')), findsNothing);
   });
 
   testWidgets('should open the home screen when a session already exists', (
@@ -114,6 +115,11 @@ void main() {
     await pumpGate(tester);
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('welcome_order_now')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('welcome_order_now')));
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const Key('login_email')),
       'ana.souza@pouapp.dev',
@@ -137,7 +143,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('login_submit')), findsOneWidget);
+    expect(find.byKey(const Key('welcome_order_now')), findsOneWidget);
     expect(find.text('Ana Souza'), findsNothing);
 
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
