@@ -58,6 +58,15 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
         email: 'mike@gmail.com',
       ),
     ),
+    _DevelopmentAccount(
+      email: 'edipo@pouapp.com',
+      password: '123456',
+      user: UserModel(
+        id: 'dev-user-edipo',
+        name: 'Edipo Silva',
+        email: 'edipo@pouapp.com',
+      ),
+    ),
   ];
 
   bool get _allowsAuth => simulatedAuthEnabled && enabled;

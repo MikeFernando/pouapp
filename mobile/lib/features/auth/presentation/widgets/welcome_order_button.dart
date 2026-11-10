@@ -34,7 +34,7 @@ class WelcomeOrderButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Começar',
+                  'Login',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: fontSize,
@@ -44,7 +44,7 @@ class WelcomeOrderButton extends StatelessWidget {
                 ),
                 SizedBox(width: gap),
                 Text(
-                  '→',
+                  '↑',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: fontSize * 1.2,

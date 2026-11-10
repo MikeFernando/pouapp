@@ -8,9 +8,16 @@ import '../bloc/auth_state.dart';
 import '../validation/login_validators.dart';
 
 class LoginForm extends StatefulWidget {
-  const LoginForm({super.key, required this.onCreateAccount});
+  const LoginForm({
+    super.key,
+    required this.onCreateAccount,
+    this.compact = false,
+  });
 
   final VoidCallback onCreateAccount;
+
+  /// Hides the large title block when embedded in a bottom sheet.
+  final bool compact;
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -54,10 +61,13 @@ class _LoginFormState extends State<LoginForm> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final minHeight = widget.compact
+            ? 0.0
+            : (constraints.maxHeight - 48).clamp(0.0, double.infinity);
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(24, widget.compact ? 8 : 24, 24, 24),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+            constraints: BoxConstraints(minHeight: minHeight),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
@@ -65,26 +75,30 @@ class _LoginFormState extends State<LoginForm> {
                   key: _formKey,
                   child: AutofillGroup(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: widget.compact
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'PouApp',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w700,
+                        if (!widget.compact) ...[
+                          Text(
+                            'PouApp',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Sistema de Gestão Empresarial',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          const SizedBox(height: 8),
+                          Text(
+                            'Sistema de Gestão Empresarial',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 32),
+                          const SizedBox(height: 32),
+                        ],
                         TextFormField(
                           key: const Key('login_email'),
                           controller: _emailController,

@@ -128,6 +128,8 @@ void main() {
       find.byKey(const Key('login_password')),
       'senha-dev',
     );
+    await tester.ensureVisible(find.byKey(const Key('login_submit')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('login_submit')));
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
