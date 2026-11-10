@@ -114,8 +114,16 @@ class WorkspaceSimulatedDataSource {
           salePriceCents: 1290,
         ),
         StockProduct(
+          id: 'product-ovos-duzia',
+          name: 'Ovos dúzia',
+          unit: StockUnit.dozen,
+          available: 40,
+          low: false,
+          salePriceCents: 1200,
+        ),
+        StockProduct(
           id: 'product-ovos',
-          name: 'Bandeja de ovos',
+          name: 'Ovos bandeja 30',
           unit: StockUnit.piece,
           available: 30,
           low: false,

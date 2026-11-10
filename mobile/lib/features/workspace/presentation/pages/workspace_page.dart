@@ -224,7 +224,7 @@ class _WorkspaceHeader extends StatelessWidget {
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
-                        'Sandy',
+                        'Edipo Silva',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -347,7 +347,7 @@ class _HeaderAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return const ClipOval(
       child: Image(
-        image: AssetImage('assets/header_avatar.png'),
+        image: AssetImage('assets/header_avatar.jpg'),
         width: 44,
         height: 44,
         fit: BoxFit.cover,

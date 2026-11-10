@@ -59,7 +59,7 @@ void main() {
       );
       expect(find.byKey(const Key('voice_assistant_button')), findsNothing);
       expect(find.byTooltip('Assistente de voz'), findsNothing);
-      expect(find.text('Sandy'), findsOneWidget);
+      expect(find.text('Edipo Silva'), findsOneWidget);
       expect(find.text('Faturado'), findsNothing);
       expect(find.textContaining('Em aberto'), findsNothing);
       expect(find.byKey(const Key('header_month_billed')), findsNothing);
@@ -102,7 +102,7 @@ void main() {
 
       await signIn(tester);
       expect(tester.takeException(), isNull);
-      expect(find.text('Sandy'), findsOneWidget);
+      expect(find.text('Edipo Silva'), findsOneWidget);
       expect(find.byKey(const Key('action_new_sale')), findsOneWidget);
     });
   });

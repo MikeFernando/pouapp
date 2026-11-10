@@ -1231,8 +1231,41 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     await _packDemoGarlic(db);
     await _ensureStaples(db, now);
     await _ensurePackedProducts(db, now);
+    await _ensureDemoCatalogProducts(db, now);
     await _sellDemoBananaByDozen(db);
+    await _renameDemoEggs(db, now);
     await _syncDemoSalePrices(db, now);
+  }
+
+  /// Older catalogs used "Bandeja de ovos"; keep the same id as bandeja 30.
+  Future<void> _renameDemoEggs(Database db, DateTime now) async {
+    await db.update(
+      'products',
+      {
+        'name': 'Ovos bandeja 30',
+        'updated_at': now.toIso8601String(),
+      },
+      where: 'id = ? AND name = ?',
+      whereArgs: const ['product-ovos', 'Bandeja de ovos'],
+    );
+  }
+
+  /// Adds any new demo produce missing from an already seeded catalog.
+  Future<void> _ensureDemoCatalogProducts(Database db, DateTime now) async {
+    final present = await db.query('products', columns: const ['id']);
+    final known = {for (final row in present) row['id'] as String};
+    final missing = [
+      for (final product in demoCatalogProducts)
+        if (!known.contains(product.id) &&
+            !await _productWasDeleted(db, product.id))
+          product,
+    ];
+    if (missing.isEmpty) return;
+    await db.transaction((txn) async {
+      for (final product in missing) {
+        await _insertDemo(txn, product, now);
+      }
+    });
   }
 
   /// Keeps demo catalog prices aligned with [demoCatalogProducts].
