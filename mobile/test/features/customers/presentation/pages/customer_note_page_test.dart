@@ -34,7 +34,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Rascunho'), findsOneWidget);
+    expect(find.text('Ativo'), findsOneWidget);
+    expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
     expect(find.text('Total desta nota'), findsNothing);
     expect(find.text('Saldo em aberto'), findsOneWidget);
@@ -97,7 +98,7 @@ void main() {
     expect(_noteTotal(tester), 'R\$ 36,00');
     expect(_openBalance(tester), 'R\$ 36,00');
     expect(_due(tester), startsWith('15/'));
-    expect(find.text('Rascunho'), findsOneWidget);
+    expect(find.text('Ativo'), findsOneWidget);
     final reopened = await _real(tester, () => _draft(ana.id));
     expect(reopened.id, saved.id);
     expect(reopened.lines.single.id, saved.lines.single.id);
@@ -227,6 +228,11 @@ class _FailingNotes implements CustomerNoteRepository {
   @override
   Future<Either<Failure, CustomerNote>> note(String id) async {
     return const Left(CacheFailure());
+  }
+
+  @override
+  Future<Either<Failure, List<CustomerNote>>> draftNotesWithDue() async {
+    return const Right([]);
   }
 
   @override
