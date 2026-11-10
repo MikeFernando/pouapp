@@ -36,6 +36,11 @@ abstract class CatalogLocalDataSource {
 
   Future<ProductStock> setActive({required String id, required bool active});
 
+  Future<ProductStock> setSalePrice({
+    required String id,
+    required int salePriceCents,
+  });
+
   Future<void> deleteProduct(String id);
 
   /// Reuses the open draft of this kind. The id stays until confirmation.
@@ -237,6 +242,28 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     final updated = await db.update(
       'products',
       {'active': active ? 1 : 0, 'updated_at': _clock().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (updated == 0) throw ProductNotFoundException();
+    return getProduct(id);
+  }
+
+  @override
+  Future<ProductStock> setSalePrice({
+    required String id,
+    required int salePriceCents,
+  }) async {
+    if (salePriceCents < 0) {
+      throw CatalogRuleException(StockRuleViolation.negativeQuantity);
+    }
+    final db = await _databaseOrOpen();
+    final updated = await db.update(
+      'products',
+      {
+        'sale_price_cents': salePriceCents,
+        'updated_at': _clock().toIso8601String(),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -1205,6 +1232,25 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     await _ensureStaples(db, now);
     await _ensurePackedProducts(db, now);
     await _sellDemoBananaByDozen(db);
+    await _syncDemoSalePrices(db, now);
+  }
+
+  /// Keeps demo catalog prices aligned with [demoCatalogProducts].
+  Future<void> _syncDemoSalePrices(Database db, DateTime now) async {
+    await db.transaction((txn) async {
+      for (final demo in demoCatalogProducts) {
+        if (demo.salePriceCents <= 0) continue;
+        await txn.update(
+          'products',
+          {
+            'sale_price_cents': demo.salePriceCents,
+            'updated_at': now.toIso8601String(),
+          },
+          where: 'id = ? AND sale_price_cents = 0',
+          whereArgs: [demo.id],
+        );
+      }
+    });
   }
 
   /// The first demo garlic was 500 kg loose. The house basket sells a

@@ -31,6 +31,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.piece,
           available: 60,
           low: false,
+          salePriceCents: 1600,
         ),
         StockProduct(
           id: 'product-alho',
@@ -38,6 +39,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.piece,
           available: 40,
           low: false,
+          salePriceCents: 3000,
         ),
         StockProduct(
           id: 'product-cebola',
@@ -45,6 +47,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.kilogram,
           available: 600,
           low: false,
+          salePriceCents: 450,
         ),
         StockProduct(
           id: 'product-batata',
@@ -52,6 +55,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.kilogram,
           available: 800,
           low: false,
+          salePriceCents: 450,
         ),
         StockProduct(
           id: 'product-banana',
@@ -59,6 +63,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.dozen,
           available: 40,
           low: false,
+          salePriceCents: 590,
         ),
         StockProduct(
           id: 'product-tomate',
@@ -66,6 +71,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.box,
           available: 14,
           low: false,
+          salePriceCents: 5900,
         ),
         StockProduct(
           id: 'product-alface',
@@ -73,6 +79,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.piece,
           available: 40,
           low: false,
+          salePriceCents: 350,
         ),
         StockProduct(
           id: 'product-laranja',
@@ -80,6 +87,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.kilogram,
           available: 22,
           low: true,
+          salePriceCents: 490,
         ),
         StockProduct(
           id: 'product-mamao',
@@ -87,6 +95,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.kilogram,
           available: 8,
           low: true,
+          salePriceCents: 690,
         ),
         StockProduct(
           id: 'product-limao',
@@ -94,6 +103,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.kilogram,
           available: 6,
           low: true,
+          salePriceCents: 690,
         ),
         StockProduct(
           id: 'product-melancia',
@@ -101,6 +111,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.piece,
           available: 18,
           low: false,
+          salePriceCents: 1290,
         ),
         StockProduct(
           id: 'product-ovos',
@@ -108,6 +119,7 @@ class WorkspaceSimulatedDataSource {
           unit: StockUnit.piece,
           available: 30,
           low: false,
+          salePriceCents: 1890,
         ),
       ],
       street: street,

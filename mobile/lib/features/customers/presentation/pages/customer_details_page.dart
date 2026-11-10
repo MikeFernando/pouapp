@@ -1,19 +1,17 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../app/pou_app_colors.dart';
+import '../../../../app/pou_item_edit_sheet.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../assistant/presentation/voice_attendance.dart';
 import '../../../catalog/domain/entities/catalog.dart';
-import '../../../catalog/domain/repositories/catalog_repository.dart';
-import '../../../catalog/domain/rules/stock_rules.dart';
-import '../../../catalog/presentation/catalog_messages.dart';
 import '../../../catalog/presentation/produce_assets.dart';
 import '../../../workspace/domain/entities/stock_board.dart';
 import '../../../workspace/domain/entities/street_ledger.dart';
 import '../../../workspace/presentation/bloc/company_operation_bloc.dart';
-import '../../../workspace/presentation/pages/delivery_review_page.dart';
 import '../../../workspace/presentation/loaded_operation.dart';
 import '../../../workspace/presentation/operation_labels.dart';
 import '../../domain/entities/customer.dart';
@@ -79,8 +77,6 @@ class CustomerDetailsView extends StatefulWidget {
 }
 
 class _CustomerDetailsViewState extends State<CustomerDetailsView> {
-  final _searchController = TextEditingController();
-  var _searching = false;
   CustomerNote? _note;
   String? _noteError;
   var _noteRequestedFor = '';
@@ -91,7 +87,6 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   void dispose() {
     final visit = _visit;
     if (visit != null) VoiceAttendance.unmount(visit);
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -174,18 +169,6 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
               color: Colors.white,
             ),
             title: Text(customer.name),
-            actions: [
-              IconButton(
-                tooltip: 'Buscar',
-                onPressed: () {
-                  setState(() => _searching = !_searching);
-                  if (!_searching) {
-                    _searchController.clear();
-                  }
-                },
-                icon: Icon(_searching ? Icons.close : Icons.search),
-              ),
-            ],
           ),
           body: ClipRRect(
             borderRadius: const BorderRadius.vertical(
@@ -202,45 +185,15 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (_searching)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: TextField(
-                            key: const Key('customer_sales_search'),
-                            controller: _searchController,
-                            autofocus: true,
-                            style: const TextStyle(fontSize: 16),
-                            decoration: const InputDecoration(
-                              hintText: 'Produto ou número da venda',
-                              filled: true,
-                              fillColor: Colors.white,
-                              prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
                       _SituationBar(
                         delivered: note?.status == NoteStatus.delivered,
                       ),
-                      _CustomerOwedCard(owedCents: note?.totalCents ?? 0),
-                      CustomerAccountSection(customer: customer),
                       _DueDateCard(
                         date: note?.dueOn,
                         onPick: note?.status == NoteStatus.delivered
                             ? null
                             : _openDueDate,
                       ),
-                      if (note?.status == NoteStatus.draft)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: FilledButton(
-                            key: const Key('confirm_delivery'),
-                            style: notePrimaryButton(),
-                            onPressed: () => _confirmDelivery(customer),
-                            child: const Text('Confirmar entrega'),
-                          ),
-                        ),
                       if (note?.status == NoteStatus.delivered) ...[
                         const Padding(
                           padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -293,7 +246,6 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                         _SalesList(
                           customer: customer,
                           ledger: ledger,
-                          search: _searchController.text,
                           lines: note?.lines ?? const [],
                           ready: note != null,
                           onWhatsApp: () => _openWhatsApp(customer),
@@ -306,6 +258,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                               ? null
                               : _editLine,
                         ),
+                      CustomerAccountSection(customer: customer),
                     ],
                   ),
                 ),
@@ -353,24 +306,6 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     });
   }
 
-  Future<void> _confirmDelivery(Customer customer) async {
-    final note = _note;
-    if (note == null || note.status != NoteStatus.draft) return;
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => DeliveryReviewPage(
-          customerId: customer.id,
-          customerName: customer.name,
-          noteId: note.id,
-        ),
-      ),
-    );
-    if (saved == true) {
-      _noteRequestedFor = '';
-      _requestNote(customer.id);
-    }
-  }
-
   Future<void> _newPurchase(String customerId) async {
     if (!di.sl.isRegistered<CustomerNoteRepository>()) return;
     await di.sl<CustomerNoteRepository>().activeDraft(customerId);
@@ -415,13 +350,25 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final note = _note;
     if (note == null || note.status == NoteStatus.delivered) return;
     final line = note.lines[index];
-    final result = await _showItemEditSheet(
+    final result = await showPouItemEditSheet(
       context,
       name: line.name,
       quantity: displayQuantity(line.unit, line.quantity),
       unitPriceCents: line.unitPriceCents,
+      referencePriceCents: line.referencePriceCents,
+      allowRemove: true,
+      removeMessage: 'Remover ${line.name} desta nota?',
+      removeButtonKey: const Key('remove_note_item'),
+      confirmRemoveKey: const Key('confirm_remove_note_item'),
     );
     if (result == null || !mounted) return;
+    if (result.removed) {
+      await _persistLines([
+        for (var position = 0; position < note.lines.length; position++)
+          if (position != index) NoteLineDraft.fromLine(note.lines[position]),
+      ]);
+      return;
+    }
     final quantity = baseQuantityFromDisplay(line.unit, result.quantity);
     if (quantity == null) {
       _rememberFailure(null);
@@ -436,7 +383,9 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
             name: line.name,
             unit: line.unit,
             quantity: quantity,
+            // Practiced price on this note only. Catalog reference stays.
             unitPriceCents: result.unitPriceCents,
+            referencePriceCents: line.referencePriceCents,
           )
         else
           NoteLineDraft.fromLine(note.lines[position]),
@@ -449,9 +398,20 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final products =
         context.read<CompanyOperationBloc>().state.operation?.products ??
         const <StockProduct>[];
-    final picked = await Navigator.of(context).push<_CatalogSelection>(
-      MaterialPageRoute(
-        builder: (_) => _ProductCatalogPage(products: products),
+    final media = MediaQuery.of(context);
+    final sheetHeight =
+        media.size.height - media.padding.top - kToolbarHeight;
+    final picked = await showModalBottomSheet<_CatalogSelection>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: const Color(0xFFF6F5F7),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SizedBox(
+        height: sheetHeight,
+        child: _ProductCatalogPage(products: products),
       ),
     );
     if (picked == null || !mounted) return;
@@ -469,6 +429,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         unit: unit,
         quantity: quantity,
         unitPriceCents: picked.unitPriceCents,
+        referencePriceCents: picked.row.priceCents,
       ),
     ]);
   }
@@ -490,6 +451,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 unit: draft.unit,
                 quantity: draft.quantity,
                 unitPriceCents: draft.unitPriceCents,
+                referencePriceCents: draft.referencePriceCents,
               ),
           ],
         );
@@ -532,54 +494,6 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   }
 }
 
-class _CustomerOwedCard extends StatelessWidget {
-  const _CustomerOwedCard({required this.owedCents});
-
-  final int? owedCents;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Total desta nota',
-                  key: Key('customer_note_value'),
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0E0D0F),
-                  ),
-                ),
-              ),
-              if (owedCents != null) ...[
-                const SizedBox(width: 12),
-                Text(
-                  formatBrl(owedCents!),
-                  key: const Key('customer_open_balance'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0E0D0F),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SituationBar extends StatelessWidget {
   const _SituationBar({required this.delivered});
 
@@ -588,7 +502,7 @@ class _SituationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -648,7 +562,7 @@ class _DueDateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -939,7 +853,6 @@ class _SalesList extends StatelessWidget {
   const _SalesList({
     required this.customer,
     required this.ledger,
-    required this.search,
     required this.lines,
     required this.ready,
     required this.onWhatsApp,
@@ -949,7 +862,6 @@ class _SalesList extends StatelessWidget {
 
   final Customer customer;
   final StreetLedger ledger;
-  final String search;
   final List<NoteLine> lines;
   final bool ready;
   final VoidCallback onWhatsApp;
@@ -958,16 +870,12 @@ class _SalesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final query = search.trim().toLowerCase();
     final orders = [
       for (final order in ledger.orders)
-        if (order.customerId == customer.id &&
-            order.recorded &&
-            _matches(order, query))
-          order,
+        if (order.customerId == customer.id && order.recorded) order,
     ]..sort((a, b) => b.code.compareTo(a.code));
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -977,14 +885,14 @@ class _SalesList extends StatelessWidget {
             onAdd: onAdd,
             onEdit: onEdit,
           ),
-          const SizedBox(height: 12),
-          if (orders.isEmpty)
+          if (orders.isEmpty) ...[
+            const SizedBox(height: 8),
             const Text(
               'Nenhuma venda desta cliente.',
               key: Key('customer_sales_empty'),
               style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-            )
-          else
+            ),
+          ] else
             for (final order in orders)
               _SaleCard(
                 customer: customer,
@@ -994,14 +902,6 @@ class _SalesList extends StatelessWidget {
               ),
         ],
       ),
-    );
-  }
-
-  bool _matches(SaleOrder order, String query) {
-    if (query.isEmpty) return true;
-    if (order.code.toLowerCase().contains(query)) return true;
-    return order.lines.any(
-      (line) => line.productName.toLowerCase().contains(query),
     );
   }
 }
@@ -1081,6 +981,38 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
                     : () => widget.onEdit!(index),
               ),
             ],
+          if (_open && widget.lines.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Total dos itens',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatBrl(
+                      widget.lines.fold<int>(
+                        0,
+                        (sum, line) => sum + line.totalCents,
+                      ),
+                    ),
+                    key: const Key('customer_note_total'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0E0D0F),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (_open && widget.onAdd != null)
             Align(
               alignment: Alignment.center,
@@ -1120,86 +1052,81 @@ class _CatalogRow {
 }
 
 class _ProductCatalogPageState extends State<_ProductCatalogPage> {
-  final _searchController = TextEditingController();
-  var _searching = false;
-  final _created = <_CatalogRow>[];
-  final _removed = <String>{};
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  String? _filterLetter;
+  var _scrubbing = false;
 
   List<_CatalogRow> get _rows {
     final rows = [
       for (final product in widget.products)
-        if (!_removed.contains(product.id))
-          _CatalogRow(
-            product: product,
-            sku: _skuFromId(product.id),
-            priceCents: 0,
-          ),
-      for (final created in _created)
-        if (!_removed.contains(created.product.id)) created,
-    ];
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return rows;
+        _CatalogRow(
+          product: product,
+          sku: _skuFromId(product.id),
+          priceCents: product.salePriceCents,
+        ),
+    ]..sort(
+      (a, b) => a.product.name.toLowerCase().compareTo(
+        b.product.name.toLowerCase(),
+      ),
+    );
+    return rows;
+  }
+
+  List<_CatalogRow> _visibleRows(List<_CatalogRow> rows) {
+    final letter = _filterLetter;
+    if (letter == null) return rows;
     return [
       for (final row in rows)
-        if (row.product.name.toLowerCase().contains(query) ||
-            row.sku.toLowerCase().contains(query))
-          row,
+        if (_catalogInitial(row.product.name) == letter) row,
     ];
+  }
+
+  void _setLetter(String letter) {
+    if (_filterLetter == letter && _scrubbing) return;
+    setState(() {
+      _filterLetter = letter;
+      _scrubbing = true;
+    });
+  }
+
+  void _tapLetter(String letter) {
+    if (_filterLetter == letter) {
+      setState(() {
+        _filterLetter = null;
+        _scrubbing = false;
+      });
+      return;
+    }
+    setState(() {
+      _filterLetter = letter;
+      _scrubbing = false;
+    });
+  }
+
+  void _endScrub() {
+    if (!_scrubbing) return;
+    setState(() => _scrubbing = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F7),
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-        title: const Text('Produtos'),
-        actions: [
-          IconButton(
-            tooltip: 'Filtrar',
-            onPressed: () {},
-            icon: const Icon(Icons.filter_alt_outlined),
-          ),
-          IconButton(
-            key: const Key('product_search'),
-            tooltip: 'Buscar',
-            onPressed: () {
-              setState(() => _searching = !_searching);
-              if (!_searching) _searchController.clear();
-            },
-            icon: Icon(_searching ? Icons.close : Icons.search),
-          ),
-        ],),
-      body: Column(
+    final visible = _visibleRows(rows);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Material(
+      color: const Color(0xFFF6F5F7),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          if (_searching)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: TextField(
-                key: const Key('product_search_field'),
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(fontSize: 16),
-                decoration: const InputDecoration(
-                  hintText: 'Nome ou SKU',
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD1D1D6),
+              borderRadius: BorderRadius.circular(2),
             ),
+          ),
           Expanded(
             child: rows.isEmpty
                 ? const Center(
@@ -1209,30 +1136,54 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
                       style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
                     ),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                    itemCount: rows.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final row = rows[index];
-                      return _ProductCard(
-                        row: row,
-                        onTap: () => _open(row),
-                      );
-                    },
+                : Stack(
+                    children: [
+                      if (visible.isEmpty)
+                        Center(
+                          child: Text(
+                            _filterLetter == null
+                                ? 'Nenhum produto cadastrado.'
+                                : 'Nenhum produto com a letra $_filterLetter.',
+                            key: const Key('catalog_letter_empty'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            12,
+                            28,
+                            16 + bottomInset,
+                          ),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final row = visible[index];
+                            return _ProductCard(
+                              row: row,
+                              onTap: () => _open(row),
+                            );
+                          },
+                        ),
+                      Positioned(
+                        key: const Key('catalog_alphabet'),
+                        right: 0,
+                        top: 8,
+                        bottom: 8 + bottomInset,
+                        child: _AlphabetIndex(
+                          activeLetter: _filterLetter,
+                          scrubbing: _scrubbing,
+                          onDragLetter: _setLetter,
+                          onTapLetter: _tapLetter,
+                          onDragEnd: _endScrub,
+                        ),
+                      ),
+                    ],
                   ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: SizedBox(
-              height: 56,
-              width: double.infinity,
-              child: FilledButton(
-                key: const Key('register_product'),
-                onPressed: _register,
-                child: const Text('Cadastrar novo produto'),
-              ),
-            ),
           ),
         ],
       ),
@@ -1240,18 +1191,14 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
   }
 
   Future<void> _open(_CatalogRow row) async {
-    final result = await _showItemEditSheet(
+    final result = await showPouItemEditSheet(
       context,
       name: row.product.name,
       quantity: 1,
       unitPriceCents: row.priceCents,
-      canDelete: true,
+      referencePriceCents: row.priceCents,
     );
     if (!mounted || result == null) return;
-    if (result.deleted) {
-      await _delete(row);
-      return;
-    }
     Navigator.of(context).pop(
       _CatalogSelection(
         row: row,
@@ -1259,37 +1206,6 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
         unitPriceCents: result.unitPriceCents,
       ),
     );
-  }
-
-  Future<void> _delete(_CatalogRow row) async {
-    if (di.sl.isRegistered<CatalogRepository>()) {
-      final result = await di.sl<CatalogRepository>().deleteProduct(
-        row.product.id,
-      );
-      if (!mounted) return;
-      final message = result.fold<String?>(
-        catalogFailureMessage,
-        (_) => null,
-      );
-      if (message != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-        return;
-      }
-      if (di.sl.isRegistered<CompanyOperationBloc>()) {
-        di.sl<CompanyOperationBloc>().add(const CompanyOperationRequested());
-      }
-    }
-    setState(() => _removed.add(row.product.id));
-  }
-
-  Future<void> _register() async {
-    final created = await Navigator.of(context).push<_CatalogRow>(
-      MaterialPageRoute(builder: (_) => const _ProductCreatePage()),
-    );
-    if (created == null || !mounted) return;
-    setState(() => _created.add(created));
   }
 }
 
@@ -1303,6 +1219,229 @@ class _CatalogSelection {
   final _CatalogRow row;
   final double quantity;
   final int unitPriceCents;
+}
+
+const _alphabetLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+class _AlphabetIndex extends StatefulWidget {
+  const _AlphabetIndex({
+    required this.activeLetter,
+    required this.scrubbing,
+    required this.onDragLetter,
+    required this.onTapLetter,
+    required this.onDragEnd,
+  });
+
+  final String? activeLetter;
+  final bool scrubbing;
+  final ValueChanged<String> onDragLetter;
+  final ValueChanged<String> onTapLetter;
+  final VoidCallback onDragEnd;
+
+  @override
+  State<_AlphabetIndex> createState() => _AlphabetIndexState();
+}
+
+class _AlphabetIndexState extends State<_AlphabetIndex> {
+  var _moved = false;
+  String? _pressed;
+  double? _focusY;
+
+  @override
+  void didUpdateWidget(covariant _AlphabetIndex oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.scrubbing && _focusY != null && !_moved) {
+      _focusY = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        if (height <= 0) return const SizedBox.shrink();
+        final focusY = _focusY ?? _focusForLetter(widget.activeLetter, height);
+        final waving = focusY != null;
+        return RawGestureDetector(
+          behavior: HitTestBehavior.opaque,
+          gestures: <Type, GestureRecognizerFactory>{
+            _AlphabetDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<_AlphabetDragRecognizer>(
+                  _AlphabetDragRecognizer.new,
+                  (_AlphabetDragRecognizer instance) {
+                    instance
+                      ..onDown = (details) {
+                        _moved = false;
+                        _pressed = _letterAt(details.localPosition.dy, height);
+                        setState(() => _focusY = details.localPosition.dy);
+                      }
+                      ..onStart = (details) {
+                        final letter = _letterAt(
+                          details.localPosition.dy,
+                          height,
+                        );
+                        _moved = true;
+                        widget.onDragLetter(_pressed ?? letter);
+                        setState(() => _focusY = details.localPosition.dy);
+                      }
+                      ..onUpdate = (details) {
+                        final letter = _letterAt(
+                          details.localPosition.dy,
+                          height,
+                        );
+                        if (!_moved) {
+                          _moved = true;
+                          widget.onDragLetter(_pressed ?? letter);
+                        }
+                        widget.onDragLetter(letter);
+                        setState(() => _focusY = details.localPosition.dy);
+                      }
+                      ..onEnd = (_) {
+                        _finishDrag();
+                      }
+                      ..onCancel = _finishDrag;
+                  },
+                ),
+            TapGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                  TapGestureRecognizer.new,
+                  (TapGestureRecognizer instance) {
+                    instance.onTapUp = (details) {
+                      widget.onTapLetter(
+                        _letterAt(details.localPosition.dy, height),
+                      );
+                    };
+                  },
+                ),
+          },
+          child: SizedBox(
+            width: waving ? 48 : 26,
+            height: height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (var i = 0; i < _alphabetLetters.length; i++)
+                  _AlphabetWaveLetter(
+                    key: ValueKey(_alphabetLetters[i]),
+                    letter: _alphabetLetters[i],
+                    index: i,
+                    count: _alphabetLetters.length,
+                    height: height,
+                    focusY: focusY,
+                    active: widget.activeLetter == _alphabetLetters[i],
+                    scrubbing: widget.scrubbing || _focusY != null,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _finishDrag() {
+    if (_moved) widget.onDragEnd();
+    _pressed = null;
+    _moved = false;
+    if (_focusY != null) setState(() => _focusY = null);
+  }
+
+  String _letterAt(double dy, double height) {
+    final clamped = dy.clamp(0, height - 0.001);
+    final index = (clamped / height * _alphabetLetters.length).floor().clamp(
+      0,
+      _alphabetLetters.length - 1,
+    );
+    return _alphabetLetters[index];
+  }
+
+  double? _focusForLetter(String? letter, double height) {
+    if (letter == null) return null;
+    final index = _alphabetLetters.indexOf(letter);
+    if (index < 0) return null;
+    return (index + 0.5) / _alphabetLetters.length * height;
+  }
+}
+
+/// Wins the gesture arena so the bottom sheet does not drag-dismiss.
+class _AlphabetDragRecognizer extends VerticalDragGestureRecognizer {
+  @override
+  void rejectGesture(int pointer) {
+    acceptGesture(pointer);
+  }
+}
+
+class _AlphabetWaveLetter extends StatelessWidget {
+  const _AlphabetWaveLetter({
+    super.key,
+    required this.letter,
+    required this.index,
+    required this.count,
+    required this.height,
+    required this.focusY,
+    required this.active,
+    required this.scrubbing,
+  });
+
+  final String letter;
+  final int index;
+  final int count;
+  final double height;
+  final double? focusY;
+  final bool active;
+  final bool scrubbing;
+
+  @override
+  Widget build(BuildContext context) {
+    final slot = height / count;
+    final centerY = (index + 0.5) * slot;
+    final wave = _wave(centerY, slot);
+    final shift = scrubbing || active ? -16 * wave : 0.0;
+    final scale = 1 + 1.1 * wave;
+    return Positioned(
+      top: centerY - slot / 2,
+      right: 2,
+      height: slot,
+      child: Transform.translate(
+        offset: Offset(shift, 0),
+        child: Transform.scale(
+          scale: scale,
+          alignment: Alignment.centerRight,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              letter,
+              key: Key('catalog_letter_$letter'),
+              style: TextStyle(
+                fontSize: 13,
+                height: 1,
+                fontWeight: wave > 0.75
+                    ? FontWeight.w900
+                    : FontWeight.w700,
+                color: Color.lerp(
+                  const Color(0xFF4B5563),
+                  const Color(0xFF0E0D0F),
+                  wave.clamp(0.0, 1.0),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Peak on the focused letter, then steps down on each neighbor.
+  double _wave(double centerY, double slot) {
+    final focus = focusY;
+    if (focus == null) return active ? 0.28 : 0.0;
+    final distSlots = (centerY - focus).abs() / slot;
+    if (distSlots >= 3) return 0.0;
+    // Quadratic falloff: selected=1, ±1≈0.44, ±2≈0.11
+    final t = 1 - distSlots / 3;
+    return t * t;
+  }
 }
 
 class _ProductCard extends StatelessWidget {
@@ -1430,196 +1569,21 @@ class _CatalogPhoto extends StatelessWidget {
   }
 }
 
-class _ProductCreatePage extends StatefulWidget {
-  const _ProductCreatePage();
-
-  @override
-  State<_ProductCreatePage> createState() => _ProductCreatePageState();
-}
-
-class _ProductCreatePageState extends State<_ProductCreatePage> {
-  final _name = TextEditingController();
-  final _sku = TextEditingController();
-  final _stock = TextEditingController();
-  final _price = TextEditingController();
-  var _error = false;
-  var _errorMessage = 'Informe o nome do produto.';
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _sku.dispose();
-    _stock.dispose();
-    _price.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F7),
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-        title: const Text('Novo produto'),),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _field(_name, 'Nome', key: const Key('new_product_name')),
-          const SizedBox(height: 12),
-          _field(_sku, 'SKU', key: const Key('new_product_sku')),
-          const SizedBox(height: 12),
-          _field(
-            _stock,
-            'Estoque',
-            key: const Key('new_product_stock'),
-            number: true,
-          ),
-          const SizedBox(height: 12),
-          _field(
-            _price,
-            'Preço',
-            key: const Key('new_product_price'),
-            number: true,
-          ),
-          if (_error) ...[
-            const SizedBox(height: 8),
-            Text(
-              _errorMessage,
-              style: const TextStyle(fontSize: 14, color: Color(0xFFC62828)),
-            ),
-          ],
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 56,
-            child: FilledButton(
-              key: const Key('new_product_save'),
-              onPressed: _save,
-              child: const Text('Salvar'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _field(
-    TextEditingController controller,
-    String label, {
-    required Key key,
-    bool number = false,
-  }) {
-    return TextField(
-      key: key,
-      controller: controller,
-      keyboardType: number
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : TextInputType.text,
-      textCapitalization: number
-          ? TextCapitalization.none
-          : TextCapitalization.sentences,
-      style: const TextStyle(fontSize: 16),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontSize: 14),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Future<void> _save() async {
-    final name = _name.text.trim();
-    if (name.isEmpty) {
-      setState(() {
-        _error = true;
-        _errorMessage = 'Informe o nome do produto.';
-      });
-      return;
-    }
-    final sku = _sku.text.trim().isEmpty
-        ? _skuFromId(name)
-        : _sku.text.trim().toUpperCase();
-    final price = _price.text.trim().isEmpty
-        ? 0
-        : _parsePriceCents(_price.text);
-    if (price == null) {
-      setState(() {
-        _error = true;
-        _errorMessage = 'Informe o preço em reais.';
-      });
-      return;
-    }
-    if (di.sl.isRegistered<CatalogRepository>()) {
-      final quantity = parseBaseQuantity(CatalogUnit.piece, _stock.text);
-      if (quantity == null) {
-        setState(() {
-          _error = true;
-          _errorMessage = 'Unidade usa quantidade inteira.';
-        });
-        return;
-      }
-      final result = await di.sl<CatalogRepository>().createProduct(
-        ProductDraft(
-          name: name,
-          sku: sku,
-          unit: CatalogUnit.piece,
-          salePriceCents: price,
-          openingLocation: StockLocationCode.warehouse,
-          openingQuantity: quantity,
-        ),
-      );
-      if (!mounted) return;
-      final saved = result.fold<ProductStock?>((failure) {
-        setState(() {
-          _error = true;
-          _errorMessage = catalogFailureMessage(failure);
-        });
-        return null;
-      }, (stock) => stock);
-      if (saved == null) return;
-      if (di.sl.isRegistered<CompanyOperationBloc>()) {
-        di.sl<CompanyOperationBloc>().add(const CompanyOperationRequested());
-      }
-      Navigator.of(context).pop(
-        _CatalogRow(
-          product: StockProduct(
-            id: saved.product.id,
-            name: saved.product.name,
-            unit: StockUnit.piece,
-            available: saved.total.toDouble(),
-            low: saved.low,
-          ),
-          sku: saved.product.sku ?? sku,
-          priceCents: saved.product.salePriceCents,
-        ),
-      );
-      return;
-    }
-    final stock = double.tryParse(_stock.text.trim().replaceAll(',', '.')) ?? 0;
-    final id = 'product-${sku.toLowerCase()}';
-    Navigator.of(context).pop(
-      _CatalogRow(
-        product: StockProduct(
-          id: id,
-          name: name,
-          unit: StockUnit.piece,
-          available: stock,
-          low: false,
-        ),
-        sku: sku,
-        priceCents: price,
-      ),
-    );
-  }
-}
-
 String _skuFromId(String id) {
   final raw = id.startsWith('product-') ? id.substring('product-'.length) : id;
   return raw.toUpperCase();
+}
+
+String _catalogInitial(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return '#';
+  final raw = trimmed[0].toUpperCase();
+  const from = 'ÁÀÂÃÄÅÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ';
+  const to = 'AAAAAAEEEEIIIIOOOOOUUUUCN';
+  final index = from.indexOf(raw);
+  final letter = index >= 0 ? to[index] : raw;
+  if (letter.compareTo('A') < 0 || letter.compareTo('Z') > 0) return '#';
+  return letter;
 }
 
 String _stockUnitLabel(StockProduct product) {
@@ -1702,27 +1666,14 @@ class _NoteLineRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (onEdit != null)
-                _Pill(
-                  label: 'Editar',
-                  background: const Color(0xFFFFF4CC),
-                  foreground: const Color(0xFF8A6A2F),
-                  tapKey: Key('edit_${line.name}'),
-                  onTap: onEdit,
-                ),
-              const SizedBox(height: 10),
-              Text(
-                formatBrl(line.totalCents),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+          if (onEdit != null)
+            _Pill(
+              label: 'Editar',
+              background: const Color(0xFFFFF4CC),
+              foreground: const Color(0xFF8A6A2F),
+              tapKey: Key('edit_${line.name}'),
+              onTap: onEdit,
+            ),
         ],
       ),
     );
@@ -1746,7 +1697,7 @@ class _SaleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final day = _saleDate(ledger, order);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(top: 8),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1917,7 +1868,7 @@ class _SaleItemsPageState extends State<_SaleItemsPage> {
 
   Future<void> _edit(int index) async {
     final line = _lines[index];
-    final result = await _showItemEditSheet(
+    final result = await showPouItemEditSheet(
       context,
       name: line.productName,
       quantity: line.quantity,
@@ -1992,333 +1943,6 @@ class _ItemRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ItemEdit {
-  const _ItemEdit({required this.quantity, required this.unitPriceCents})
-    : deleted = false;
-
-  const _ItemEdit.deleted()
-    : quantity = 0,
-      unitPriceCents = 0,
-      deleted = true;
-
-  final double quantity;
-  final int unitPriceCents;
-  final bool deleted;
-}
-
-Future<_ItemEdit?> _showItemEditSheet(
-  BuildContext context, {
-  required String name,
-  required double quantity,
-  required int unitPriceCents,
-  bool canDelete = false,
-}) {
-  return showModalBottomSheet<_ItemEdit>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: false,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (context) => _ItemEditSheet(
-      name: name,
-      quantity: quantity,
-      unitPriceCents: unitPriceCents,
-      canDelete: canDelete,
-    ),
-  );
-}
-
-class _ItemEditSheet extends StatefulWidget {
-  const _ItemEditSheet({
-    required this.name,
-    required this.quantity,
-    required this.unitPriceCents,
-    this.canDelete = false,
-  });
-
-  final String name;
-  final double quantity;
-  final int unitPriceCents;
-  final bool canDelete;
-
-  @override
-  State<_ItemEditSheet> createState() => _ItemEditSheetState();
-}
-
-class _ItemEditSheetState extends State<_ItemEditSheet> {
-  late var _quantity = widget.quantity;
-  late final _priceFocus = FocusNode();
-  late final _priceController = TextEditingController(
-    text: _priceText(widget.unitPriceCents),
-  );
-  var _error = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _priceFocus.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _priceFocus.dispose();
-    _priceController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final quantityLabel = _quantity.toStringAsFixed(1).replaceAll('.', ',');
-    return MediaQuery.removePadding(
-      context: context,
-      removeBottom: true,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: keyboard),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE4E7EB),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _CatalogPhoto(name: widget.name),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          widget.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (widget.canDelete)
-                        TextButton(
-                          key: const Key('delete_product'),
-                          onPressed: _delete,
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFB42318),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          child: const Text('Excluir'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Quantidade',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-                  ),
-                  const SizedBox(height: 8),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF6F5F7),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        _StepButton(
-                          key: const Key('item_quantity_minus'),
-                          icon: Icons.remove,
-                          enabled: _quantity > 1,
-                          onPressed: () => _changeQuantity(-1),
-                        ),
-                        Expanded(
-                          child: Text(
-                            quantityLabel,
-                            key: const Key('item_quantity'),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        _StepButton(
-                          key: const Key('item_quantity_plus'),
-                          icon: Icons.add,
-                          onPressed: () => _changeQuantity(1),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    key: const Key('item_price'),
-                    controller: _priceController,
-                    focusNode: _priceFocus,
-                    autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    textInputAction: TextInputAction.done,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Preço',
-                      labelStyle: const TextStyle(fontSize: 14),
-                      prefixText: 'R\$ ',
-                      prefixStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0E0D0F),
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF6F5F7),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: pouAppBlue),
-                      ),
-                    ),
-                  ),
-                  if (_error) ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Informe um preço válido.',
-                      style: TextStyle(fontSize: 14, color: Color(0xFFC62828)),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: SizedBox(
-                height: 56,
-                child: FilledButton(
-                  key: const Key('item_save'),
-                  onPressed: _save,
-                  child: const Text('Salvar'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Excluir produto'),
-          content: Text('Excluir ${widget.name}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              key: const Key('confirm_delete_product'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Excluir'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true || !mounted) return;
-    Navigator.of(context).pop(const _ItemEdit.deleted());
-  }
-
-  void _changeQuantity(double delta) {
-    final next = _quantity + delta;
-    if (next < 1) return;
-    setState(() => _quantity = next);
-  }
-
-  void _save() {
-    final price = _parsePriceCents(_priceController.text);
-    if (price == null) {
-      setState(() => _error = true);
-      return;
-    }
-    Navigator.of(context)
-        .pop(_ItemEdit(quantity: _quantity, unitPriceCents: price));
-  }
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({
-    super.key,
-    required this.icon,
-    required this.onPressed,
-    this.enabled = true,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: enabled ? onPressed : null,
-      icon: Icon(icon),
-      color: pouAppBlue,
-      disabledColor: const Color(0xFFB0B7C3),
-      iconSize: 22,
-    );
-  }
-}
-
-String _priceText(int cents) {
-  final whole = cents ~/ 100;
-  final fraction = (cents % 100).toString().padLeft(2, '0');
-  return '$whole,$fraction';
-}
-
-int? _parsePriceCents(String raw) {
-  final cleaned = raw.trim().replaceAll('R\$', '').replaceAll(' ', '');
-  if (cleaned.isEmpty) return null;
-  final normalized = cleaned.contains(',')
-      ? cleaned.replaceAll('.', '').replaceAll(',', '.')
-      : cleaned;
-  final value = double.tryParse(normalized);
-  if (value == null || value < 0) return null;
-  return (value * 100).round();
 }
 
 class _Pill extends StatelessWidget {

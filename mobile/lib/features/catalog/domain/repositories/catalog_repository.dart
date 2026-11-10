@@ -30,6 +30,11 @@ abstract class CatalogRepository {
     required bool active,
   });
 
+  Future<Either<Failure, ProductStock>> setSalePrice({
+    required String id,
+    required int salePriceCents,
+  });
+
   /// Removes the product and its stock from this phone.
   Future<Either<Failure, Unit>> deleteProduct(String id);
 

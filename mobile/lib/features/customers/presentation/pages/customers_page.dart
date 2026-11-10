@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/pou_app_colors.dart';
 
 import '../../../../injection_container.dart' as di;
-import '../../../assistant/presentation/widgets/voice_mic.dart';
 import '../../domain/entities/customer.dart';
 import '../bloc/customers_bloc.dart';
 import '../customer_messages.dart';
@@ -132,7 +131,12 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                               index < state.items.length;
                               index++
                             ) ...[
-                              if (index > 0) const Divider(height: 1),
+                              if (index > 0)
+                                const Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: Color(0xFFE9E8EB),
+                                ),
                               ListTile(
                                 key: Key('customer_${state.items[index].id}'),
                                 title: Text(
@@ -222,7 +226,6 @@ class _CustomersViewState extends State<CustomersView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Clientes')),
-      floatingActionButtonLocation: const AboveVoiceMicLocation(),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('customer_add'),
         onPressed: () => _openForm(context),
@@ -338,8 +341,11 @@ class _CustomersViewState extends State<CustomersView> {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: state.items.length + (state.hasMore ? 1 : 0),
-                      separatorBuilder: (context, index) =>
-                          const Divider(height: 1),
+                      separatorBuilder: (context, index) => const Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Color(0xFFE9E8EB),
+                      ),
                       itemBuilder: (context, index) {
                         if (index >= state.items.length) {
                           return Padding(

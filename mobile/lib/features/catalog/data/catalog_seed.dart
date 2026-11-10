@@ -34,6 +34,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 600000,
     minimum: 50000,
     sortIndex: 2,
+    salePriceCents: 450,
   ),
   DemoCatalogProduct(
     id: 'product-batata',
@@ -42,6 +43,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 800000,
     minimum: 80000,
     sortIndex: 3,
+    salePriceCents: 450,
   ),
   DemoCatalogProduct(
     id: 'product-banana',
@@ -50,6 +52,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 40,
     minimum: 10,
     sortIndex: 4,
+    salePriceCents: 590,
   ),
   DemoCatalogProduct(
     id: 'product-tomate',
@@ -58,6 +61,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 14,
     minimum: 5,
     sortIndex: 5,
+    salePriceCents: 5900,
   ),
   DemoCatalogProduct(
     id: 'product-alface',
@@ -66,6 +70,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 40,
     minimum: 10,
     sortIndex: 6,
+    salePriceCents: 350,
   ),
   DemoCatalogProduct(
     id: 'product-laranja',
@@ -74,6 +79,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 22000,
     minimum: 30000,
     sortIndex: 7,
+    salePriceCents: 490,
   ),
   DemoCatalogProduct(
     id: 'product-mamao',
@@ -82,6 +88,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 8000,
     minimum: 15000,
     sortIndex: 8,
+    salePriceCents: 690,
   ),
   DemoCatalogProduct(
     id: 'product-limao',
@@ -90,6 +97,7 @@ const demoCatalogProducts = <DemoCatalogProduct>[
     quantity: 6000,
     minimum: 10000,
     sortIndex: 9,
+    salePriceCents: 690,
   ),
   DemoCatalogProduct(
     id: 'product-melancia',

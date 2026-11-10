@@ -51,18 +51,22 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('WhatsApp'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('action_new_sale')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(
         find.byKey(const Key('action_new_sale')).hitTestable(),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const Key('voice_assistant_button')).hitTestable(),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Assistente de voz'), findsOneWidget);
+      expect(find.byKey(const Key('voice_assistant_button')), findsNothing);
+      expect(find.byTooltip('Assistente de voz'), findsNothing);
       expect(find.text('Sandy'), findsOneWidget);
-      expect(find.byKey(const Key('header_month_billed')), findsOneWidget);
-      expect(find.byKey(const Key('header_month_delta')), findsOneWidget);
+      expect(find.text('Faturado'), findsNothing);
+      expect(find.textContaining('Em aberto'), findsNothing);
+      expect(find.byKey(const Key('header_month_billed')), findsNothing);
+      expect(find.byKey(const Key('header_month_delta')), findsNothing);
       expect(find.textContaining('R\$'), findsWidgets);
       expect(
         tester
@@ -99,7 +103,7 @@ void main() {
       expect(find.text('Marina Costa'), findsWidgets);
     });
 
-    testWidgets('opens customer details and notes from the visit name', (
+    testWidgets('opens the same customer note screen from the visit name', (
       tester,
     ) async {
       await signIn(tester);
@@ -107,29 +111,15 @@ void main() {
       await tester.tap(find.byKey(const Key('visit_customer_visit-primavera')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('visit_customer_profile')), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Marina Costa'), findsOneWidget);
+      expect(find.byKey(const Key('customer_open_balance')), findsOneWidget);
+      expect(find.byKey(const Key('receive_payment')), findsOneWidget);
+      expect(find.text('Vencimento'), findsOneWidget);
+      expect(find.byKey(const Key('customer_due_date')), findsOneWidget);
+      expect(find.text('Enviar cobrança Pix'), findsNothing);
       expect(find.text('Documento'), findsNothing);
       expect(find.text('Endereços'), findsNothing);
       expect(find.text('Contatos'), findsNothing);
-      expect(find.text('(11) 98888-7777'), findsOneWidget);
-      expect(find.byKey(const Key('customer_whatsapp')), findsOneWidget);
-      expect(find.text('Nota 1042'), findsOneWidget);
-      expect(find.textContaining('Banana nanica'), findsOneWidget);
-      expect(find.text('1 kg · R\$ 5,90'), findsWidgets);
-      expect(find.text('Alface crespa'), findsOneWidget);
-      expect(find.text('1 maço · R\$ 3,50'), findsOneWidget);
-      expect(find.text('Valor da nota'), findsWidgets);
-      expect(find.text('R\$ 33,60'), findsWidgets);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('add_visit_product')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('visit_customer_profile')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      expect(find.text('Adicionar produto'), findsOneWidget);
-      expect(find.text('Batata'), findsNothing);
     });
 
     testWidgets('Nova venda adds a person to the delivery list', (

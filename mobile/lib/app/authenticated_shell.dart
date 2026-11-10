@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../features/assistant/presentation/widgets/voice_mic.dart';
 import '../features/customers/presentation/customer_routes.dart';
 import '../features/customers/presentation/pages/customer_details_page.dart';
 import '../features/customers/presentation/pages/customer_form_page.dart';
@@ -20,9 +19,7 @@ class AuthenticatedShell extends StatefulWidget {
 
 class _AuthenticatedShellState extends State<AuthenticatedShell> {
   final _navigatorKey = GlobalKey<NavigatorState>();
-  final _pageName = ValueNotifier<String?>(null);
   late final _ShellObserver _observer = _ShellObserver(_syncPop);
-  late final VoiceMicObserver _mic = VoiceMicObserver(_pageName);
   var _nestedCanPop = false;
 
   void _syncPop() {
@@ -36,13 +33,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
   }
 
   @override
-  void dispose() {
-    _mic.dispose();
-    _pageName.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !_nestedCanPop,
@@ -52,7 +42,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
       },
       child: Navigator(
         key: _navigatorKey,
-        observers: [_observer, _mic],
+        observers: [_observer],
         initialRoute: CustomerRoutes.home,
         onGenerateRoute: _onGenerateRoute,
       ),

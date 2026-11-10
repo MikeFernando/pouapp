@@ -8,6 +8,7 @@ import '../../../../app/rounded_navigation_scaffold.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
+import '../../../customers/presentation/customer_routes.dart';
 import '../../../customers/presentation/pages/customers_page.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
@@ -20,7 +21,6 @@ import 'add_delivery_page.dart';
 import 'business_settings_page.dart';
 import 'finance_page.dart';
 import 'provisional_action_page.dart';
-import 'visit_customer_page.dart';
 
 class WorkspacePage extends StatelessWidget {
   const WorkspacePage({super.key});
@@ -112,7 +112,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                             children: [
                               _WorkspaceHeader(
                                 message: logoutError,
-                                billed: _monthBilled(context),
                                 snapshot: _monthSnapshot(context),
                               ),
                               Expanded(
@@ -167,18 +166,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   }
 
   void _openVisitCustomer(RouteVisit visit) {
-    final bloc = context.read<CompanyOperationBloc>();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider.value(
-          value: bloc,
-          child: VisitCustomerPage(
-            customerId: visit.customerId,
-            customerName: visit.customerName,
-          ),
-        ),
-      ),
-    );
+    Navigator.of(context).pushNamed(CustomerRoutes.details(visit.customerId));
   }
 
   void _addDeliveryPerson() {
@@ -224,14 +212,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     );
   }
 
-  MonthBilledDelta _monthBilled(BuildContext context) {
-    final operation = context.watch<CompanyOperationBloc>().state.operation;
-    return monthBilledDelta(
-      sales: operation?.postedSales ?? const [],
-      today: DateTime.now(),
-    );
-  }
-
   MonthSnapshot _monthSnapshot(BuildContext context) {
     final operation = context.watch<CompanyOperationBloc>().state.operation;
     final now = DateTime.now();
@@ -246,12 +226,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 class _WorkspaceHeader extends StatelessWidget {
   const _WorkspaceHeader({
     required this.message,
-    required this.billed,
     required this.snapshot,
   });
 
   final String? message;
-  final MonthBilledDelta billed;
   final MonthSnapshot snapshot;
 
   static const _ink = pouInk;
@@ -259,7 +237,6 @@ class _WorkspaceHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fraction = (snapshot.receivedPercent / 100).clamp(0.0, 1.0);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
@@ -332,56 +309,6 @@ class _WorkspaceHeader extends StatelessWidget {
                       letterSpacing: -1.2,
                       height: 1,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Faturado',
-                        style: TextStyle(
-                          color: _ink,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '\$${_usdNumber(billed.billedCents)}',
-                      key: const Key('header_month_billed'),
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                if (fraction > 0) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: fraction,
-                      child: const DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: _ink,
-                          borderRadius: BorderRadius.all(Radius.circular(2)),
-                        ),
-                        child: SizedBox(height: 3, width: double.infinity),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Text(
-                  'Em aberto \$${_usdNumber(snapshot.openCents)}',
-                  key: const Key('header_month_delta'),
-                  style: const TextStyle(
-                    color: _muted,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (message != null) ...[

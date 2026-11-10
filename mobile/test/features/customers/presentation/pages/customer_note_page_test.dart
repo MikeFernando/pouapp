@@ -36,10 +36,11 @@ void main() {
 
     expect(find.text('Rascunho'), findsOneWidget);
     expect(find.text('Aprovado'), findsNothing);
-    expect(find.text('Total desta nota'), findsOneWidget);
+    expect(find.text('Total desta nota'), findsNothing);
+    expect(find.text('Saldo em aberto'), findsOneWidget);
     expect(find.text('Itens (0)'), findsOneWidget);
     expect(find.text('Nenhum item nesta nota.'), findsOneWidget);
-    expect(_balance(tester), 'R\$ 0,00');
+    expect(_openBalance(tester), 'R\$ 0,00');
     final operation = di.sl<CompanyOperationBloc>().state.operation!;
     final sold = operation.summary.soldCents;
     final received = operation.summary.receivedCents;
@@ -48,7 +49,7 @@ void main() {
     await _saveItem(tester, price: '10,00');
     expect(find.text('Itens (1)'), findsOneWidget);
     expect(find.text('1.0 x R\$ 10,00'), findsOneWidget);
-    expect(_balance(tester), 'R\$ 10,00');
+    expect(_noteTotal(tester), 'R\$ 10,00');
 
     await tester.ensureVisible(find.byKey(const Key('edit_Banana nanica')));
     await tester.tap(find.byKey(const Key('edit_Banana nanica')));
@@ -61,8 +62,9 @@ void main() {
     await tester.tap(find.byKey(const Key('item_save')));
     await tester.pumpAndSettle();
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
-    expect(_balance(tester), 'R\$ 36,00');
+    expect(_noteTotal(tester), 'R\$ 36,00');
 
+    await tester.ensureVisible(find.byKey(const Key('due_calendar')));
     await tester.tap(find.byKey(const Key('due_calendar')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('due_day_15')));
@@ -73,7 +75,7 @@ void main() {
 
     final saved = await _real(tester, () => _draft(ana.id));
     expect(saved.lines.single.productId, 'product-banana');
-    expect(saved.lines.single.quantity, 3000);
+    expect(saved.lines.single.quantity, 3);
     expect(saved.lines.single.unitPriceCents, 1200);
     expect(saved.dueOn?.day, 15);
     expect(saved.totalCents, 3600);
@@ -90,7 +92,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
-    expect(_balance(tester), 'R\$ 36,00');
+    expect(_noteTotal(tester), 'R\$ 36,00');
     expect(_due(tester), startsWith('15/'));
     expect(find.text('Rascunho'), findsOneWidget);
     final reopened = await _real(tester, () => _draft(ana.id));
@@ -108,11 +110,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Itens (0)'), findsOneWidget);
     expect(find.text('Banana nanica'), findsNothing);
-    expect(_balance(tester), 'R\$ 0,00');
+    expect(_openBalance(tester), 'R\$ 0,00');
+    expect(find.byKey(const Key('customer_note_total')), findsNothing);
     expect((await _real(tester, () => _draft(bia.id))).id, isNot(saved.id));
 
     expect(await _real(tester, _bananaGrams), bananaBefore);
-    expect(bananaBefore, 86000);
     final after = di.sl<CompanyOperationBloc>().state.operation!;
     expect(after.summary.soldCents, sold);
     expect(after.summary.receivedCents, received);
@@ -137,7 +139,8 @@ void main() {
     expect(find.text('Itens (0)'), findsOneWidget);
     expect(find.text('Banana nanica'), findsNothing);
     expect(find.textContaining('salvo'), findsNothing);
-    expect(_balance(tester), 'R\$ 0,00');
+    expect(_openBalance(tester), 'R\$ 0,00');
+    expect(find.byKey(const Key('customer_note_total')), findsNothing);
   });
 }
 
@@ -172,9 +175,15 @@ Future<int> _bananaGrams() async {
   );
 }
 
-String _balance(WidgetTester tester) {
+String _openBalance(WidgetTester tester) {
   return tester
       .widget<Text>(find.byKey(const Key('customer_open_balance')))
+      .data!;
+}
+
+String _noteTotal(WidgetTester tester) {
+  return tester
+      .widget<Text>(find.byKey(const Key('customer_note_total')))
       .data!;
 }
 
@@ -186,7 +195,13 @@ Future<void> _saveItem(WidgetTester tester, {required String price}) async {
   await tester.ensureVisible(find.byKey(const Key('add_item')));
   await tester.tap(find.byKey(const Key('add_item')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const Key('catalog_product-banana')));
+  final banana = find.byKey(const Key('catalog_product-banana'));
+  await tester.scrollUntilVisible(
+    banana,
+    200,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tester.tap(banana);
   await tester.pumpAndSettle();
   await tester.enterText(find.byKey(const Key('item_price')), price);
   await tester.tap(find.byKey(const Key('item_save')));

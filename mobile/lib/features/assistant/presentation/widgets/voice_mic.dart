@@ -18,6 +18,7 @@ class VoiceMicObserver extends NavigatorObserver {
   var _inserted = false;
   var _pending = false;
   var _disposed = false;
+  var _popupDepth = 0;
 
   void dispose() {
     _disposed = true;
@@ -26,25 +27,42 @@ class VoiceMicObserver extends NavigatorObserver {
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (route is! PopupRoute) pageName.value = route.settings.name;
+    if (route is PopupRoute) {
+      _popupDepth++;
+    } else {
+      pageName.value = route.settings.name;
+    }
     _place();
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (route is! PopupRoute) pageName.value = previousRoute?.settings.name;
+    if (route is PopupRoute) {
+      if (_popupDepth > 0) _popupDepth--;
+    } else {
+      pageName.value = previousRoute?.settings.name;
+    }
     _place();
   }
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (route is! PopupRoute) pageName.value = previousRoute?.settings.name;
+    if (route is PopupRoute) {
+      if (_popupDepth > 0) _popupDepth--;
+    } else {
+      pageName.value = previousRoute?.settings.name;
+    }
     _place();
   }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    if (newRoute is! PopupRoute) pageName.value = newRoute?.settings.name;
+    if (oldRoute is PopupRoute && _popupDepth > 0) _popupDepth--;
+    if (newRoute is PopupRoute) {
+      _popupDepth++;
+    } else {
+      pageName.value = newRoute?.settings.name;
+    }
     _place();
   }
 
@@ -54,24 +72,11 @@ class VoiceMicObserver extends NavigatorObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) => _insert());
   }
 
-  void _insert({int attempt = 0}) {
+  void _insert() {
     _pending = false;
     if (_disposed) return;
-    final overlay = navigator?.overlay;
-    if (overlay == null) {
-      if (attempt >= 5) return;
-      _pending = true;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _insert(attempt: attempt + 1),
-      );
-      return;
-    }
+    // Voice mic FAB is disabled on every screen.
     _remove();
-    _entry = OverlayEntry(
-      builder: (context) => VoiceMicLayer(pageName: pageName),
-    );
-    overlay.insert(_entry!);
-    _inserted = true;
   }
 
   void _remove() {
@@ -89,17 +94,24 @@ class VoiceMicLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onHome =
-        pageName.value == null || pageName.value == CustomerRoutes.home;
-    final bottom =
-        16 +
-        (onHome ? RoundedBottomNavigationBar.itemExtent : 0) +
-        MediaQuery.paddingOf(context).bottom +
-        MediaQuery.viewInsetsOf(context).bottom;
-    return Positioned(
-      right: 16,
-      bottom: bottom,
-      child: VoiceAssistantButton(pageName: pageName),
+    return ValueListenableBuilder<String?>(
+      valueListenable: pageName,
+      builder: (context, name, _) {
+        if (customerIdFromVoiceRoute(name) != null) {
+          return const SizedBox.shrink();
+        }
+        final onHome = name == null || name == CustomerRoutes.home;
+        final bottom =
+            16 +
+            (onHome ? RoundedBottomNavigationBar.itemExtent : 0) +
+            MediaQuery.paddingOf(context).bottom +
+            MediaQuery.viewInsetsOf(context).bottom;
+        return Positioned(
+          right: 16,
+          bottom: bottom,
+          child: VoiceAssistantButton(pageName: pageName),
+        );
+      },
     );
   }
 }

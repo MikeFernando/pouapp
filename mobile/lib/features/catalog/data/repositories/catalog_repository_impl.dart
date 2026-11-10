@@ -72,6 +72,19 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
+  Future<Either<Failure, ProductStock>> setSalePrice({
+    required String id,
+    required int salePriceCents,
+  }) {
+    return _guard(
+      () => localDataSource.setSalePrice(
+        id: id,
+        salePriceCents: salePriceCents,
+      ),
+    );
+  }
+
+  @override
   Future<Either<Failure, Unit>> deleteProduct(String id) {
     return _guard(() async {
       await localDataSource.deleteProduct(id);

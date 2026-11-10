@@ -10,7 +10,6 @@ import '../../../workspace/domain/entities/street_ledger.dart';
 import '../../../workspace/domain/rules/receivable_rules.dart'
     hide paymentMethodLabel;
 import '../../../workspace/presentation/operation_labels.dart';
-import '../../../workspace/presentation/pages/charge_page.dart';
 import '../../../workspace/presentation/pages/receipt_page.dart';
 import '../../domain/entities/customer.dart';
 
@@ -80,11 +79,11 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (!sl.isRegistered<ReceivableStore>()) return const SizedBox.shrink();
+    final hasStore = sl.isRegistered<ReceivableStore>();
     final account = _account;
-    final balance = account?.balanceCents;
+    final balance = hasStore ? account?.balanceCents : 0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -104,43 +103,26 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
                     : balance < 0
                     ? 'Crédito de ${formatBrl(-balance)}'
                     : formatBrl(balance),
-                key: const Key('customer_account_balance'),
+                key: const Key('customer_open_balance'),
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 16),
-              FilledButton(
-                key: const Key('receive_payment'),
-                style: notePrimaryButton(),
-                onPressed: () => _open(
-                  ReceiptPage(
-                    customerId: widget.customer.id,
-                    customerName: widget.customer.name,
+              if (hasStore) ...[
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const Key('receive_payment'),
+                  style: notePrimaryButton(),
+                  onPressed: () => _open(
+                    ReceiptPage(
+                      customerId: widget.customer.id,
+                      customerName: widget.customer.name,
+                    ),
                   ),
+                  child: const Text('Receber pagamento'),
                 ),
-                child: const Text('Receber pagamento'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                key: const Key('send_pix_charge'),
-                style: noteSecondaryButton(),
-                onPressed: () =>
-                    _open(ChargePage(customerId: widget.customer.id)),
-                child: const Text('Enviar cobrança Pix'),
-              ),
-              TextButton(
-                key: const Key('register_opening_debt'),
-                style: noteQuietButton(),
-                onPressed: () => _open(
-                  OpeningDebtPage(
-                    customerId: widget.customer.id,
-                    customerName: widget.customer.name,
-                  ),
-                ),
-                child: const Text('Registrar saldo inicial'),
-              ),
+              ],
               if (account != null)
                 for (final receipt in account.receipts)
                   ListTile(

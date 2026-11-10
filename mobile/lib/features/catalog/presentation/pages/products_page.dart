@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/pou_app_colors.dart';
+import '../../../../app/pou_item_edit_sheet.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/catalog.dart';
 import '../../domain/repositories/catalog_repository.dart';
@@ -76,6 +77,64 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
+  Future<void> _edit(CatalogProduct product) async {
+    final result = await showPouItemEditSheet(
+      context,
+      name: product.name,
+      unitPriceCents: product.salePriceCents,
+      allowRemove: true,
+      showAvailability: true,
+      available: product.active,
+      removeTitle: 'Remover produto',
+      removeMessage: 'Remover ${product.name} do catálogo?',
+      removeButtonKey: Key('remove_product_${product.id}'),
+      confirmRemoveKey: Key('confirm_remove_product_${product.id}'),
+    );
+    if (result == null || !mounted) return;
+    if (result.removed) {
+      await _delete(product);
+      return;
+    }
+    final catalog = sl<CatalogRepository>();
+    final saved = await catalog.setSalePrice(
+      id: product.id,
+      salePriceCents: result.unitPriceCents,
+    );
+    if (!mounted) return;
+    final priceFailed = saved.fold((failure) {
+      _tell(catalogFailureMessage(failure));
+      return true;
+    }, (_) => false);
+    if (priceFailed) return;
+    if (result.available != product.active) {
+      final toggled = await catalog.setActive(
+        id: product.id,
+        active: result.available,
+      );
+      if (!mounted) return;
+      toggled.fold(
+        (failure) => _tell(catalogFailureMessage(failure)),
+        (_) => _load(silent: true),
+      );
+      return;
+    }
+    await _load(silent: true);
+  }
+
+  Future<void> _addProduct() async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => const _NewProductSheet(),
+    );
+    if (created == true && mounted) await _load(silent: true);
+  }
+
   void _tell(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -96,32 +155,49 @@ class _ProductsPageState extends State<ProductsPage> {
       color: pouCanvas,
       child: SafeArea(
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: TextField(
-                key: const Key('products_search'),
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  hintText: 'Buscar produto',
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: TextField(
+                    key: const Key('products_search'),
+                    controller: _search,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar produto',
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
                 ),
+                Expanded(child: _body(products)),
+              ],
+            ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                key: const Key('product_add'),
+                heroTag: 'product_add',
+                tooltip: 'Novo produto',
+                backgroundColor: pouInk,
+                foregroundColor: Colors.white,
+                onPressed: _addProduct,
+                child: const Icon(Icons.add),
               ),
             ),
-            Expanded(child: _body(products)),
           ],
         ),
       ),
@@ -157,7 +233,7 @@ class _ProductsPageState extends State<ProductsPage> {
     }
     return ListView.separated(
       key: const Key('products_list'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
       itemCount: products.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
@@ -166,6 +242,7 @@ class _ProductsPageState extends State<ProductsPage> {
           row: row,
           onToggle: () => _setAvailable(row.product, !row.product.active),
           onDelete: () => _delete(row.product),
+          onEdit: () => _edit(row.product),
         );
       },
     );
@@ -177,11 +254,13 @@ class _ProductCard extends StatefulWidget {
     required this.row,
     required this.onToggle,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final ProductStock row;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   @override
   State<_ProductCard> createState() => _ProductCardState();
@@ -239,21 +318,27 @@ class _ProductCardState extends State<_ProductCard> {
                       'SKU: ${_sku(product)}',
                       style: TextStyle(fontSize: 13, color: detailColor),
                     ),
-                    Text(
-                      'Estoque: ${formatBaseQuantity(product.unit, widget.row.total)}',
-                      style: TextStyle(fontSize: 13, color: detailColor),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                formatReais(product.salePriceCents),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: titleColor,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _EditPill(
+                    key: Key('product_edit_${product.id}'),
+                    onTap: widget.onEdit,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    formatReais(product.salePriceCents),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: titleColor,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -377,6 +462,35 @@ class _ProductAction extends StatelessWidget {
   }
 }
 
+class _EditPill extends StatelessWidget {
+  const _EditPill({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFFF4D6),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Text(
+            'Editar',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF8A6A00),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ActiveBadge extends StatelessWidget {
   const _ActiveBadge({required this.active});
 
@@ -432,4 +546,189 @@ String _sku(CatalogProduct product) {
   final sku = product.sku?.trim();
   if (sku != null && sku.isNotEmpty) return sku.toUpperCase();
   return product.id.replaceFirst('product-', '').toUpperCase();
+}
+
+class _NewProductSheet extends StatefulWidget {
+  const _NewProductSheet();
+
+  @override
+  State<_NewProductSheet> createState() => _NewProductSheetState();
+}
+
+class _NewProductSheetState extends State<_NewProductSheet> {
+  final _name = TextEditingController();
+  final _price = TextEditingController();
+  var _unit = CatalogUnit.kilogram;
+  var _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Informe o nome do produto.');
+      return;
+    }
+    final price = parseReaisToCents(_price.text);
+    if (price == null) {
+      setState(() => _error = 'Informe um preço válido.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final result = await sl<CatalogRepository>().createProduct(
+      ProductDraft(
+        name: name,
+        unit: _unit,
+        salePriceCents: price,
+        openingLocation: StockLocationCode.warehouse,
+        openingQuantity: 0,
+      ),
+    );
+    if (!mounted) return;
+    result.fold(
+      (failure) => setState(() {
+        _saving = false;
+        _error = catalogFailureMessage(failure);
+      }),
+      (_) => Navigator.of(context).pop(true),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return MediaQuery.removePadding(
+      context: context,
+      removeBottom: true,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: keyboard),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4E7EB),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Novo produto',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: pouInk,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('new_product_name'),
+                controller: _name,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.next,
+                decoration: _fieldDecoration('Nome'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<CatalogUnit>(
+                key: const Key('new_product_unit'),
+                initialValue: _unit,
+                isDense: true,
+                iconSize: 20,
+                decoration: _fieldDecoration('Unidade'),
+                items: [
+                  for (final unit in CatalogUnit.values)
+                    DropdownMenuItem(
+                      value: unit,
+                      child: Text(_unitLabel(unit)),
+                    ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() => _unit = value);
+                      },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('new_product_price'),
+                controller: _price,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _saving ? null : _save(),
+                decoration: _fieldDecoration('Preço').copyWith(
+                  prefixText: 'R\$ ',
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFFC62828),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 56,
+                child: FilledButton(
+                  key: const Key('new_product_save'),
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? 'Salvando…' : 'Salvar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _fieldDecoration(String label) {
+  return InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: const Color(0xFFF6F5F7),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+    border: const OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: const OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      borderSide: BorderSide.none,
+    ),
+  );
+}
+
+String _unitLabel(CatalogUnit unit) {
+  return switch (unit) {
+    CatalogUnit.kilogram => 'Quilo (kg)',
+    CatalogUnit.piece => 'Unidade',
+    CatalogUnit.bunch => 'Maço',
+    CatalogUnit.box => 'Caixa',
+    CatalogUnit.dozen => 'Dúzia',
+  };
 }

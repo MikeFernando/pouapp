@@ -154,6 +154,7 @@ void main() {
                 unit: StockUnit.kilogram,
                 available: 86,
                 low: false,
+                salePriceCents: 590,
               ),
               StockProduct(
                 id: 'product-tomate',
@@ -161,6 +162,7 @@ void main() {
                 unit: StockUnit.box,
                 available: 14,
                 low: false,
+                salePriceCents: 5900,
               ),
               StockProduct(
                 id: 'product-alface',
@@ -168,6 +170,7 @@ void main() {
                 unit: StockUnit.piece,
                 available: 40,
                 low: false,
+                salePriceCents: 350,
               ),
               StockProduct(
                 id: 'product-laranja',
@@ -175,6 +178,7 @@ void main() {
                 unit: StockUnit.kilogram,
                 available: 22,
                 low: true,
+                salePriceCents: 490,
               ),
               StockProduct(
                 id: 'product-mamao',
@@ -182,6 +186,7 @@ void main() {
                 unit: StockUnit.kilogram,
                 available: 8,
                 low: true,
+                salePriceCents: 690,
               ),
             ],
             street: StreetLedger(orders: orders),
@@ -224,17 +229,18 @@ void main() {
       tester.widget<Text>(find.byKey(const Key('customer_open_balance'))).data,
       'R\$ 0,00',
     );
-    expect(find.text('Total desta nota'), findsOneWidget);
+    expect(find.text('Total desta nota'), findsNothing);
+    expect(find.text('Saldo em aberto'), findsOneWidget);
     expect(find.text('R\$ 186,40'), findsOneWidget);
-    final valueTop = tester
-        .getTopLeft(find.byKey(const Key('customer_note_value')))
-        .dy;
     final situationTop = tester.getTopLeft(find.text('Situação')).dy;
     final dueTop = tester.getTopLeft(find.text('Vencimento')).dy;
     final itemsTop = tester.getTopLeft(find.text('Itens (0)')).dy;
-    expect(situationTop, lessThan(valueTop));
-    expect(valueTop, lessThan(dueTop));
+    final balanceTop = tester
+        .getTopLeft(find.byKey(const Key('customer_open_balance')))
+        .dy;
+    expect(situationTop, lessThan(dueTop));
     expect(dueTop, lessThan(itemsTop));
+    expect(itemsTop, lessThan(balanceTop));
     expect(find.text('Situação'), findsOneWidget);
     expect(find.text('Rascunho'), findsOneWidget);
     expect(find.text('Aprovado'), findsNothing);
@@ -263,36 +269,71 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('add_item')));
     await tester.tap(find.byKey(const Key('add_item')));
     await tester.pumpAndSettle();
-    expect(find.text('Produtos'), findsOneWidget);
-    expect(find.text('Cadastrar novo produto'), findsOneWidget);
+    expect(find.text('Cadastrar novo produto'), findsNothing);
+    expect(find.byKey(const Key('voice_assistant_button')), findsNothing);
+    expect(find.byKey(const Key('catalog_alphabet')), findsOneWidget);
     expect(find.text('Alface crespa'), findsOneWidget);
+    final alphabet = tester.getRect(find.byKey(const Key('catalog_alphabet')));
+    final letterStep = alphabet.height / 26;
+    final letterA = Offset(
+      alphabet.center.dx,
+      alphabet.top + letterStep * 0.15,
+    );
+    final gesture = await tester.startGesture(letterA);
+    // Past touch slop so the alphabet drag recognizer wins over the sheet.
+    await gesture.moveBy(const Offset(0, 24));
+    await tester.pump();
+    final scales = tester
+        .widgetList<Transform>(
+          find.ancestor(
+            of: find.byKey(const Key('catalog_letter_A')),
+            matching: find.byType(Transform),
+          ),
+        )
+        .map((transform) => transform.transform.getMaxScaleOnAxis());
+    expect(scales.any((scale) => scale > 1.2), isTrue);
+    expect(find.byKey(const Key('catalog_product-alface')), findsOneWidget);
+    expect(find.byKey(const Key('catalog_product-banana')), findsNothing);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog_product-alface')), findsOneWidget);
+    expect(find.byKey(const Key('catalog_product-banana')), findsNothing);
+    await tester.tapAt(letterA);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog_product-banana')), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/produce/alface.jpg')),
       findsWidgets,
     );
-    await tester.tap(find.byKey(const Key('catalog_product-alface')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('delete_product')));
-    await tester.pumpAndSettle();
-    expect(find.text('Excluir Alface crespa?'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('confirm_delete_product')));
-    await tester.pumpAndSettle();
-    expect(find.text('Alface crespa'), findsNothing);
     expect(find.text('Laranja pera'), findsOneWidget);
+    final mamao = find.byKey(const Key('catalog_product-mamao'));
     await tester.scrollUntilVisible(
-      find.byKey(const Key('catalog_product-mamao')),
+      mamao,
       300,
+      scrollable: find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      ),
     );
+    await tester.ensureVisible(mamao);
+    await tester.pumpAndSettle();
     expect(find.text('Mamão formosa'), findsOneWidget);
     expect(find.text('SKU: MAMAO'), findsOneWidget);
     expect(find.text('Estoque: 8 kg'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('catalog_product-mamao')));
+    await tester.tap(mamao);
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delete_product')), findsNothing);
+    expect(find.text('Excluir'), findsNothing);
     expect(find.text('Quantidade'), findsOneWidget);
-    expect(find.text('Preço'), findsOneWidget);
+    expect(find.text('Preço nesta nota'), findsOneWidget);
+    expect(find.textContaining('Tabela R\$ 6,90'), findsOneWidget);
+    expect(find.text('Adicionar por R\$ 6,90'), findsOneWidget);
     expect(
       find.descendant(
-        of: find.byType(BottomSheet),
+        of: find.ancestor(
+          of: find.text('Quantidade'),
+          matching: find.byType(BottomSheet),
+        ),
         matching: find.image(const AssetImage('assets/produce/mamao.jpg')),
       ),
       findsOneWidget,
@@ -304,6 +345,8 @@ void main() {
     );
     expect(price.focusNode!.hasFocus, isTrue);
     await tester.enterText(find.byKey(const Key('item_price')), '5,00');
+    await tester.pump();
+    expect(find.text('Adicionar por R\$ 5,00'), findsOneWidget);
     await tester.tap(find.byKey(const Key('item_save')));
     await tester.pumpAndSettle();
     expect(find.text('Mamão formosa'), findsOneWidget);
@@ -314,13 +357,15 @@ void main() {
     );
     expect(find.text('1.0 x R\$ 5,00'), findsOneWidget);
     expect(
-      tester.widget<Text>(find.byKey(const Key('customer_open_balance'))).data,
+      tester.widget<Text>(find.byKey(const Key('customer_note_total'))).data,
       'R\$ 5,00',
     );
 
     await tester.ensureVisible(find.byKey(const Key('edit_Mamão formosa')));
     await tester.tap(find.byKey(const Key('edit_Mamão formosa')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('remove_note_item')), findsOneWidget);
+    expect(find.text('Salvar'), findsOneWidget);
     await tester.tap(find.byKey(const Key('item_quantity_plus')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('item_quantity_plus')));
@@ -331,11 +376,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
     expect(find.text('R\$ 36,00'), findsWidgets);
-    await tester.ensureVisible(find.byKey(const Key('customer_open_balance')));
-    expect(
-      tester.widget<Text>(find.byKey(const Key('customer_open_balance'))).data,
-      'R\$ 36,00',
-    );
+    await tester.ensureVisible(find.byKey(const Key('edit_Mamão formosa')));
+    await tester.tap(find.byKey(const Key('edit_Mamão formosa')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('remove_note_item')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm_remove_note_item')));
+    await tester.pumpAndSettle();
+    expect(find.text('Mamão formosa'), findsNothing);
+    expect(find.text('Itens (0)'), findsOneWidget);
+    expect(find.byKey(const Key('note_items_empty')), findsOneWidget);
+    expect(find.byKey(const Key('customer_note_total')), findsNothing);
     expect(find.text('#1042'), findsNothing);
     expect(find.text('Tomate italiano'), findsNothing);
     expect(find.text('joao@example.com'), findsNothing);

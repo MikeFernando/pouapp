@@ -92,6 +92,7 @@ class StockProduct extends Equatable {
     required this.available,
     required this.low,
     this.montana = 0,
+    this.salePriceCents = 0,
   });
 
   final String id;
@@ -102,9 +103,18 @@ class StockProduct extends Equatable {
   /// Quantity currently on the Montana, in the same display unit as [available].
   final double montana;
   final bool low;
+  final int salePriceCents;
 
   @override
-  List<Object?> get props => [id, name, unit, available, low, montana];
+  List<Object?> get props => [
+    id,
+    name,
+    unit,
+    available,
+    low,
+    montana,
+    salePriceCents,
+  ];
 }
 
 /// Totals stay separated by unit. Kilograms are never added to boxes or pieces.

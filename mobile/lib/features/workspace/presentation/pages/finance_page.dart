@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
 import '../../../catalog/presentation/produce_assets.dart';
+import '../../../customers/presentation/customer_routes.dart';
 import '../../domain/entities/posted_sale.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
@@ -54,14 +55,28 @@ class _FinancePageState extends State<FinancePage> {
               in state.operation?.postedSales ?? const <PostedSale>[])
             if (_inside(sale, _span, now)) sale,
         ];
-        final figures = _figures(sales);
-        final ranked = _rankedMerchandise(
+        var ranked = _rankedMerchandise(
           state.operation?.street.orders ?? const <SaleOrder>[],
           _span,
           now,
         );
+        // Temporary filled demo until confirmed street sales exist.
+        if (ranked.isEmpty && sales.isEmpty) {
+          ranked = _demoMerchandise(_span);
+        }
+        final figures = sales.isEmpty
+            ? _Figures(
+                billed: ranked.fold<int>(0, (sum, row) => sum + row.cents),
+                received: 0,
+                open: 0,
+              )
+            : _figures(sales);
         final arcs = _arcs(_merchandiseSlices(ranked));
         final categories = _categories(ranked);
+        final buckets = _paymentBuckets(
+          state.operation?.postedSales ?? const <PostedSale>[],
+          now,
+        );
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle.dark.copyWith(
             statusBarColor: Colors.transparent,
@@ -77,32 +92,63 @@ class _FinancePageState extends State<FinancePage> {
               builder: (context, constraints) {
                 final diameter = constraints.maxWidth * 0.70;
                 final ringHeight = diameter + 52;
-                return Column(
+                final topInset = MediaQuery.paddingOf(context).top;
+                final headerExtent = topInset + ringHeight + 40;
+                final minSheet =
+                    ((constraints.maxHeight - headerExtent) /
+                            constraints.maxHeight)
+                        .clamp(0.38, 0.52);
+                final maxSheet =
+                    ((constraints.maxHeight - topInset - 12) /
+                            constraints.maxHeight)
+                        .clamp(0.88, 0.96);
+                return Stack(
+                  fit: StackFit.expand,
                   children: [
-                    SafeArea(
-                      bottom: false,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: ringHeight,
-                            width: constraints.maxWidth,
-                            child: _Ring(
-                              arcs: arcs,
-                              caption: _caption(_span, now),
-                              totalCents: figures.billed,
-                              diameter: diameter,
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: ringHeight,
+                              width: constraints.maxWidth,
+                              child: _Ring(
+                                arcs: arcs,
+                                caption: _caption(_span, now),
+                                totalCents: figures.billed,
+                                diameter: diameter,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          _Filters(
-                            span: _span,
-                            onChanged: (span) => setState(() => _span = span),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            _Filters(
+                              span: _span,
+                              onChanged: (span) =>
+                                  setState(() => _span = span),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Expanded(child: _Sheet(categories: categories)),
+                    DraggableScrollableSheet(
+                      initialChildSize: minSheet,
+                      minChildSize: minSheet,
+                      maxChildSize: maxSheet,
+                      snap: true,
+                      snapSizes: [minSheet, maxSheet],
+                      builder: (context, scrollController) {
+                        return _Sheet(
+                          scrollController: scrollController,
+                          categories: categories,
+                          overdue: buckets.overdue,
+                          onTime: buckets.onTime,
+                          receivable: buckets.receivable,
+                        );
+                      },
+                    ),
                   ],
                 );
               },
@@ -211,6 +257,27 @@ int? _share(int part, int whole) {
   if (percent < 0) return 0;
   if (percent > 100) return 100;
   return percent;
+}
+
+/// Demo mix for an empty finance board (feira-style merchandise).
+List<_ProductRank> _demoMerchandise(_Span span) {
+  const base = <_ProductRank>[
+    _ProductRank(name: 'Banana nanica', cents: 284000),
+    _ProductRank(name: 'Tomate italiano', cents: 196500),
+    _ProductRank(name: 'Alface crespa', cents: 87500),
+    _ProductRank(name: 'Cebola', cents: 72400),
+    _ProductRank(name: 'Batata', cents: 51200),
+    _ProductRank(name: 'Mamão formosa', cents: 36800),
+  ];
+  final factor = switch (span) {
+    _Span.week => 0.28,
+    _Span.month => 1.0,
+    _Span.year => 9.2,
+  };
+  return [
+    for (final row in base)
+      _ProductRank(name: row.name, cents: (row.cents * factor).round()),
+  ];
 }
 
 List<_ProductRank> _rankedMerchandise(
@@ -603,87 +670,228 @@ class _Filters extends StatelessWidget {
   }
 }
 
-class _Sheet extends StatelessWidget {
-  const _Sheet({required this.categories});
+class _ClientPayment {
+  const _ClientPayment({
+    required this.customerId,
+    required this.customerName,
+    required this.cents,
+    required this.detail,
+  });
 
+  final String customerId;
+  final String customerName;
+  final int cents;
+  final String detail;
+}
+
+class _PaymentBuckets {
+  const _PaymentBuckets({
+    required this.overdue,
+    required this.onTime,
+    required this.receivable,
+  });
+
+  final List<_ClientPayment> overdue;
+  final List<_ClientPayment> onTime;
+  final List<_ClientPayment> receivable;
+}
+
+_PaymentBuckets _paymentBuckets(List<PostedSale> sales, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  final overdue = <_ClientPayment>[];
+  final onTime = <_ClientPayment>[];
+  final receivable = <_ClientPayment>[];
+  for (final sale in sales) {
+    if (!sale.sale || sale.openCents <= 0) continue;
+    final due = sale.dueOn == null ? null : _day(sale.dueOn!);
+    final item = _ClientPayment(
+      customerId: sale.customerId,
+      customerName: sale.customerName,
+      cents: sale.openCents,
+      detail: due == null
+          ? 'Sem vencimento'
+          : due.isBefore(today)
+          ? 'Venceu ${formatDay(due)}'
+          : 'Vence ${formatDay(due)}',
+    );
+    receivable.add(item);
+    if (due != null && due.isBefore(today)) {
+      overdue.add(item);
+    } else {
+      onTime.add(item);
+    }
+  }
+  if (overdue.isEmpty && onTime.isEmpty && receivable.isEmpty) {
+    return _demoPaymentBuckets(today);
+  }
+  overdue.sort((a, b) => b.cents.compareTo(a.cents));
+  onTime.sort((a, b) => b.cents.compareTo(a.cents));
+  receivable.sort((a, b) => b.cents.compareTo(a.cents));
+  return _PaymentBuckets(
+    overdue: overdue,
+    onTime: onTime,
+    receivable: receivable,
+  );
+}
+
+_PaymentBuckets _demoPaymentBuckets(DateTime today) {
+  String day(int offset) => formatDay(today.add(Duration(days: offset)));
+  return _PaymentBuckets(
+    overdue: [
+      _ClientPayment(
+        customerId: 'demo-customer-padaria',
+        customerName: 'Beatriz Nunes',
+        cents: 18640,
+        detail: 'Venceu ${day(-5)}',
+      ),
+      _ClientPayment(
+        customerId: 'demo-customer-primavera',
+        customerName: 'Marina Costa',
+        cents: 12400,
+        detail: 'Venceu ${day(-2)}',
+      ),
+    ],
+    onTime: [
+      _ClientPayment(
+        customerId: 'demo-customer-mercado',
+        customerName: 'Ricardo Alves',
+        cents: 8900,
+        detail: 'Vence ${day(3)}',
+      ),
+      _ClientPayment(
+        customerId: 'demo-customer-joao',
+        customerName: 'João Oliveira',
+        cents: 5600,
+        detail: 'Vence ${day(8)}',
+      ),
+      _ClientPayment(
+        customerId: 'demo-customer-hortifruti',
+        customerName: 'Pedro Almeida',
+        cents: 0,
+        detail: 'Sem pendência',
+      ),
+    ],
+    receivable: [
+      _ClientPayment(
+        customerId: 'demo-customer-padaria',
+        customerName: 'Beatriz Nunes',
+        cents: 18640,
+        detail: 'Venceu ${day(-5)}',
+      ),
+      _ClientPayment(
+        customerId: 'demo-customer-primavera',
+        customerName: 'Marina Costa',
+        cents: 12400,
+        detail: 'Venceu ${day(-2)}',
+      ),
+      _ClientPayment(
+        customerId: 'demo-customer-mercado',
+        customerName: 'Ricardo Alves',
+        cents: 8900,
+        detail: 'Vence ${day(3)}',
+      ),
+      _ClientPayment(
+        customerId: 'demo-customer-joao',
+        customerName: 'João Oliveira',
+        cents: 5600,
+        detail: 'Vence ${day(8)}',
+      ),
+    ],
+  );
+}
+
+class _Sheet extends StatelessWidget {
+  const _Sheet({
+    required this.scrollController,
+    required this.categories,
+    required this.overdue,
+    required this.onTime,
+    required this.receivable,
+  });
+
+  final ScrollController scrollController;
   final List<_Category> categories;
+  final List<_ClientPayment> overdue;
+  final List<_ClientPayment> onTime;
+  final List<_ClientPayment> receivable;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Color(0xFFE4E4E8),
-                  borderRadius: BorderRadius.all(Radius.circular(4)),
-                ),
-                child: SizedBox(width: 40, height: 5),
+    return Material(
+      color: Colors.white,
+      elevation: 8,
+      shadowColor: const Color(0x330E0D0F),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      clipBehavior: Clip.antiAlias,
+      child: ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 28),
+        children: [
+          const Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color(0xFFE4E4E8),
+                borderRadius: BorderRadius.all(Radius.circular(4)),
               ),
+              child: SizedBox(width: 40, height: 5),
             ),
-            const SizedBox(height: 14),
-            const Text(
-              'Categorias financeiras',
-              style: TextStyle(
-                color: pouInk,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Categorias',
+            style: TextStyle(
+              color: pouInk,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return _CategoryGrid(
-                    categories: categories,
-                    maxWidth: constraints.maxWidth,
-                    maxHeight: constraints.maxHeight,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          _CategoryGrid(categories: categories),
+          const SizedBox(height: 28),
+          _ClientPaymentSection(
+            title: 'Em atraso',
+            subtitle: 'Passou do dia combinado para pagar',
+            accent: const Color(0xFFC62828),
+            items: overdue,
+            emptyLabel: 'Nenhum cliente em atraso.',
+          ),
+          const SizedBox(height: 22),
+          _ClientPaymentSection(
+            title: 'Pagamentos em dia',
+            subtitle: 'No prazo ou sem pendência',
+            accent: const Color(0xFF2E7D32),
+            items: onTime,
+            emptyLabel: 'Nenhum pagamento em dia no período.',
+          ),
+          const SizedBox(height: 22),
+          _ClientPaymentSection(
+            title: 'Pagamentos a receber',
+            subtitle: 'Saldo em aberto das notas',
+            accent: pouInk,
+            items: receivable,
+            emptyLabel: 'Nada a receber no momento.',
+            showTotal: true,
+          ),
+        ],
       ),
     );
   }
 }
 
 class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({
-    required this.categories,
-    required this.maxWidth,
-    required this.maxHeight,
-  });
+  const _CategoryGrid({required this.categories});
 
   final List<_Category> categories;
-  final double maxWidth;
-  final double maxHeight;
 
   @override
   Widget build(BuildContext context) {
     const gap = 10.0;
-    final usableHeight = math.max(0.0, maxHeight - 72);
-    final cardWidth = (maxWidth - gap) / 2;
-    final preferredHeight = cardWidth * 0.664;
-    final cardHeight = preferredHeight * 2 + gap > usableHeight && usableHeight > gap
-        ? (usableHeight - gap) / 2
-        : preferredHeight;
-    final gridWidth = maxWidth;
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: gridWidth,
-        child: Wrap(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - gap) / 2;
+        final cardHeight = cardWidth * 0.664;
+        return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: [
@@ -694,6 +902,164 @@ class _CategoryGrid extends StatelessWidget {
                 child: _CategoryCard(category: category),
               ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _ClientPaymentSection extends StatelessWidget {
+  const _ClientPaymentSection({
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.items,
+    required this.emptyLabel,
+    this.showTotal = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final List<_ClientPayment> items;
+  final String emptyLabel;
+  final bool showTotal;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = items.fold<int>(0, (sum, item) => sum + item.cents);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: pouInk,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: _muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showTotal && items.isNotEmpty)
+              Text(
+                formatBrl(total),
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (items.isEmpty)
+          Text(
+            emptyLabel,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          )
+        else
+          for (var index = 0; index < items.length; index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _ClientPaymentTile(item: items[index], accent: accent),
+          ],
+      ],
+    );
+  }
+}
+
+class _ClientPaymentTile extends StatelessWidget {
+  const _ClientPaymentTile({required this.item, required this.accent});
+
+  final _ClientPayment item;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _cardFill,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: Key('finance_customer_${item.customerId}'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(
+            context,
+          ).pushNamed(CustomerRoutes.details(item.customerId));
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.customerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: pouInk,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                item.cents <= 0 ? '—' : formatBrl(item.cents),
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -758,8 +1124,16 @@ class _CategoryCard extends StatelessWidget {
                 height: 1.1,
               ),
             ),
-            const Spacer(),
-            _MerchandiseMark(category: category),
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: _MerchandiseMark(category: category),
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -212,6 +212,7 @@ CompanyOperation _overlayCatalog(
             row.balances[StockLocationCode.montana] ?? 0,
           ),
           low: row.low,
+          salePriceCents: row.product.salePriceCents,
         ),
   ];
   return operation.copyWith(
