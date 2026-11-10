@@ -41,14 +41,22 @@ void main() {
   });
 
   group('validateNewPassword', () {
-    test('should require a password of at least 6 characters', () {
+    test('should require 8+ chars with letter and number', () {
       expect(validateNewPassword(null), 'Informe a senha.');
       expect(validateNewPassword(''), 'Informe a senha.');
       expect(
-        validateNewPassword('12345'),
-        'A senha deve ter pelo menos 6 caracteres.',
+        validateNewPassword('1234567'),
+        'A senha deve ter pelo menos 8 caracteres.',
       );
-      expect(validateNewPassword('123456'), isNull);
+      expect(
+        validateNewPassword('12345678'),
+        'A senha deve ter letra e número.',
+      );
+      expect(
+        validateNewPassword('abcdefgh'),
+        'A senha deve ter letra e número.',
+      );
+      expect(validateNewPassword('Edipo123'), isNull);
     });
   });
 

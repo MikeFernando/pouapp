@@ -295,16 +295,17 @@ void main() {
       verify(() => mockLocalDataSource.clear()).called(1);
     });
 
-    test('should return ServerFailure and keep the session when remote logout fails', () async {
+    test('should clear local session even when remote logout fails', () async {
       // arrange
       when(() => mockRemoteDataSource.logout()).thenThrow(ServerException());
+      when(() => mockLocalDataSource.clear()).thenAnswer((_) async {});
 
       // act
       final result = await repository.logout();
 
       // assert
-      expect(result, const Left(ServerFailure()));
-      verifyNever(() => mockLocalDataSource.clear());
+      expect(result, const Right(unit));
+      verify(() => mockLocalDataSource.clear()).called(1);
     });
 
     test(

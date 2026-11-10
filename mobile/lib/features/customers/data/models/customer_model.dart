@@ -39,6 +39,38 @@ class CustomerModel extends Customer {
     );
   }
 
+  factory CustomerModel.fromApi(Map<String, dynamic> json) {
+    return CustomerModel(
+      id: json['id'] as String,
+      type: CustomerType.values.byName(json['type'] as String),
+      name: json['name'] as String,
+      phone: _nullable(json['phone']),
+      status: CustomerStatus.values.byName(json['status'] as String),
+      externalSource: CustomerSource.local,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+    );
+  }
+
+  factory CustomerModel.fromEntity(Customer customer) {
+    return CustomerModel(
+      id: customer.id,
+      type: customer.type,
+      name: customer.name,
+      tradeName: customer.tradeName,
+      document: customer.document,
+      email: customer.email,
+      phone: customer.phone,
+      mobilePhone: customer.mobilePhone,
+      status: customer.status,
+      notes: customer.notes,
+      externalId: customer.externalId,
+      externalSource: customer.externalSource,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    );
+  }
+
   Map<String, Object?> toMap({
     required String searchName,
     required String searchTradeName,

@@ -244,11 +244,11 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('register_password')),
-      'senha-dev',
+      'Senha123',
     );
     await tester.enterText(
       find.byKey(const Key('register_password_confirmation')),
-      'senha-dev',
+      'Senha123',
     );
     await tester.tap(find.byKey(const Key('register_submit')));
     await tester.pump();
@@ -275,11 +275,11 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('register_password')),
-      'senha-nova',
+      'Senha123',
     );
     await tester.enterText(
       find.byKey(const Key('register_password_confirmation')),
-      'senha-nova',
+      'Senha123',
     );
     await tester.tap(find.byKey(const Key('register_submit')));
     await tester.pumpAndSettle();
@@ -289,7 +289,7 @@ void main() {
         const RegisterParams(
           name: 'Carla',
           email: 'carla@pouapp.dev',
-          password: 'senha-nova',
+          password: 'Senha123',
         ),
       ),
     ).called(1);

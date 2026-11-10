@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../../catalog/domain/entities/catalog.dart';
@@ -154,13 +155,17 @@ class WorkspaceRepositoryImpl implements WorkspaceRepository {
     );
   }
 
+  StreetLedger _emptyLedger() => StreetLedger(day: isoDate(DateTime.now()));
+
   StreetLedger _legacyLedger() {
     final saved = localDataSource.readStreetLedger();
-    if (saved == null || saved.isEmpty) return seedStreetLedger();
+    if (saved == null || saved.isEmpty) {
+      return ApiConfig.useRemoteApi ? _emptyLedger() : seedStreetLedger();
+    }
     try {
       return withPersonNames(decodeStreetLedger(saved));
     } catch (_) {
-      return seedStreetLedger();
+      return ApiConfig.useRemoteApi ? _emptyLedger() : seedStreetLedger();
     }
   }
 

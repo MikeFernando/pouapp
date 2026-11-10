@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
+import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
+import '../bloc/home_board_bloc.dart';
+import '../home_board_mapping.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
 
@@ -116,7 +119,37 @@ class StreetBoardViewState extends State<StreetBoardView>
 
   @override
   Widget build(BuildContext context) {
-    final valuesHidden = widget.valuesHidden;
+    if (ApiConfig.useRemoteApi) {
+      return BlocBuilder<HomeBoardBloc, HomeBoardState>(
+        builder: (context, state) {
+          if (state.status == HomeBoardStatus.initial ||
+              state.status == HomeBoardStatus.loading) {
+            return const Center(
+              child: CircularProgressIndicator(
+                semanticsLabel: 'Carregando a home',
+              ),
+            );
+          }
+          if (state.status == HomeBoardStatus.failure || state.board == null) {
+            return _Message(
+              message: state.message ?? 'Não foi possível carregar a home.',
+              onRetry: () => context.read<HomeBoardBloc>().add(
+                const HomeBoardRequested(),
+              ),
+            );
+          }
+          final board = state.board!;
+          final receipts = dayReceiptsFromHome(board);
+          return _boardBody(
+            context: context,
+            receipts: receipts,
+            tomorrowDues: tomorrowDuesFromHome(board),
+            laterDues: laterDuesFromHome(board),
+          );
+        },
+      );
+    }
+
     return BlocConsumer<CompanyOperationBloc, CompanyOperationState>(
       listenWhen: (previous, current) =>
           previous.operation?.postedSales != current.operation?.postedSales,
@@ -140,14 +173,6 @@ class StreetBoardViewState extends State<StreetBoardView>
             ),
           );
         }
-        final saleButton = FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          backgroundColor: pouInk,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        );
         final now = DateTime.now();
         final todayStart = DateTime(now.year, now.month, now.day);
         final todayIso = isoDate(todayStart);
@@ -157,7 +182,6 @@ class StreetBoardViewState extends State<StreetBoardView>
           notes: _noteDues,
           today: now,
         );
-        final progress = dayReceiptProgress(receipts);
         final allUpcoming = [
           for (final due in upcomingDueCustomers(
             sales: operation.postedSales,
@@ -174,81 +198,105 @@ class StreetBoardViewState extends State<StreetBoardView>
           for (final due in allUpcoming)
             if (due.dueOn != tomorrowIso) due,
         ];
-        return ClipRect(
-          child: Stack(
-            children: [
-              Positioned(
-                top: 16,
-                left: 20,
-                right: 20,
-                bottom: 0,
-                child: SingleChildScrollView(
-                  key: const Key('street_board_scroll'),
-                  controller: _scroll,
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.paddingOf(context).bottom + 20,
-                  ),
-                  child: AnimatedBuilder(
-                    animation: _entrance,
-                    builder: (context, _) {
-                      var order = 0;
-                      Widget rise(Widget child) => _rise(order++, child);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          rise(
-                            _DayReceiptsBoard(
-                              titleKey: _routeKey,
-                              progress: progress,
-                              receipts: receipts,
-                              valuesHidden: valuesHidden,
-                              onOpenCustomer: widget.onOpenCustomer,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          rise(
-                            FilledButton.icon(
-                              key: const Key('action_new_sale'),
-                              style: saleButton,
-                              onPressed: widget.onNewSale,
-                              icon: const Icon(
-                                Icons.person_add_outlined,
-                                color: pouCanvas,
-                              ),
-                              label: const Text(
-                                'Adicionar',
-                                style: TextStyle(color: pouCanvas),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          rise(
-                            _TomorrowDuesSection(
-                              tomorrow: todayStart.add(const Duration(days: 1)),
-                              dues: tomorrowDues,
-                              valuesHidden: valuesHidden,
-                              onOpenCustomer: widget.onOpenCustomer,
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          rise(
-                            _LaterDuesSection(
-                              today: todayStart,
-                              dues: laterDues,
-                              valuesHidden: valuesHidden,
-                              onOpenCustomer: widget.onOpenCustomer,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return _boardBody(
+          context: context,
+          receipts: receipts,
+          tomorrowDues: tomorrowDues,
+          laterDues: laterDues,
         );
       },
+    );
+  }
+
+  Widget _boardBody({
+    required BuildContext context,
+    required List<DayReceiptCustomer> receipts,
+    required List<UpcomingDueCustomer> tomorrowDues,
+    required List<UpcomingDueCustomer> laterDues,
+  }) {
+    final valuesHidden = widget.valuesHidden;
+    final saleButton = FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(52),
+      backgroundColor: pouInk,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final progress = dayReceiptProgress(receipts);
+    return ClipRect(
+      child: Stack(
+        children: [
+          Positioned(
+            top: 16,
+            left: 20,
+            right: 20,
+            bottom: 0,
+            child: SingleChildScrollView(
+              key: const Key('street_board_scroll'),
+              controller: _scroll,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom + 20,
+              ),
+              child: AnimatedBuilder(
+                animation: _entrance,
+                builder: (context, _) {
+                  var order = 0;
+                  Widget rise(Widget child) => _rise(order++, child);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      rise(
+                        _DayReceiptsBoard(
+                          titleKey: _routeKey,
+                          progress: progress,
+                          receipts: receipts,
+                          valuesHidden: valuesHidden,
+                          onOpenCustomer: widget.onOpenCustomer,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      rise(
+                        FilledButton.icon(
+                          key: const Key('action_new_sale'),
+                          style: saleButton,
+                          onPressed: widget.onNewSale,
+                          icon: const Icon(
+                            Icons.person_add_outlined,
+                            color: pouCanvas,
+                          ),
+                          label: const Text(
+                            'Adicionar',
+                            style: TextStyle(color: pouCanvas),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      rise(
+                        _TomorrowDuesSection(
+                          tomorrow: todayStart.add(const Duration(days: 1)),
+                          dues: tomorrowDues,
+                          valuesHidden: valuesHidden,
+                          onOpenCustomer: widget.onOpenCustomer,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      rise(
+                        _LaterDuesSection(
+                          today: todayStart,
+                          dues: laterDues,
+                          valuesHidden: valuesHidden,
+                          onOpenCustomer: widget.onOpenCustomer,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -867,7 +915,7 @@ class _DueCustomerRow extends StatelessWidget {
                 formatBrl(due.amountCents, hidden: hidden),
                 style: const TextStyle(
                   color: Color(0xFF0E0D0F),
-                  fontSize: 17,
+                  fontSize: workspaceFontPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),

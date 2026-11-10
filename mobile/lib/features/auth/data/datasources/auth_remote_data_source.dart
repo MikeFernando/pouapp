@@ -27,6 +27,11 @@ abstract class AuthRemoteDataSource {
 
   /// Ends the remote session. The simulated source has no server session.
   Future<void> logout();
+
+  /// Returns the authenticated user from the API, when supported.
+  ///
+  /// Simulated auth has no remote session probe and throws [UnsupportedError].
+  Future<UserModel> currentUser();
 }
 
 /// Development-only stand-in for a future REST data source.
@@ -60,7 +65,7 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
     ),
     _DevelopmentAccount(
       email: 'edipo@pouapp.com',
-      password: '123456',
+      password: 'Edipo123',
       user: UserModel(
         id: 'dev-user-edipo',
         name: 'Edipo Silva',
@@ -135,6 +140,11 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<UserModel> currentUser() {
+    throw UnsupportedError('Simulated auth has no remote /me.');
+  }
 
   List<_DevelopmentAccount> _readStored() {
     if (_sharedPreferences == null) {

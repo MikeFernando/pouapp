@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'app/authenticated_shell.dart';
 import 'app/pou_app_colors.dart';
+import 'core/config/api_config.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
@@ -11,6 +13,11 @@ import 'injection_container.dart' as di;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kDebugMode) {
+    debugPrint(
+      'PouApp API → ${ApiConfig.useRemoteApi ? ApiConfig.baseUrl : 'simulated'}',
+    );
+  }
   await di.init();
   di.sl<SyncWorker>().start();
   runApp(const PouApp());

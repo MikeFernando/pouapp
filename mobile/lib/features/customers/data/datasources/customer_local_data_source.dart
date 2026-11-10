@@ -32,6 +32,9 @@ abstract class CustomerLocalDataSource {
     required CustomerStatus status,
   });
 
+  /// Inserts or replaces a customer row with a known server id.
+  Future<Customer> upsertCustomer(Customer customer);
+
   Future<List<CustomerAddress>> getAddresses(String customerId);
 
   Future<CustomerAddress> addAddress(AddressInput input);
@@ -242,6 +245,22 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       whereArgs: [id],
     );
     return updated;
+  }
+
+  @override
+  Future<Customer> upsertCustomer(Customer customer) async {
+    final db = await _databaseOrOpen();
+    final model = CustomerModel.fromEntity(customer);
+    try {
+      await db.insert(
+        'customers',
+        _customerMap(model),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } on DatabaseException {
+      throw CacheException();
+    }
+    return model;
   }
 
   @override

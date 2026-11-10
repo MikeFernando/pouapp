@@ -2,7 +2,15 @@
 
 Aplicativo Flutter do PouApp, um SaaS de gestão empresarial multiempresa.
 
-Este pacote contém somente o cliente mobile. Os diretórios `backend` e `web`, na raiz do repositório, estão reservados e ainda não possuem código. As features atuais são a autenticação simulada em `lib/features/auth` e a gestão de clientes em `lib/features/customers`.
+Este pacote contém o cliente mobile. Por padrão ele fala com a **pouapp-api** (`ApiConfig.useRemoteApi`).
+
+### Rodar com a API
+
+1. Suba a API: `cd pouapp-api && npm run dev` (ou o compound **Flutter + API**).
+2. Crie a conta no app (senha forte: 8+ com letra e número).
+3. URL padrão: iOS simulator `http://127.0.0.1:3333`, Android emulator `http://10.0.2.2:3333`.
+4. iPhone físico: use `--dart-define=API_BASE_URL=http://<IP-do-Mac>:3333` (launch **iPhone de Mike** já aponta para a LAN).
+5. Auth simulada antiga: `--dart-define=USE_SIMULATED_AUTH=true`.
 
 ## Arquitetura
 
@@ -215,7 +223,7 @@ sl.registerLazySingleton<CustomersRepository>(
 );
 ```
 
-`shared_preferences` guarda a sessão simulada. O SQLite guarda os clientes de desenvolvimento. `http` continua de fora até existir a fonte remota real.
+`shared_preferences` guarda a sessão do usuário. Refresh tokens ficam no `flutter_secure_storage`. O SQLite cacheia clientes; com a API ligada (`ApiConfig.useRemoteApi`), list/create/status sincronizam via `dio`. Auth simulado só com `--dart-define=USE_SIMULATED_AUTH=true`.
 
 ## Dependências de arquitetura
 

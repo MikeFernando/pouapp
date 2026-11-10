@@ -2,32 +2,75 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/network/api_client.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/customer_address.dart';
 import '../../domain/entities/customer_contact.dart';
 import '../../domain/failures/customer_failures.dart';
 import '../../domain/repositories/customer_repository.dart';
 import '../datasources/customer_local_data_source.dart';
+import '../datasources/customer_remote_data_source.dart';
 import '../exceptions/customer_exceptions.dart';
 
 class CustomerRepositoryImpl implements CustomerRepository {
-  CustomerRepositoryImpl({required this.localDataSource});
+  CustomerRepositoryImpl({
+    required this.localDataSource,
+    this.remoteDataSource,
+  });
 
   final CustomerLocalDataSource localDataSource;
+  final CustomerRemoteDataSource? remoteDataSource;
+
+  bool get _hasRemote => remoteDataSource != null;
 
   @override
   Future<Either<Failure, CustomerPage>> getCustomers(CustomerQuery query) {
-    return _guard(() => localDataSource.getCustomers(query));
+    return _guard(() async {
+      if (_hasRemote) {
+        try {
+          final remote = await remoteDataSource!.listCustomers(
+            search: query.search,
+            status: query.status,
+          );
+          for (final customer in remote) {
+            await localDataSource.upsertCustomer(customer);
+          }
+        } on NetworkException {
+          // Offline / API down — serve local cache.
+        } on ServerException {
+          // Fall through to local cache.
+        }
+      }
+      return localDataSource.getCustomers(query);
+    });
   }
 
   @override
   Future<Either<Failure, Customer>> getCustomerById(String id) {
-    return _guard(() => localDataSource.getCustomerById(id));
+    return _guard(() async {
+      try {
+        return await localDataSource.getCustomerById(id);
+      } on CustomerNotFoundException {
+        if (!_hasRemote) rethrow;
+        final remote = await remoteDataSource!.getCustomerById(id);
+        return localDataSource.upsertCustomer(remote);
+      }
+    });
   }
 
   @override
   Future<Either<Failure, Customer>> createCustomer(CustomerInput input) {
-    return _guard(() => localDataSource.createCustomer(input));
+    return _guard(() async {
+      if (_hasRemote) {
+        try {
+          final remote = await remoteDataSource!.createCustomer(input);
+          return await localDataSource.upsertCustomer(remote);
+        } on NetworkException {
+          return await localDataSource.createCustomer(input);
+        }
+      }
+      return localDataSource.createCustomer(input);
+    });
   }
 
   @override
@@ -43,7 +86,20 @@ class CustomerRepositoryImpl implements CustomerRepository {
     required String id,
     required CustomerStatus status,
   }) {
-    return _guard(() => localDataSource.changeStatus(id: id, status: status));
+    return _guard(() async {
+      if (_hasRemote) {
+        try {
+          final remote = await remoteDataSource!.changeStatus(
+            id: id,
+            status: status,
+          );
+          return await localDataSource.upsertCustomer(remote);
+        } on NetworkException {
+          return await localDataSource.changeStatus(id: id, status: status);
+        }
+      }
+      return localDataSource.changeStatus(id: id, status: status);
+    });
   }
 
   @override
@@ -141,6 +197,10 @@ class CustomerRepositoryImpl implements CustomerRepository {
       return const Left(DuplicateExternalCustomerFailure());
     } on CacheException {
       return const Left(CacheFailure());
+    } on NetworkException {
+      return const Left(NetworkFailure());
+    } on ServerException {
+      return const Left(ServerFailure());
     }
   }
 }

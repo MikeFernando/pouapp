@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../catalog/data/operational_schema.dart';
 import '../domain/entities/street_ledger.dart';
 import 'datasources/street_seed.dart';
@@ -110,7 +111,9 @@ class OperationStore {
     try {
       ledger = withPersonNames(
         raw == null || raw.isEmpty
-            ? seedStreetLedger(today: _clock())
+            ? (ApiConfig.useRemoteApi
+                  ? StreetLedger(day: isoDate(_clock()))
+                  : seedStreetLedger(today: _clock()))
             : decodeStreetLedger(raw),
       );
     } on FormatException {

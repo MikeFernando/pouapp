@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/nav_glyphs.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/rounded_navigation_scaffold.dart';
+import '../../../../core/config/api_config.dart';
+import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
@@ -12,6 +14,7 @@ import '../../../customers/presentation/customer_routes.dart';
 import '../../../customers/presentation/pages/customers_page.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
+import '../bloc/home_board_bloc.dart';
 import '../loaded_operation.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
@@ -25,8 +28,20 @@ class WorkspacePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: loadedCompanyOperation(),
+    final company = loadedCompanyOperation();
+    final home = loadedHomeBoard();
+    if (home == null) {
+      return BlocProvider.value(
+        value: company,
+        child: const WorkspaceView(),
+      );
+    }
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: company),
+        BlocProvider.value(value: home),
+      ],
       child: const WorkspaceView(),
     );
   }
@@ -109,8 +124,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                           Column(
                             children: [
                               _WorkspaceHeader(
+                                user: user,
                                 message: logoutError,
-                                snapshot: _monthSnapshot(context),
+                                receivedTodayCents: _receivedTodayCents(
+                                  context,
+                                ),
                                 valuesHidden: _valuesHidden,
                                 onToggleValues: () {
                                   setState(
@@ -135,7 +153,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                             Positioned.fill(
                               child: _AddCover(
                                 onClose: () => setState(() => _adding = false),
-                                child: const AddDeliveryPage(),
+                                child: AddDeliveryPage(
+                                  onRemoteAdded: () {
+                                    if (ApiConfig.useRemoteApi) {
+                                      context.read<HomeBoardBloc>().add(
+                                        const HomeBoardRequested(),
+                                      );
+                                    }
+                                    setState(() => _adding = false);
+                                  },
+                                ),
                               ),
                             ),
                         ],
@@ -170,27 +197,32 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     setState(() => _adding = true);
   }
 
-  MonthSnapshot _monthSnapshot(BuildContext context) {
+  int _receivedTodayCents(BuildContext context) {
+    if (ApiConfig.useRemoteApi) {
+      return context.watch<HomeBoardBloc>().state.board?.receivedTodayCents ?? 0;
+    }
     final operation = context.watch<CompanyOperationBloc>().state.operation;
     final now = DateTime.now();
     return monthSnapshot(
       sales: operation?.postedSales ?? const [],
       month: DateTime(now.year, now.month),
       today: now,
-    );
+    ).receivedCents;
   }
 }
 
 class _WorkspaceHeader extends StatelessWidget {
   const _WorkspaceHeader({
+    required this.user,
     required this.message,
-    required this.snapshot,
+    required this.receivedTodayCents,
     required this.valuesHidden,
     required this.onToggleValues,
   });
 
+  final User user;
   final String? message;
-  final MonthSnapshot snapshot;
+  final int receivedTodayCents;
   final bool valuesHidden;
   final VoidCallback onToggleValues;
 
@@ -222,12 +254,12 @@ class _WorkspaceHeader extends StatelessWidget {
                   children: [
                     const _HeaderAvatar(),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Edipo Silva',
+                        user.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: _ink,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -262,7 +294,7 @@ class _WorkspaceHeader extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           formatBrl(
-                            snapshot.receivedCents,
+                            receivedTodayCents,
                             hidden: valuesHidden,
                           ),
                           style: const TextStyle(

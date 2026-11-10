@@ -100,6 +100,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   String _loginFailureMessage(Failure failure) {
     return switch (failure) {
       InvalidCredentialsFailure() => 'E-mail ou senha inválidos.',
+      NetworkFailure() => 'Sem conexão. Verifique a internet e tente de novo.',
       CacheFailure() => 'Não foi possível salvar a sessão. Tente novamente.',
       _ => 'Não foi possível entrar. Tente novamente.',
     };
@@ -108,6 +109,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   String _registerFailureMessage(Failure failure) {
     return switch (failure) {
       EmailAlreadyRegisteredFailure() => 'Este e-mail já está em uso.',
+      NetworkFailure() => 'Sem conexão. Verifique a internet e tente de novo.',
       CacheFailure() => 'Não foi possível salvar a sessão. Tente novamente.',
       _ => 'Não foi possível criar a conta. Tente novamente.',
     };
