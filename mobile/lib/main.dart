@@ -7,7 +7,11 @@ import 'app/pou_app_colors.dart';
 import 'core/config/api_config.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
+import 'features/license/presentation/bloc/license_bloc.dart';
+import 'features/license/presentation/bloc/license_event.dart';
+import 'features/license/presentation/widgets/license_gate.dart';
 import 'features/workspace/data/sync_worker.dart';
 import 'injection_container.dart' as di;
 
@@ -66,9 +70,24 @@ class PouApp extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      home: BlocProvider(
-        create: (_) => di.sl<AuthBloc>()..add(const AuthSessionRequested()),
-        child: const AuthGate(authenticatedPage: AuthenticatedShell()),
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) =>
+                di.sl<AuthBloc>()..add(const AuthSessionRequested()),
+          ),
+          BlocProvider(create: (_) => di.sl<LicenseBloc>()),
+        ],
+        child: BlocListener<AuthBloc, AuthState>(
+          listenWhen: (previous, current) =>
+              current is Unauthenticated && previous is! Unauthenticated,
+          listener: (context, state) {
+            context.read<LicenseBloc>().add(const LicenseCacheCleared());
+          },
+          child: const AuthGate(
+            authenticatedPage: LicenseGate(child: AuthenticatedShell()),
+          ),
+        ),
       ),
     );
   }

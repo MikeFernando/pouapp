@@ -6,6 +6,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import '../validation/login_validators.dart';
+import 'forgot_password_sheet.dart';
 
 const _sheetGreen = Color(0xFF0D6B3F);
 const _fieldFill = Color(0xFFF3F4F6);
@@ -316,15 +317,13 @@ class _LoginSheetFormState extends State<_LoginSheetForm> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
+                  key: const Key('forgot_password'),
                   onPressed: isSubmitting
                       ? null
                       : () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Recuperação de senha em breve.',
-                              ),
-                            ),
+                          showForgotPasswordSheet(
+                            context,
+                            initialEmail: _emailController.text,
                           );
                         },
                   style: TextButton.styleFrom(

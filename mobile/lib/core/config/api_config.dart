@@ -24,4 +24,18 @@ class ApiConfig {
     if (Platform.isAndroid) return 'http://10.0.2.2:3333';
     return 'http://127.0.0.1:3333';
   }
+
+  /// Stripe Payment Link (admin / tooling). Override with dart-define.
+  static const String stripePaymentLinkUrl = String.fromEnvironment(
+    'STRIPE_PAYMENT_LINK_URL',
+    defaultValue: 'https://buy.stripe.com/test_fZu9ATglqdAY6PI2FPfIs00',
+  );
+
+  /// Your WhatsApp in international digits (country + DDD + number).
+  /// Example BR: `5511999998888`. Override with
+  /// `--dart-define=SUPPORT_WHATSAPP_DIGITS=...`.
+  static const String supportWhatsAppDigits = String.fromEnvironment(
+    'SUPPORT_WHATSAPP_DIGITS',
+    defaultValue: '5515992639023',
+  );
 }

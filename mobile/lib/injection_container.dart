@@ -21,6 +21,12 @@ import 'features/auth/domain/usecases/login.dart';
 import 'features/auth/domain/usecases/logout.dart';
 import 'features/auth/domain/usecases/register_account.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/license/data/datasources/license_local_data_source.dart';
+import 'features/license/data/datasources/license_remote_data_source.dart';
+import 'features/license/data/repositories/license_repository_impl.dart';
+import 'features/license/domain/repositories/license_repository.dart';
+import 'features/license/domain/usecases/check_license.dart';
+import 'features/license/presentation/bloc/license_bloc.dart';
 import 'features/catalog/data/datasources/catalog_local_data_source.dart';
 import 'features/catalog/data/repositories/catalog_repository_impl.dart';
 import 'features/catalog/domain/repositories/catalog_repository.dart';
@@ -90,6 +96,26 @@ Future<void> init() async {
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(sharedPreferences: sl()),
   );
+
+  //! Features - License (payment kill switch)
+  sl.registerFactory(
+    () => LicenseBloc(checkLicense: sl(), repository: sl()),
+  );
+  sl.registerLazySingleton(() => CheckLicense(sl()));
+  sl.registerLazySingleton<LicenseRepository>(
+    () => LicenseRepositoryImpl(
+      localDataSource: sl(),
+      remoteDataSource: ApiConfig.useRemoteApi ? sl() : null,
+    ),
+  );
+  sl.registerLazySingleton<LicenseLocalDataSource>(
+    () => LicenseLocalDataSourceImpl(sharedPreferences: sl()),
+  );
+  if (ApiConfig.useRemoteApi) {
+    sl.registerLazySingleton<LicenseRemoteDataSource>(
+      () => LicenseRemoteDataSourceImpl(apiClient: sl()),
+    );
+  }
 
   //! Features - Customers
   // The local database opens on the first customer operation, not during init.
