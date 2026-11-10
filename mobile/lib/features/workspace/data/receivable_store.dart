@@ -74,6 +74,22 @@ class ReceivableStore {
     return account.receivables.firstWhere((item) => item.id == id);
   }
 
+  Future<void> updateDueOn({
+    required String id,
+    required String? dueOn,
+  }) async {
+    final db = await openDatabase();
+    final updated = await db.update(
+      'receivables',
+      {'due_on': dueOn},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (updated == 0) {
+      throw ReceivableException('Dívida não encontrada.');
+    }
+  }
+
   Future<AccountReceipt> confirmReceipt({
     required String id,
     required String customerId,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
 import '../../../../injection_container.dart';
@@ -21,6 +22,8 @@ class _ProductsPageState extends State<ProductsPage> {
   var _loading = true;
   String? _error;
   CatalogSnapshot? _snapshot;
+  String? _filterLetter;
+  var _scrubbing = false;
 
   @override
   void initState() {
@@ -141,16 +144,55 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
+  void _setLetter(String? letter) {
+    if (_filterLetter == letter && _scrubbing) return;
+    setState(() {
+      _filterLetter = letter;
+      _scrubbing = true;
+    });
+  }
+
+  void _tapLetter(String letter) {
+    if (_filterLetter == letter) {
+      setState(() {
+        _filterLetter = null;
+        _scrubbing = false;
+      });
+      return;
+    }
+    setState(() {
+      _filterLetter = letter;
+      _scrubbing = false;
+    });
+  }
+
+  void _endScrub() {
+    if (!_scrubbing) return;
+    setState(() => _scrubbing = false);
+  }
+
+  List<ProductStock> _filteredProducts() {
+    final query = _search.text.trim().toLowerCase();
+    final letter = _filterLetter;
+    final rows = [
+      for (final row in _snapshot?.products ?? const <ProductStock>[])
+        if ((query.isEmpty ||
+                row.product.name.toLowerCase().contains(query) ||
+                _sku(row.product).toLowerCase().contains(query)) &&
+            (letter == null ||
+                pouAlphabetInitial(row.product.name) == letter))
+          row,
+    ]..sort(
+      (a, b) => a.product.name.toLowerCase().compareTo(
+        b.product.name.toLowerCase(),
+      ),
+    );
+    return rows;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final query = _search.text.trim().toLowerCase();
-    final products = [
-      for (final row in _snapshot?.products ?? const <ProductStock>[])
-        if (query.isEmpty ||
-            row.product.name.toLowerCase().contains(query) ||
-            _sku(row.product).toLowerCase().contains(query))
-          row,
-    ];
+    final products = _filteredProducts();
     return ColoredBox(
       color: pouCanvas,
       child: SafeArea(
@@ -228,23 +270,53 @@ class _ProductsPageState extends State<ProductsPage> {
         ),
       );
     }
-    if (products.isEmpty) {
+    final hasSource = (_snapshot?.products ?? const <ProductStock>[]).isNotEmpty;
+    if (!hasSource) {
       return const Center(child: Text('Nenhum produto encontrado.'));
     }
-    return ListView.separated(
-      key: const Key('products_list'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-      itemCount: products.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final row = products[index];
-        return _ProductCard(
-          row: row,
-          onToggle: () => _setAvailable(row.product, !row.product.active),
-          onDelete: () => _delete(row.product),
-          onEdit: () => _edit(row.product),
-        );
-      },
+    return Stack(
+      children: [
+        if (products.isEmpty)
+          Center(
+            child: Text(
+              _filterLetter == null
+                  ? 'Nenhum produto encontrado.'
+                  : 'Nenhum produto com a letra $_filterLetter.',
+              key: const Key('products_letter_empty'),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+            ),
+          )
+        else
+          ListView.separated(
+            key: const Key('products_list'),
+            padding: const EdgeInsets.fromLTRB(16, 0, 28, 88),
+            itemCount: products.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final row = products[index];
+              return _ProductCard(
+                row: row,
+                onToggle: () => _setAvailable(row.product, !row.product.active),
+                onDelete: () => _delete(row.product),
+                onEdit: () => _edit(row.product),
+              );
+            },
+          ),
+        Positioned(
+          key: const Key('products_alphabet'),
+          right: 0,
+          top: 0,
+          bottom: 72,
+          child: PouAlphabetIndex(
+            keyPrefix: 'products',
+            activeLetter: _filterLetter,
+            scrubbing: _scrubbing,
+            onDragLetter: _setLetter,
+            onTapLetter: _tapLetter,
+            onDragEnd: _endScrub,
+          ),
+        ),
+      ],
     );
   }
 }

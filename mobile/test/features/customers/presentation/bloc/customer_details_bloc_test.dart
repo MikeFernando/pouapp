@@ -168,7 +168,7 @@ void main() {
     verify: (bloc) {
       expect(bloc.state.customer?.status, CustomerStatus.inactive);
       expect(bloc.state.addresses.single.label, 'Loja');
-      expect(bloc.state.message, 'Cliente inativado.');
+      expect(bloc.state.message, 'Cliente desativado.');
     },
   );
 

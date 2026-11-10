@@ -61,7 +61,7 @@ String customerTypeLabel(CustomerType type) {
 String customerStatusLabel(CustomerStatus status) {
   return switch (status) {
     CustomerStatus.active => 'Ativo',
-    CustomerStatus.inactive => 'Inativo',
+    CustomerStatus.inactive => 'Desativado',
   };
 }
 

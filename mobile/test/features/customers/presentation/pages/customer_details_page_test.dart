@@ -231,7 +231,7 @@ void main() {
     );
     expect(find.text('Total desta nota'), findsNothing);
     expect(find.text('Saldo em aberto'), findsOneWidget);
-    expect(find.text('R\$ 186,40'), findsOneWidget);
+    expect(find.text('R\$ 186,40'), findsNothing);
     final situationTop = tester.getTopLeft(find.text('Situação')).dy;
     final dueTop = tester.getTopLeft(find.text('Vencimento')).dy;
     final itemsTop = tester.getTopLeft(find.text('Itens (0)')).dy;
@@ -242,9 +242,9 @@ void main() {
     expect(dueTop, lessThan(itemsTop));
     expect(itemsTop, lessThan(balanceTop));
     expect(find.text('Situação'), findsOneWidget);
-    expect(find.text('Rascunho'), findsOneWidget);
+    expect(find.text('Ativo'), findsOneWidget);
+    expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
-    expect(find.text('Ativo'), findsNothing);
     expect(find.text('Nenhum item nesta nota.'), findsOneWidget);
     expect(find.text('Laranja PACOTE 2KG'), findsNothing);
 
@@ -434,7 +434,9 @@ void main() {
     await pumpDetails(tester, person: inactive, orders: const [herOrder]);
     await tester.pumpAndSettle();
 
-    expect(find.text('Rascunho'), findsOneWidget);
+    expect(find.text('Desativado'), findsOneWidget);
+    expect(find.text('Ativo'), findsNothing);
+    expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
     expect(find.text('Cancelado'), findsNothing);
   });

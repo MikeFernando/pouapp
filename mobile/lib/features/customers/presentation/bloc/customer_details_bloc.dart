@@ -204,7 +204,7 @@ class CustomerDetailsBloc
           status: CustomerDetailsStatus.ready,
           customer: updated,
           message: event.status == CustomerStatus.inactive
-              ? 'Cliente inativado.'
+              ? 'Cliente desativado.'
               : 'Cliente ativado.',
           messageToken: state.messageToken + 1,
         ),

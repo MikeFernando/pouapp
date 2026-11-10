@@ -220,6 +220,180 @@ List<DueTodayCustomer> duesToday({
   return result;
 }
 
+class UpcomingDueCustomer {
+  const UpcomingDueCustomer({
+    required this.customerId,
+    required this.customerName,
+    required this.dueOn,
+    required this.amountCents,
+  });
+
+  final String customerId;
+  final String customerName;
+
+  /// Calendar day the note or open balance is due, `yyyy-MM-dd`.
+  final String dueOn;
+  final int amountCents;
+}
+
+class DayReceiptCustomer {
+  const DayReceiptCustomer({
+    required this.customerId,
+    required this.customerName,
+    required this.amountCents,
+    required this.done,
+  });
+
+  final String customerId;
+  final String customerName;
+
+  /// Open amount still due today, or the settled amount when [done].
+  final int amountCents;
+  final bool done;
+}
+
+/// Customers whose note or open balance is due on [today].
+///
+/// Fully paid items for the same day stay listed as [DayReceiptCustomer.done].
+List<DayReceiptCustomer> dayReceipts({
+  required Iterable<PostedSale> sales,
+  Iterable<UpcomingDueCustomer> notes = const [],
+  required DateTime today,
+}) {
+  final day = isoDate(DateTime(today.year, today.month, today.day));
+  final byCustomer = <String, DayReceiptCustomer>{};
+
+  final grouped = <String, List<PostedSale>>{};
+  for (final sale in sales) {
+    if (sale.dueOn != day) continue;
+    grouped.putIfAbsent(sale.customerId, () => []).add(sale);
+  }
+  for (final entry in grouped.entries) {
+    final open = entry.value.fold<int>(0, (sum, sale) => sum + sale.openCents);
+    final total = entry.value.fold<int>(
+      0,
+      (sum, sale) => sum + sale.totalCents,
+    );
+    final name = entry.value
+        .map((sale) => sale.customerName.trim())
+        .firstWhere((value) => value.isNotEmpty, orElse: () => 'Cliente');
+    final done = open <= 0;
+    byCustomer[entry.key] = DayReceiptCustomer(
+      customerId: entry.key,
+      customerName: name,
+      amountCents: done ? total : open,
+      done: done,
+    );
+  }
+
+  for (final note in notes) {
+    if (note.dueOn != day || note.amountCents <= 0) continue;
+    if (byCustomer.containsKey(note.customerId)) continue;
+    byCustomer[note.customerId] = DayReceiptCustomer(
+      customerId: note.customerId,
+      customerName: note.customerName.trim().isEmpty
+          ? 'Cliente'
+          : note.customerName.trim(),
+      amountCents: note.amountCents,
+      done: false,
+    );
+  }
+
+  final result = byCustomer.values.toList()
+    ..sort((a, b) {
+      if (a.done != b.done) return a.done ? 1 : -1;
+      return a.customerName.compareTo(b.customerName);
+    });
+  return result;
+}
+
+VisitProgress dayReceiptProgress(Iterable<DayReceiptCustomer> items) {
+  final total = items.length;
+  final done = items.where((item) => item.done).length;
+  return VisitProgress(done: done, total: total);
+}
+
+/// Open balances and note dues ordered by the nearest due date.
+///
+/// Overdue items stay first. Customers without a due date stay out.
+List<UpcomingDueCustomer> upcomingDueCustomers({
+  required Iterable<PostedSale> sales,
+  Iterable<UpcomingDueCustomer> notes = const [],
+  required DateTime today,
+}) {
+  final byCustomer = <String, UpcomingDueCustomer>{};
+
+  void consider(UpcomingDueCustomer next) {
+    if (next.amountCents <= 0 || next.dueOn.trim().isEmpty) return;
+    if (_day(next.dueOn) == null) return;
+    final current = byCustomer[next.customerId];
+    if (current == null || next.dueOn.compareTo(current.dueOn) < 0) {
+      byCustomer[next.customerId] = next;
+    }
+  }
+
+  final grouped = <String, List<PostedSale>>{};
+  for (final sale in sales) {
+    if (sale.openCents <= 0 || sale.dueOn == null) continue;
+    grouped.putIfAbsent(sale.customerId, () => []).add(sale);
+  }
+  for (final entry in grouped.entries) {
+    final openWithDue = [
+      for (final sale in entry.value)
+        if (sale.dueOn != null && sale.openCents > 0) sale,
+    ]..sort((a, b) => a.dueOn!.compareTo(b.dueOn!));
+    if (openWithDue.isEmpty) continue;
+    final earliest = openWithDue.first.dueOn!;
+    final onDay = [
+      for (final sale in openWithDue)
+        if (sale.dueOn == earliest) sale,
+    ];
+    final name = entry.value
+        .map((sale) => sale.customerName.trim())
+        .firstWhere((value) => value.isNotEmpty, orElse: () => 'Cliente');
+    consider(
+      UpcomingDueCustomer(
+        customerId: entry.key,
+        customerName: name,
+        dueOn: earliest,
+        amountCents: onDay.fold(0, (sum, sale) => sum + sale.openCents),
+      ),
+    );
+  }
+
+  for (final note in notes) {
+    consider(note);
+  }
+
+  final result = byCustomer.values.toList()
+    ..sort((a, b) {
+      final byDate = a.dueOn.compareTo(b.dueOn);
+      if (byDate != 0) return byDate;
+      return a.customerName.compareTo(b.customerName);
+    });
+  return result;
+}
+
+/// Relative due label for the home board, e.g. "Vence amanhã".
+String upcomingDueLabel(String dueOn, DateTime today) {
+  final due = _day(dueOn);
+  if (due == null) return 'Sem vencimento';
+  final start = DateTime(today.year, today.month, today.day);
+  final days = due.difference(start).inDays;
+  if (days == 0) return 'Vence hoje';
+  if (days == 1) return 'Vence amanhã';
+  if (days == -1) return 'Venceu ontem';
+  if (days < -1) {
+    final day = due.day.toString().padLeft(2, '0');
+    final month = due.month.toString().padLeft(2, '0');
+    return 'Venceu $day/$month';
+  }
+  if (days <= 7) return 'Vence em $days dias';
+  final day = due.day.toString().padLeft(2, '0');
+  final month = due.month.toString().padLeft(2, '0');
+  return 'Vence $day/$month';
+}
+
 int _applied(PostedSale sale) {
   final allocated = sale.allocatedCents < 0 ? 0 : sale.allocatedCents;
   return allocated > sale.totalCents ? sale.totalCents : allocated;

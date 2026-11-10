@@ -8,7 +8,6 @@ import 'package:pouapp/features/workspace/domain/entities/company_operation.dart
 import 'package:pouapp/features/workspace/domain/entities/sales_board.dart';
 import 'package:pouapp/features/workspace/domain/entities/stock_board.dart';
 import 'package:pouapp/features/workspace/domain/repositories/workspace_repository.dart';
-import 'package:pouapp/features/workspace/presentation/operation_labels.dart';
 import 'package:pouapp/injection_container.dart' as di;
 import 'package:pouapp/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,10 +45,8 @@ void main() {
     testWidgets('should open the deliveries workspace', (tester) async {
       await signIn(tester);
 
-      expect(
-        find.text('Visitas em ${formatDay(DateTime.now())}'),
-        findsOneWidget,
-      );
+      expect(find.text('Recebimentos do dia'), findsOneWidget);
+      expect(find.text('Próximos vencimentos'), findsOneWidget);
       expect(find.text('WhatsApp'), findsNothing);
       await tester.scrollUntilVisible(
         find.byKey(const Key('action_new_sale')),
@@ -68,31 +65,8 @@ void main() {
       expect(find.byKey(const Key('header_month_billed')), findsNothing);
       expect(find.byKey(const Key('header_month_delta')), findsNothing);
       expect(find.textContaining('R\$'), findsWidgets);
-      expect(
-        tester
-            .widget<Text>(
-              find.byKey(const Key('visit_balance_visit-primavera')),
-            )
-            .data,
-        'R\$ 33,60',
-      );
-      expect(find.text('22/10/2026'), findsNothing);
       expect(find.text('Abrir endereço'), findsNothing);
       expect(find.text('Atender'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('visit_visit-primavera')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('Feito').hitTestable(), findsNothing);
-      await tester.drag(
-        find.byKey(const Key('visit_visit-primavera')),
-        const Offset(-260, 0),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Feito').hitTestable(), findsOneWidget);
-      expect(find.text('Adiar').hitTestable(), findsOneWidget);
-      expect(find.text('Remover').hitTestable(), findsOneWidget);
       expect(find.byKey(const Key('workspace_header')), findsOneWidget);
       expect(find.text('Gestão'), findsNothing);
       expect(find.text('Resumo do mês'), findsNothing);
@@ -100,31 +74,9 @@ void main() {
       expect(find.text('Produtos'), findsOneWidget);
       expect(find.text('Clientes'), findsOneWidget);
       expect(find.text('Financeiro'), findsOneWidget);
-      expect(find.text('Marina Costa'), findsWidgets);
     });
 
-    testWidgets('opens the same customer note screen from the visit name', (
-      tester,
-    ) async {
-      await signIn(tester);
-
-      await tester.tap(find.byKey(const Key('visit_customer_visit-primavera')));
-      await tester.pumpAndSettle();
-
-      expect(find.widgetWithText(AppBar, 'Marina Costa'), findsOneWidget);
-      expect(find.byKey(const Key('customer_open_balance')), findsOneWidget);
-      expect(find.byKey(const Key('receive_payment')), findsOneWidget);
-      expect(find.text('Vencimento'), findsOneWidget);
-      expect(find.byKey(const Key('customer_due_date')), findsOneWidget);
-      expect(find.text('Enviar cobrança Pix'), findsNothing);
-      expect(find.text('Documento'), findsNothing);
-      expect(find.text('Endereços'), findsNothing);
-      expect(find.text('Contatos'), findsNothing);
-    });
-
-    testWidgets('Nova venda adds a person to the delivery list', (
-      tester,
-    ) async {
+    testWidgets('Nova venda opens the delivery picker', (tester) async {
       tester.view.physicalSize = const Size(800, 2000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -134,44 +86,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Escolha quem vai receber a entrega.'), findsOneWidget);
-      expect(find.textContaining('Saldo em aberto'), findsNothing);
-      final people = find.descendant(
-        of: find.byKey(const Key('add_delivery_list')),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              widget.axisDirection == AxisDirection.down,
-        ),
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('delivery_person_demo-customer-joao')),
-        400,
-        scrollable: people,
-      );
-      expect(
-        find.byKey(const Key('delivery_person_demo-customer-joao')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('delivery_person_demo-customer-primavera')),
-        findsNothing,
-      );
-
-      await tester.tap(
-        find.byKey(const Key('delivery_person_demo-customer-joao')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('delivery_person_demo-customer-joao')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('add_delivery_list')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('close_add_delivery')));
       await tester.pumpAndSettle();
 
-      expect(find.text('João Oliveira'), findsOneWidget);
-      expect(find.text('Marina Costa'), findsOneWidget);
+      expect(find.text('Recebimentos do dia'), findsOneWidget);
     });
 
     testWidgets('should lay out deliveries on a small screen', (tester) async {
@@ -241,7 +161,11 @@ void main() {
 
       await signIn(tester);
 
-      expect(find.text('Nenhuma entrega em 20/10/2026.'), findsOneWidget);
+      expect(
+        find.text('Nenhum recebimento com vencimento hoje.'),
+        findsOneWidget,
+      );
+      expect(find.text('Recebimentos do dia'), findsOneWidget);
       expect(find.text('Resumo do mês'), findsNothing);
     });
   });

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
-import '../../domain/entities/sales_board.dart';
+import '../../../../injection_container.dart';
+import '../../../customers/domain/repositories/customer_note_repository.dart';
+import '../../../customers/domain/repositories/customer_repository.dart';
 import '../../domain/entities/street_ledger.dart';
+import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
@@ -13,20 +16,12 @@ class StreetBoardView extends StatefulWidget {
     super.key,
     required this.valuesHidden,
     required this.onNewSale,
-    required this.onComplete,
-    required this.onPostpone,
-    required this.onRemove,
     required this.onOpenCustomer,
-    required this.onOpenSale,
   });
 
   final bool valuesHidden;
   final VoidCallback onNewSale;
-  final ValueChanged<RouteVisit> onComplete;
-  final ValueChanged<RouteVisit> onPostpone;
-  final ValueChanged<RouteVisit> onRemove;
-  final ValueChanged<RouteVisit> onOpenCustomer;
-  final ValueChanged<RecentSale> onOpenSale;
+  final ValueChanged<String> onOpenCustomer;
 
   @override
   State<StreetBoardView> createState() => StreetBoardViewState();
@@ -37,6 +32,7 @@ class StreetBoardViewState extends State<StreetBoardView>
   final _routeKey = GlobalKey();
   late final AnimationController _entrance;
   late final ScrollController _scroll;
+  List<UpcomingDueCustomer> _noteDues = const [];
 
   @override
   void initState() {
@@ -46,6 +42,7 @@ class StreetBoardViewState extends State<StreetBoardView>
       duration: const Duration(milliseconds: 900),
     )..forward();
     _scroll = ScrollController();
+    _loadNoteDues();
   }
 
   @override
@@ -53,6 +50,34 @@ class StreetBoardViewState extends State<StreetBoardView>
     _scroll.dispose();
     _entrance.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadNoteDues() async {
+    if (!sl.isRegistered<CustomerNoteRepository>()) return;
+    final result = await sl<CustomerNoteRepository>().draftNotesWithDue();
+    if (!mounted || result.isLeft()) return;
+    final items = result.getOrElse(() => const []);
+    final mapped = <UpcomingDueCustomer>[];
+    for (final note in items) {
+      if (note.dueOn == null || note.totalCents <= 0) continue;
+      var name = 'Cliente';
+      if (sl.isRegistered<CustomerRepository>()) {
+        final found = await sl<CustomerRepository>().getCustomerById(
+          note.customerId,
+        );
+        found.fold((_) {}, (customer) => name = customer.name);
+      }
+      mapped.add(
+        UpcomingDueCustomer(
+          customerId: note.customerId,
+          customerName: name,
+          dueOn: isoDate(note.dueOn!),
+          amountCents: note.totalCents,
+        ),
+      );
+    }
+    if (!mounted) return;
+    setState(() => _noteDues = mapped);
   }
 
   double _span(double begin, double end) {
@@ -92,7 +117,10 @@ class StreetBoardViewState extends State<StreetBoardView>
   @override
   Widget build(BuildContext context) {
     final valuesHidden = widget.valuesHidden;
-    return BlocBuilder<CompanyOperationBloc, CompanyOperationState>(
+    return BlocConsumer<CompanyOperationBloc, CompanyOperationState>(
+      listenWhen: (previous, current) =>
+          previous.operation?.postedSales != current.operation?.postedSales,
+      listener: (context, state) => _loadNoteDues(),
       builder: (context, state) {
         final operation = state.operation;
         if (state.status == BoardStatus.initial ||
@@ -120,26 +148,45 @@ class StreetBoardViewState extends State<StreetBoardView>
             borderRadius: BorderRadius.circular(14),
           ),
         );
-        final ledger = operation.street;
-        final today = visitsOnDay(ledger, ledger.day);
-        final later = [
-          for (final visit in ledger.visits)
-            if (visit.day != ledger.day) visit,
-        ]..sort((a, b) => a.day.compareTo(b.day));
-        final progress = visitProgress(ledger);
+        final now = DateTime.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
+        final todayIso = isoDate(todayStart);
+        final tomorrowIso = isoDate(todayStart.add(const Duration(days: 1)));
+        final receipts = dayReceipts(
+          sales: operation.postedSales,
+          notes: _noteDues,
+          today: now,
+        );
+        final progress = dayReceiptProgress(receipts);
+        final allUpcoming = [
+          for (final due in upcomingDueCustomers(
+            sales: operation.postedSales,
+            notes: _noteDues,
+            today: now,
+          ))
+            if (due.dueOn != todayIso) due,
+        ];
+        final tomorrowDues = [
+          for (final due in allUpcoming)
+            if (due.dueOn == tomorrowIso) due,
+        ];
+        final laterDues = [
+          for (final due in allUpcoming)
+            if (due.dueOn != tomorrowIso) due,
+        ];
         return ClipRect(
           child: Stack(
             children: [
               Positioned(
                 top: 16,
-                left: 16,
-                right: 16,
+                left: 20,
+                right: 20,
                 bottom: 0,
                 child: SingleChildScrollView(
                   key: const Key('street_board_scroll'),
                   controller: _scroll,
                   padding: EdgeInsets.only(
-                    bottom: MediaQuery.paddingOf(context).bottom + 16,
+                    bottom: MediaQuery.paddingOf(context).bottom + 20,
                   ),
                   child: AnimatedBuilder(
                     animation: _entrance,
@@ -150,15 +197,11 @@ class StreetBoardViewState extends State<StreetBoardView>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           rise(
-                            _DeliveryBoard(
+                            _DayReceiptsBoard(
                               titleKey: _routeKey,
                               progress: progress,
-                              today: today,
-                              ledger: ledger,
+                              receipts: receipts,
                               valuesHidden: valuesHidden,
-                              onComplete: widget.onComplete,
-                              onPostpone: widget.onPostpone,
-                              onRemove: widget.onRemove,
                               onOpenCustomer: widget.onOpenCustomer,
                             ),
                           ),
@@ -168,106 +211,32 @@ class StreetBoardViewState extends State<StreetBoardView>
                               key: const Key('action_new_sale'),
                               style: saleButton,
                               onPressed: widget.onNewSale,
-                              icon: const Icon(Icons.person_add_outlined, color: pouCanvas,),
-                              label: const Text('Adicionar', style: TextStyle(color: pouCanvas,),),
-                            ),
-                          ),
-                          if (later.isNotEmpty) ...[
-                            const SizedBox(height: 22),
-                            const _SectionTitle('Reagendadas'),
-                            rise(
-                              _SurfaceCard(
-                                child: Column(
-                                  children: [
-                                    for (
-                                      var index = 0;
-                                      index < later.length;
-                                      index++
-                                    ) ...[
-                                      if (index > 0) const _Hairline(),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 14,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: InkWell(
-                                                key: Key(
-                                                  'visit_customer_${later[index].id}',
-                                                ),
-                                                onTap: () =>
-                                                    widget.onOpenCustomer(
-                                                      later[index],
-                                                    ),
-                                                child: Text(
-                                                  later[index].customerName,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontSize:
-                                                        workspaceFontPrimary,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF0E0D0F),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Text(
-                                              formatDay(
-                                                dateFromIso(later[index].day),
-                                              ),
-                                              style: const TextStyle(
-                                                fontSize:
-                                                    workspaceFontSecondary,
-                                                color: Color(0xFF6B7280),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                              icon: const Icon(
+                                Icons.person_add_outlined,
+                                color: pouCanvas,
+                              ),
+                              label: const Text(
+                                'Adicionar',
+                                style: TextStyle(color: pouCanvas),
                               ),
                             ),
-                          ],
-                          const SizedBox(height: 22),
-                          const _SectionTitle('Vendas recentes'),
+                          ),
+                          const SizedBox(height: 28),
                           rise(
-                            _SurfaceCard(
-                              child: operation.sales.isEmpty
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: Text(
-                                        'Nenhuma venda recente.',
-                                        style: TextStyle(
-                                          fontSize: workspaceFontSecondary,
-                                          color: Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                    )
-                                  : Column(
-                                      children: [
-                                        for (
-                                          var index = 0;
-                                          index < operation.sales.length;
-                                          index++
-                                        ) ...[
-                                          if (index > 0) const _Hairline(),
-                                          _SaleTile(
-                                            sale: operation.sales[index],
-                                            hidden: valuesHidden,
-                                            onTap: () => widget.onOpenSale(
-                                              operation.sales[index],
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                            _TomorrowDuesSection(
+                              tomorrow: todayStart.add(const Duration(days: 1)),
+                              dues: tomorrowDues,
+                              valuesHidden: valuesHidden,
+                              onOpenCustomer: widget.onOpenCustomer,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          rise(
+                            _LaterDuesSection(
+                              today: todayStart,
+                              dues: laterDues,
+                              valuesHidden: valuesHidden,
+                              onOpenCustomer: widget.onOpenCustomer,
                             ),
                           ),
                         ],
@@ -280,155 +249,6 @@ class StreetBoardViewState extends State<StreetBoardView>
           ),
         );
       },
-    );
-  }
-}
-
-class _VisitCard extends StatefulWidget {
-  const _VisitCard({
-    required this.visit,
-    required this.ledger,
-    required this.valuesHidden,
-    required this.onComplete,
-    required this.onPostpone,
-    required this.onRemove,
-    required this.onOpenCustomer,
-  });
-
-  final RouteVisit visit;
-  final StreetLedger ledger;
-  final bool valuesHidden;
-  final VoidCallback onComplete;
-  final VoidCallback onPostpone;
-  final VoidCallback onRemove;
-  final VoidCallback onOpenCustomer;
-
-  @override
-  State<_VisitCard> createState() => _VisitCardState();
-}
-
-class _VisitCardState extends State<_VisitCard> {
-  static const _reveal = 228.0;
-  var _offset = 0.0;
-  var _dragging = false;
-
-  void _close() => setState(() => _offset = 0);
-
-  @override
-  Widget build(BuildContext context) {
-    final visit = widget.visit;
-    final balance = customerBalanceCents(widget.ledger, visit.customerId);
-    return Stack(
-      key: Key('visit_${visit.id}'),
-      children: [
-        Positioned.fill(
-          child: Row(
-            children: [
-              const Spacer(),
-              SizedBox(
-                width: _reveal,
-                child: _VisitActions(
-                  onComplete: () {
-                    _close();
-                    widget.onComplete();
-                  },
-                  onPostpone: () {
-                    _close();
-                    widget.onPostpone();
-                  },
-                  onRemove: () {
-                    _close();
-                    widget.onRemove();
-                  },
-                  completeKey: Key('done_${visit.id}'),
-                  postponeKey: Key('postpone_${visit.id}'),
-                  removeKey: Key('remove_visit_${visit.id}'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        GestureDetector(
-          onHorizontalDragStart: (_) => setState(() => _dragging = true),
-          onHorizontalDragUpdate: (details) {
-            setState(() {
-              _offset = (_offset + details.delta.dx).clamp(-_reveal, 0);
-            });
-          },
-          onHorizontalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            final open =
-                velocity < -300 || (velocity <= 300 && _offset < -_reveal / 2);
-            setState(() {
-              _dragging = false;
-              _offset = open ? -_reveal : 0;
-            });
-          },
-          child: AnimatedContainer(
-            duration: _dragging
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
-            transform: Matrix4.translationValues(_offset, 0, 0),
-            child: Material(
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    _VisitCheck(
-                      done: visit.status == VisitStatus.completed,
-                      onTap: visit.status == VisitStatus.completed
-                          ? null
-                          : () {
-                              _close();
-                              widget.onComplete();
-                            },
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: InkWell(
-                        key: Key('visit_customer_${visit.id}'),
-                        onTap: widget.onOpenCustomer,
-                        child: Text(
-                          visit.customerName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: workspaceFontPrimary,
-                            fontWeight: FontWeight.w700,
-                            color: visit.status == VisitStatus.completed
-                                ? const Color(0xFF8B97C2)
-                                : const Color(0xFF0E0D0F),
-                            decoration: visit.status == VisitStatus.completed
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            decorationColor: const Color(0xFF8B97C2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      formatBrl(balance, hidden: widget.valuesHidden),
-                      key: Key('visit_balance_${visit.id}'),
-                      style: TextStyle(
-                        fontSize: workspaceFontPrimary,
-                        fontWeight: FontWeight.w700,
-                        color: visit.status == VisitStatus.completed
-                            ? const Color(0xFF8B97C2)
-                            : const Color(0xFF0E0D0F),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -470,113 +290,25 @@ class _VisitCheck extends StatelessWidget {
   }
 }
 
-class _VisitActions extends StatelessWidget {
-  const _VisitActions({
-    this.onComplete,
-    this.onPostpone,
-    this.onRemove,
-    this.completeKey,
-    this.postponeKey,
-    this.removeKey,
-  });
-
-  final VoidCallback? onComplete;
-  final VoidCallback? onPostpone;
-  final VoidCallback? onRemove;
-  final Key? completeKey;
-  final Key? postponeKey;
-  final Key? removeKey;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _SwipeAction(
-          key: completeKey,
-          label: 'Feito',
-          color: const Color(0xFF2E7D32),
-          onTap: onComplete,
-        ),
-        _SwipeAction(
-          key: postponeKey,
-          label: 'Adiar',
-          color: const Color(0xFFF9A825),
-          onTap: onPostpone,
-        ),
-        _SwipeAction(
-          key: removeKey,
-          label: 'Remover',
-          color: const Color(0xFFC62828),
-          onTap: onRemove,
-        ),
-      ],
-    );
-  }
-}
-
-class _SwipeAction extends StatelessWidget {
-  const _SwipeAction({
-    super.key,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: color,
-        child: InkWell(
-          onTap: onTap,
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: workspaceFontSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeliveryBoard extends StatelessWidget {
-  const _DeliveryBoard({
+class _DayReceiptsBoard extends StatelessWidget {
+  const _DayReceiptsBoard({
     required this.titleKey,
     required this.progress,
-    required this.today,
-    required this.ledger,
+    required this.receipts,
     required this.valuesHidden,
-    required this.onComplete,
-    required this.onPostpone,
-    required this.onRemove,
     required this.onOpenCustomer,
   });
 
   final Key titleKey;
   final VisitProgress progress;
-  final List<RouteVisit> today;
-  final StreetLedger ledger;
+  final List<DayReceiptCustomer> receipts;
   final bool valuesHidden;
-  final ValueChanged<RouteVisit> onComplete;
-  final ValueChanged<RouteVisit> onPostpone;
-  final ValueChanged<RouteVisit> onRemove;
-  final ValueChanged<RouteVisit> onOpenCustomer;
+  final ValueChanged<String> onOpenCustomer;
 
   @override
   Widget build(BuildContext context) {
     final colors = workspaceColorsOf(context);
     final fraction = progress.total == 0 ? 0.0 : progress.done / progress.total;
-    final routeDay = formatDay(dateFromIso(ledger.day));
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -604,7 +336,7 @@ class _DeliveryBoard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Visitas em $routeDay',
+                          'Recebimentos do dia',
                           key: titleKey,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -652,19 +384,19 @@ class _DeliveryBoard extends StatelessWidget {
                 ],
               ),
             ),
-            if (today.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            if (receipts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Text(
-                  'Nenhuma entrega em $routeDay.',
-                  style: const TextStyle(
+                  'Nenhum recebimento com vencimento hoje.',
+                  style: TextStyle(
                     fontSize: workspaceFontSecondary,
                     color: Color(0xFF6B7280),
                   ),
                 ),
               )
             else
-              for (var index = 0; index < today.length; index++) ...[
+              for (var index = 0; index < receipts.length; index++) ...[
                 const Divider(
                   height: 1,
                   thickness: 1,
@@ -672,14 +404,11 @@ class _DeliveryBoard extends StatelessWidget {
                   endIndent: 16,
                   color: Color(0xFFE9E8EB),
                 ),
-                _VisitCard(
-                  visit: today[index],
-                  ledger: ledger,
+                _DayReceiptTile(
+                  receipt: receipts[index],
                   valuesHidden: valuesHidden,
-                  onComplete: () => onComplete(today[index]),
-                  onPostpone: () => onPostpone(today[index]),
-                  onRemove: () => onRemove(today[index]),
-                  onOpenCustomer: () => onOpenCustomer(today[index]),
+                  onOpenCustomer: () =>
+                      onOpenCustomer(receipts[index].customerId),
                 ),
               ],
             const SizedBox(height: 4),
@@ -690,151 +419,495 @@ class _DeliveryBoard extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: workspaceFontPrimary,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF0E0D0F),
-        ),
-      ),
-    );
-  }
-}
-
-class _SurfaceCard extends StatelessWidget {
-  const _SurfaceCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x140E0D0F),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: child,
-      ),
-    );
-  }
-}
-
-class _Hairline extends StatelessWidget {
-  const _Hairline();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      indent: 16,
-      endIndent: 16,
-      color: Color(0xFFE9E8EB),
-    );
-  }
-}
-
-class _SaleTile extends StatelessWidget {
-  const _SaleTile({
-    required this.sale,
-    required this.hidden,
-    required this.onTap,
+class _DayReceiptTile extends StatelessWidget {
+  const _DayReceiptTile({
+    required this.receipt,
+    required this.valuesHidden,
+    required this.onOpenCustomer,
   });
 
-  final RecentSale sale;
-  final bool hidden;
-  final VoidCallback onTap;
+  final DayReceiptCustomer receipt;
+  final bool valuesHidden;
+  final VoidCallback onOpenCustomer;
 
   @override
   Widget build(BuildContext context) {
-    final pending = sale.paymentStatus == PaymentStatus.pending;
-    final colors = workspaceColorsOf(context);
-    return InkWell(
-      onTap: onTap,
+    final done = receipt.done;
+    return Material(
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: pending ? const Color(0xFFFFF4E5) : colors.accentSoft,
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Center(
-                  child: Text(
-                    sale.code.substring(sale.code.length - 2),
-                    style: TextStyle(
-                      fontSize: workspaceFontSecondary,
-                      fontWeight: FontWeight.w700,
-                      color: pending ? const Color(0xFFB45309) : colors.accent,
-                    ),
+            _VisitCheck(done: done, onTap: done ? null : onOpenCustomer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                key: Key('day_receipt_${receipt.customerId}'),
+                onTap: onOpenCustomer,
+                child: Text(
+                  receipt.customerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: workspaceFontPrimary,
+                    fontWeight: FontWeight.w700,
+                    color: done
+                        ? const Color(0xFF8B97C2)
+                        : const Color(0xFF0E0D0F),
+                    decoration: done
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
+                    decorationColor: const Color(0xFF8B97C2),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    sale.customerName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: workspaceFontPrimary,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0E0D0F),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    paymentStatusLabel(sale.paymentStatus),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: workspaceFontSecondary,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
             Text(
-              formatBrl(sale.amountCents, hidden: hidden),
-              style: const TextStyle(
+              formatBrl(receipt.amountCents, hidden: valuesHidden),
+              key: Key('day_receipt_amount_${receipt.customerId}'),
+              style: TextStyle(
                 fontSize: workspaceFontPrimary,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0E0D0F),
+                color: done ? const Color(0xFF8B97C2) : const Color(0xFF0E0D0F),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+const _duesMuted = Color(0xFF8E8E93);
+const _duesGreen = Color(0xFF1B7A45);
+const _duesGreenSoft = Color(0xFFE5F6EC);
+const _duesBadge = Color(0xFFF0F0F2);
+
+const _monthShort = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+];
+
+DateTime? _parseDueDay(String iso) {
+  final parts = iso.split('-');
+  if (parts.length != 3) return null;
+  final year = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final day = int.tryParse(parts[2]);
+  if (year == null || month == null || day == null) return null;
+  return DateTime(year, month, day);
+}
+
+String _shortMonthDay(DateTime date) =>
+    '${date.day} ${_monthShort[date.month - 1]}.';
+
+String _monthDayLabel(DateTime date) {
+  final month = monthNames[date.month - 1].toLowerCase();
+  return '${date.day} de $month';
+}
+
+String _relativeDaysLabel(DateTime due, DateTime today) {
+  final days = due.difference(today).inDays;
+  if (days == 0) return 'Hoje';
+  if (days == 1) return 'Amanhã';
+  if (days == -1) return 'Ontem';
+  if (days < -1) return 'Há ${-days} dias';
+  return 'Em $days dias';
+}
+
+class _TomorrowDuesSection extends StatelessWidget {
+  const _TomorrowDuesSection({
+    required this.tomorrow,
+    required this.dues,
+    required this.valuesHidden,
+    required this.onOpenCustomer,
+  });
+
+  final DateTime tomorrow;
+  final List<UpcomingDueCustomer> dues;
+  final bool valuesHidden;
+  final ValueChanged<String> onOpenCustomer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Amanhã',
+                style: TextStyle(
+                  color: Color(0xFF0E0D0F),
+                  fontSize: workspaceFontPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              _shortMonthDay(tomorrow),
+              style: const TextStyle(
+                color: _duesMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (dues.isEmpty)
+          const _TomorrowEmptyCard()
+        else
+          _DuesWhiteCard(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+              child: Column(
+                children: [
+                  for (var index = 0; index < dues.length; index++) ...[
+                    if (index > 0)
+                      const Divider(height: 1, color: Color(0xFFE9E8EB)),
+                    _DueCustomerRow(
+                      due: dues[index],
+                      hidden: valuesHidden,
+                      noteLabel: '1 nota em aberto',
+                      onTap: () => onOpenCustomer(dues[index].customerId),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TomorrowEmptyCard extends StatelessWidget {
+  const _TomorrowEmptyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _DuesWhiteCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _duesGreenSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.event_available_rounded,
+                color: _duesGreen,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tudo em dia',
+                    style: TextStyle(
+                      color: Color(0xFF0E0D0F),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Nenhuma cobrança para amanhã.',
+                    style: TextStyle(
+                      color: _duesMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LaterDuesSection extends StatelessWidget {
+  const _LaterDuesSection({
+    required this.today,
+    required this.dues,
+    required this.valuesHidden,
+    required this.onOpenCustomer,
+  });
+
+  final DateTime today;
+  final List<UpcomingDueCustomer> dues;
+  final bool valuesHidden;
+  final ValueChanged<String> onOpenCustomer;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String, List<UpcomingDueCustomer>>{};
+    for (final due in dues) {
+      groups.putIfAbsent(due.dueOn, () => []).add(due);
+    }
+    final orderedDays = groups.keys.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Próximos vencimentos',
+          style: TextStyle(
+            color: Color(0xFF0E0D0F),
+            fontSize: workspaceFontPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (dues.isEmpty)
+          const Text(
+            'Nenhuma nota próxima do vencimento.',
+            style: TextStyle(
+              color: _duesMuted,
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+          )
+        else
+          for (var dayIndex = 0; dayIndex < orderedDays.length; dayIndex++) ...[
+            if (dayIndex > 0) const SizedBox(height: 14),
+            _LaterDueDayCard(
+              dueOn: orderedDays[dayIndex],
+              today: today,
+              dues: groups[orderedDays[dayIndex]]!,
+              valuesHidden: valuesHidden,
+              onOpenCustomer: onOpenCustomer,
+            ),
+          ],
+      ],
+    );
+  }
+}
+
+class _LaterDueDayCard extends StatelessWidget {
+  const _LaterDueDayCard({
+    required this.dueOn,
+    required this.today,
+    required this.dues,
+    required this.valuesHidden,
+    required this.onOpenCustomer,
+  });
+
+  final String dueOn;
+  final DateTime today;
+  final List<UpcomingDueCustomer> dues;
+  final bool valuesHidden;
+  final ValueChanged<String> onOpenCustomer;
+
+  @override
+  Widget build(BuildContext context) {
+    final day = _parseDueDay(dueOn) ?? today;
+    final total = dues.fold<int>(0, (sum, item) => sum + item.amountCents);
+    return _DuesWhiteCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _monthDayLabel(day),
+                    style: const TextStyle(
+                      color: _duesMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _duesBadge,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _relativeDaysLabel(day, today),
+                    style: const TextStyle(
+                      color: Color(0xFF5C5C62),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            for (var index = 0; index < dues.length; index++) ...[
+              if (index > 0) ...[
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: Color(0xFFE9E8EB)),
+                const SizedBox(height: 16),
+              ],
+              _DueCustomerRow(
+                due: dues[index],
+                hidden: valuesHidden,
+                noteLabel: '1 nota em aberto',
+                onTap: () => onOpenCustomer(dues[index].customerId),
+              ),
+            ],
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFE9E8EB)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Total previsto',
+                    style: TextStyle(
+                      color: _duesMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                Text(
+                  formatBrl(total, hidden: valuesHidden),
+                  style: const TextStyle(
+                    color: Color(0xFF0E0D0F),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DueCustomerRow extends StatelessWidget {
+  const _DueCustomerRow({
+    required this.due,
+    required this.hidden,
+    required this.noteLabel,
+    required this.onTap,
+  });
+
+  final UpcomingDueCustomer due;
+  final bool hidden;
+  final String noteLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: Key('upcoming_due_${due.customerId}_${due.dueOn}'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  due.customerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0E0D0F),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  noteLabel,
+                  style: const TextStyle(
+                    color: _duesMuted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatBrl(due.amountCents, hidden: hidden),
+                style: const TextStyle(
+                  color: Color(0xFF0E0D0F),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'A receber',
+                style: TextStyle(
+                  color: _duesMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Color(0xFFC7C7CC),
+            size: 22,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DuesWhiteCard extends StatelessWidget {
+  const _DuesWhiteCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      child: child,
     );
   }
 }

@@ -10,17 +10,15 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
 import '../../../customers/presentation/customer_routes.dart';
 import '../../../customers/presentation/pages/customers_page.dart';
-import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
 import '../loaded_operation.dart';
-import '../street_actions.dart';
+import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
 import '../widgets/street_board_view.dart';
 import 'add_delivery_page.dart';
 import 'business_settings_page.dart';
 import 'finance_page.dart';
-import 'provisional_action_page.dart';
 
 class WorkspacePage extends StatelessWidget {
   const WorkspacePage({super.key});
@@ -42,7 +40,7 @@ class WorkspaceView extends StatefulWidget {
 }
 
 class _WorkspaceViewState extends State<WorkspaceView> {
-  final _valuesHidden = false;
+  var _valuesHidden = false;
   final _built = <int>{0};
   var _tab = 0;
   var _adding = false;
@@ -113,19 +111,22 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                               _WorkspaceHeader(
                                 message: logoutError,
                                 snapshot: _monthSnapshot(context),
+                                valuesHidden: _valuesHidden,
+                                onToggleValues: () {
+                                  setState(
+                                    () => _valuesHidden = !_valuesHidden,
+                                  );
+                                },
                               ),
                               Expanded(
                                 child: StreetBoardView(
                                   valuesHidden: _valuesHidden,
                                   onNewSale: _addDeliveryPerson,
-                                  onComplete: _completeVisit,
-                                  onPostpone: _postponeVisit,
-                                  onRemove: _removeVisit,
-                                  onOpenCustomer: _openVisitCustomer,
-                                  onOpenSale: (sale) => _openProvisional(
-                                    'Venda ${sale.code}',
-                                    'A venda ${sale.code} também está na conta da cliente.',
-                                  ),
+                                  onOpenCustomer: (customerId) {
+                                    Navigator.of(context).pushNamed(
+                                      CustomerRoutes.details(customerId),
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -165,51 +166,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     );
   }
 
-  void _openVisitCustomer(RouteVisit visit) {
-    Navigator.of(context).pushNamed(CustomerRoutes.details(visit.customerId));
-  }
-
   void _addDeliveryPerson() {
     setState(() => _adding = true);
-  }
-
-  void _completeVisit(RouteVisit visit) {
-    applyStreetChange(context, CompleteVisit(visit.id));
-  }
-
-  Future<void> _postponeVisit(RouteVisit visit) async {
-    final now = DateTime.now();
-    final tomorrow = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).add(const Duration(days: 1));
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: tomorrow,
-      firstDate: tomorrow,
-      lastDate: tomorrow.add(const Duration(days: 365)),
-      helpText: 'Adiar entrega',
-      cancelText: 'Cancelar',
-      confirmText: 'Adiar',
-    );
-    if (picked == null || !mounted) return;
-    await applyStreetChange(
-      context,
-      MissVisit(visitId: visit.id, rescheduleOn: isoDate(picked)),
-    );
-  }
-
-  void _removeVisit(RouteVisit visit) {
-    applyStreetChange(context, RemoveRouteVisit(visit.id));
-  }
-
-  void _openProvisional(String title, String detail) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ProvisionalActionPage(title: title, detail: detail),
-      ),
-    );
   }
 
   MonthSnapshot _monthSnapshot(BuildContext context) {
@@ -227,10 +185,14 @@ class _WorkspaceHeader extends StatelessWidget {
   const _WorkspaceHeader({
     required this.message,
     required this.snapshot,
+    required this.valuesHidden,
+    required this.onToggleValues,
   });
 
   final String? message;
   final MonthSnapshot snapshot;
+  final bool valuesHidden;
+  final VoidCallback onToggleValues;
 
   static const _ink = pouInk;
   static const _muted = Color(0xFF9A9AA2);
@@ -275,13 +237,7 @@ class _WorkspaceHeader extends StatelessWidget {
                     ),
                     _HeaderRoundIcon(
                       icon: Icons.settings_outlined,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const BusinessSettingsPage(),
-                          ),
-                        );
-                      },
+                      onTap: () => showBusinessSettingsSheet(context),
                     ),
                     const SizedBox(width: 10),
                     const _HeaderRoundIcon(icon: Icons.notifications_none),
@@ -289,7 +245,7 @@ class _WorkspaceHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 22),
                 const Text(
-                  'Recebido',
+                  'Recebido hoje',
                   style: TextStyle(
                     color: _muted,
                     fontSize: 15,
@@ -297,19 +253,42 @@ class _WorkspaceHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '\$${_usdNumber(snapshot.receivedCents)}',
-                    style: const TextStyle(
-                      color: _ink,
-                      fontSize: 40,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                      height: 1,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          formatBrl(
+                            snapshot.receivedCents,
+                            hidden: valuesHidden,
+                          ),
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.2,
+                            height: 1,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      key: const Key('workspace_hide_values'),
+                      tooltip: valuesHidden ? 'Mostrar valores' : 'Esconder valores',
+                      onPressed: onToggleValues,
+                      icon: Icon(
+                        valuesHidden
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: _ink,
+                        size: 26,
+                      ),
+                    ),
+                  ],
                 ),
                 if (message != null) ...[
                   const SizedBox(height: 8),
@@ -321,20 +300,6 @@ class _WorkspaceHeader extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static String _usdNumber(int cents) {
-    final value = cents.abs();
-    final whole = value ~/ 100;
-    final fraction = (value % 100).toString().padLeft(2, '0');
-    final digits = whole.toString();
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      final remaining = digits.length - index;
-      if (index > 0 && remaining % 3 == 0) buffer.write(',');
-      buffer.write(digits[index]);
-    }
-    return '$buffer.$fraction';
   }
 }
 

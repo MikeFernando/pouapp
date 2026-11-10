@@ -18,6 +18,9 @@ abstract class CustomerNoteLocalDataSource {
 
   Future<CustomerNote> note(String id);
 
+  /// Draft notes that already have a due date and a positive total.
+  Future<List<CustomerNote>> draftNotesWithDue();
+
   Future<CustomerNote> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,
@@ -128,6 +131,24 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     );
     if (delivered.isEmpty) return null;
     return _read(db, delivered.first['id']! as String);
+  }
+
+  @override
+  Future<List<CustomerNote>> draftNotesWithDue() async {
+    final db = await openDatabase();
+    final rows = await db.query(
+      'customer_notes',
+      where: 'status = ? AND due_on IS NOT NULL',
+      whereArgs: [NoteStatus.draft.name],
+      orderBy: 'due_on ASC',
+    );
+    final result = <CustomerNote>[];
+    for (final row in rows) {
+      final note = await _read(db, row['id']! as String);
+      if (note.dueOn == null || note.totalCents <= 0) continue;
+      result.add(note);
+    }
+    return result;
   }
 
   @override

@@ -147,7 +147,10 @@ void main() {
     expect(message, contains('Olá, Ana! 😊'));
     expect(message, contains('O valor do saldo em aberto é de R\$ 100,00.'));
     expect(message, isNot(contains('Vencimento:')));
-    expect(message, contains('Minha chave Pix:\n11988887777'));
+    expect(
+      message,
+      contains('Copie a chave Pix abaixo e cole no seu banco:\n\n11988887777'),
+    );
     expect(message, contains('Recebedor: Hortifruti da Ana'));
     expect(message, isNot(contains('000201')));
   });

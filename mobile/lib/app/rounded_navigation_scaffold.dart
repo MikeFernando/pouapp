@@ -106,7 +106,10 @@ class RoundedBottomNavigationBar extends StatelessWidget {
                   child: _NavigationItem(
                     destination: destinations[index],
                     selected: index == selectedIndex,
-                    onTap: () => onSelected(index),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onSelected(index);
+                    },
                   ),
                 ),
             ],

@@ -254,7 +254,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
                   ),
                   ChoiceChip(
                     key: const Key('customer_status_inactive'),
-                    label: const Text('Inativo'),
+                    label: const Text('Desativado'),
                     selected: _status == CustomerStatus.inactive,
                     onSelected: saving
                         ? null

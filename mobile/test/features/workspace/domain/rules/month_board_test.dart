@@ -293,4 +293,110 @@ void main() {
       expect(empty.hasPercent, isFalse);
     },
   );
+
+  test('day receipts list only customers due today', () {
+    final receipts = dayReceipts(
+      sales: [
+        sale(
+          id: 'today-open',
+          customerId: 'ana',
+          name: 'Ana',
+          total: 2000,
+          allocated: 0,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-03',
+        ),
+        sale(
+          id: 'today-paid',
+          customerId: 'bia',
+          name: 'Bia',
+          total: 1500,
+          allocated: 1500,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-03',
+        ),
+        sale(
+          id: 'tomorrow',
+          customerId: 'carla',
+          name: 'Carla',
+          total: 3000,
+          allocated: 0,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-04',
+        ),
+      ],
+      notes: const [
+        UpcomingDueCustomer(
+          customerId: 'eva',
+          customerName: 'Eva',
+          dueOn: '2026-11-03',
+          amountCents: 4000,
+        ),
+      ],
+      today: today,
+    );
+
+    expect(receipts.map((item) => item.customerId), ['ana', 'eva', 'bia']);
+    expect(receipts.singleWhere((item) => item.customerId == 'ana').done, isFalse);
+    expect(receipts.singleWhere((item) => item.customerId == 'bia').done, isTrue);
+    expect(dayReceiptProgress(receipts).done, 1);
+    expect(dayReceiptProgress(receipts).total, 3);
+  });
+
+  test('upcoming dues put tomorrow before later dates', () {
+    final dues = upcomingDueCustomers(
+      sales: [
+        sale(
+          id: 'later',
+          customerId: 'carla',
+          name: 'Carla',
+          total: 5000,
+          allocated: 0,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-10',
+        ),
+        sale(
+          id: 'tomorrow-a',
+          customerId: 'ana',
+          name: 'Ana',
+          total: 2000,
+          allocated: 0,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-04',
+        ),
+        sale(
+          id: 'tomorrow-b',
+          customerId: 'bia',
+          name: 'Bia',
+          total: 3000,
+          allocated: 0,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-04',
+        ),
+        sale(
+          id: 'paid',
+          customerId: 'dona',
+          name: 'Dona',
+          total: 1000,
+          allocated: 1000,
+          occurredOn: '2026-11-01',
+          dueOn: '2026-11-04',
+        ),
+      ],
+      notes: const [
+        UpcomingDueCustomer(
+          customerId: 'eva',
+          customerName: 'Eva',
+          dueOn: '2026-11-04',
+          amountCents: 4500,
+        ),
+      ],
+      today: today,
+    );
+
+    expect(dues.map((item) => item.customerId), ['ana', 'bia', 'eva', 'carla']);
+    expect(upcomingDueLabel('2026-11-03', today), 'Vence hoje');
+    expect(upcomingDueLabel('2026-11-04', today), 'Vence amanhã');
+    expect(upcomingDueLabel('2026-11-02', today), 'Venceu ontem');
+  });
 }

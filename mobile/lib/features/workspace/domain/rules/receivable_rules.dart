@@ -202,11 +202,13 @@ String chargeMessage({
   String? dueOn,
 }) {
   final due = dueOn == null ? '' : 'Vencimento: ${_day(dueOn)}\n';
+  final key = pixKey.trim();
   return 'Olá, $customerName! 😊\n'
       'O valor $description é de ${formatReais(amountCents)}.\n'
       '$due\n'
-      'Minha chave Pix:\n'
-      '$pixKey\n'
+      'Copie a chave Pix abaixo e cole no seu banco:\n'
+      '\n'
+      '$key\n'
       '\n'
       'Recebedor: $receiverName\n'
       '\n'

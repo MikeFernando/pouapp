@@ -34,6 +34,11 @@ class CustomerNoteRepositoryImpl implements CustomerNoteRepository {
   }
 
   @override
+  Future<Either<Failure, List<CustomerNote>>> draftNotesWithDue() {
+    return _guard(localDataSource.draftNotesWithDue);
+  }
+
+  @override
   Future<Either<Failure, CustomerNote>> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,

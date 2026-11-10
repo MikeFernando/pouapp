@@ -1,9 +1,10 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
+import '../../../../app/pou_date_sheet.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../assistant/presentation/voice_attendance.dart';
@@ -22,6 +23,8 @@ import '../../domain/validation/customer_validators.dart';
 import '../bloc/customer_details_bloc.dart';
 import '../whatsapp_launch.dart';
 import '../widgets/customer_account_section.dart';
+import '../widgets/customer_status_badge.dart';
+import '../widgets/customer_status_sheet.dart';
 
 String? whatsAppPhoneDigits(Customer customer) {
   final raw = onlyDigits(
@@ -186,7 +189,8 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _SituationBar(
-                        delivered: note?.status == NoteStatus.delivered,
+                        status: customer.status,
+                        onTap: () => _openStatus(customer),
                       ),
                       _DueDateCard(
                         date: note?.dueOn,
@@ -258,7 +262,35 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                               ? null
                               : _editLine,
                         ),
-                      CustomerAccountSection(customer: customer),
+                      CustomerAccountSection(
+                        customer: customer,
+                        itemsTotalCents: note?.totalCents ?? 0,
+                        onRemainingDueSet: (dueOn) async {
+                          final current = _note;
+                          if (current == null ||
+                              current.status == NoteStatus.delivered) {
+                            return;
+                          }
+                          if (!di.sl.isRegistered<CustomerNoteRepository>()) {
+                            setState(
+                              () => _note = current.copyWith(dueOn: dueOn),
+                            );
+                            return;
+                          }
+                          final result =
+                              await di.sl<CustomerNoteRepository>().setDueOn(
+                            noteId: current.id,
+                            dueOn: dueOn,
+                          );
+                          if (!mounted) return;
+                          result.fold(_rememberFailure, (saved) {
+                            setState(() {
+                              _noteError = null;
+                              _note = saved;
+                            });
+                          });
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -317,15 +349,10 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   Future<void> _openDueDate() async {
     final note = _note;
     if (note == null || note.status == NoteStatus.delivered) return;
-    final picked = await showModalBottomSheet<DateTime>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFFF6F5F7),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) =>
-          _DueDateSheet(initial: note.dueOn ?? DateTime.now()),
+    final picked = await showPouDateSheet(
+      context,
+      initial: note.dueOn ?? DateTime.now(),
+      title: 'Escolha a data de vencimento',
     );
     if (picked == null || !mounted) return;
     final dueOn = DateTime(picked.year, picked.month, picked.day);
@@ -475,6 +502,17 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     setState(() => _noteError = 'Não foi possível gravar a nota.');
   }
 
+  Future<void> _openStatus(Customer customer) async {
+    final next = await showCustomerStatusSheet(
+      context,
+      current: customer.status,
+    );
+    if (!mounted || next == null || next == customer.status) return;
+    context.read<CustomerDetailsBloc>().add(
+      CustomerStatusChangeRequested(next),
+    );
+  }
+
   Future<void> _openWhatsApp(Customer customer) async {
     final digits = whatsAppPhoneDigits(customer);
     if (digits == null) {
@@ -495,9 +533,10 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
 }
 
 class _SituationBar extends StatelessWidget {
-  const _SituationBar({required this.delivered});
+  const _SituationBar({required this.status, required this.onTap});
 
-  final bool delivered;
+  final CustomerStatus status;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -506,46 +545,27 @@ class _SituationBar extends StatelessWidget {
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: InkWell(
           key: const Key('customer_situation'),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Situação',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0E0D0F),
-                  ),
-                ),
-              ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: delivered
-                      ? const Color(0xFFE8F5E9)
-                      : const Color(0xFFFFF4CC),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Row(
+              children: [
+                const Expanded(
                   child: Text(
-                    delivered ? 'Entregue' : 'Rascunho',
+                    'Situação',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: delivered
-                          ? const Color(0xFF2E7D32)
-                          : const Color(0xFF8A6A2F),
+                      color: Color(0xFF0E0D0F),
                     ),
                   ),
                 ),
-              ),
-            ],
+                CustomerStatusBadge(status: status),
+              ],
+            ),
           ),
         ),
       ),
@@ -604,248 +624,6 @@ class _DueDateCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _DueDateSheet extends StatefulWidget {
-  const _DueDateSheet({required this.initial});
-
-  final DateTime initial;
-
-  @override
-  State<_DueDateSheet> createState() => _DueDateSheetState();
-}
-
-class _DueDateSheetState extends State<_DueDateSheet> {
-  late DateTime _selected = DateTime(
-    widget.initial.year,
-    widget.initial.month,
-    widget.initial.day,
-  );
-  late DateTime _month = DateTime(widget.initial.year, widget.initial.month);
-
-  static const _months = [
-    'janeiro',
-    'fevereiro',
-    'março',
-    'abril',
-    'maio',
-    'junho',
-    'julho',
-    'agosto',
-    'setembro',
-    'outubro',
-    'novembro',
-    'dezembro',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final days = DateTime(_month.year, _month.month + 1, 0).day;
-    final leading = DateTime(_month.year, _month.month).weekday % 7;
-    final rows = ((leading + days) / 7).ceil();
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 20, 8, 16),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Escolha a data de vencimento',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0E0D0F),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        IconButton(
-                          key: const Key('due_prev_month'),
-                          onPressed: () => setState(() {
-                            _month = DateTime(_month.year, _month.month - 1);
-                          }),
-                          icon: const Icon(
-                            Icons.chevron_left,
-                            color: pouAppBlue,
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _months[_month.month - 1],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Color(0xFF0E0D0F),
-                                ),
-                              ),
-                              const SizedBox(width: 28),
-                              Text(
-                                '${_month.year}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Color(0xFF0E0D0F),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          key: const Key('due_next_month'),
-                          onPressed: () => setState(() {
-                            _month = DateTime(_month.year, _month.month + 1);
-                          }),
-                          icon: const Icon(
-                            Icons.chevron_right,
-                            color: pouAppBlue,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Row(
-                        children: [
-                          for (final label in [
-                            'D',
-                            'S',
-                            'T',
-                            'Q',
-                            'Q',
-                            'S',
-                            'S',
-                          ])
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF9CA3AF),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (var row = 0; row < rows; row++)
-                      Row(
-                        children: [
-                          for (var column = 0; column < 7; column++)
-                            Expanded(
-                              child: _dayCell(
-                                row * 7 + column - leading + 1,
-                                days,
-                              ),
-                            ),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'Você escolheu',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          '${_selected.day} de ${_months[_selected.month - 1]} de ${_selected.year}',
-                          key: const Key('due_chosen'),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0E0D0F),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 56,
-              width: double.infinity,
-              child: FilledButton(
-                key: const Key('due_confirm'),
-                onPressed: () => Navigator.of(context).pop(_selected),
-                child: const Text('Confirmar'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _dayCell(int day, int daysInMonth) {
-    if (day < 1 || day > daysInMonth) {
-      return const SizedBox(height: 40);
-    }
-    final date = DateTime(_month.year, _month.month, day);
-    final selected = _sameDay(date, _selected);
-    final today = _sameDay(date, DateTime.now());
-    return SizedBox(
-      height: 40,
-      child: InkWell(
-        key: Key('due_day_$day'),
-        customBorder: const CircleBorder(),
-        onTap: () => setState(() => _selected = date),
-        child: Center(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: selected
-                  ? pouAppBlue
-                  : today
-                  ? const Color(0xFFE9E8EB)
-                  : null,
-              shape: BoxShape.circle,
-            ),
-            child: SizedBox(
-              width: 34,
-              height: 34,
-              child: Center(
-                child: Text(
-                  '$day',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF6B7280),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  bool _sameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }
 
@@ -1076,11 +854,11 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
     if (letter == null) return rows;
     return [
       for (final row in rows)
-        if (_catalogInitial(row.product.name) == letter) row,
+        if (pouAlphabetInitial(row.product.name) == letter) row,
     ];
   }
 
-  void _setLetter(String letter) {
+  void _setLetter(String? letter) {
     if (_filterLetter == letter && _scrubbing) return;
     setState(() {
       _filterLetter = letter;
@@ -1174,7 +952,7 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
                         right: 0,
                         top: 8,
                         bottom: 8 + bottomInset,
-                        child: _AlphabetIndex(
+                        child: PouAlphabetIndex(
                           activeLetter: _filterLetter,
                           scrubbing: _scrubbing,
                           onDragLetter: _setLetter,
@@ -1219,229 +997,6 @@ class _CatalogSelection {
   final _CatalogRow row;
   final double quantity;
   final int unitPriceCents;
-}
-
-const _alphabetLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-class _AlphabetIndex extends StatefulWidget {
-  const _AlphabetIndex({
-    required this.activeLetter,
-    required this.scrubbing,
-    required this.onDragLetter,
-    required this.onTapLetter,
-    required this.onDragEnd,
-  });
-
-  final String? activeLetter;
-  final bool scrubbing;
-  final ValueChanged<String> onDragLetter;
-  final ValueChanged<String> onTapLetter;
-  final VoidCallback onDragEnd;
-
-  @override
-  State<_AlphabetIndex> createState() => _AlphabetIndexState();
-}
-
-class _AlphabetIndexState extends State<_AlphabetIndex> {
-  var _moved = false;
-  String? _pressed;
-  double? _focusY;
-
-  @override
-  void didUpdateWidget(covariant _AlphabetIndex oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.scrubbing && _focusY != null && !_moved) {
-      _focusY = null;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final height = constraints.maxHeight;
-        if (height <= 0) return const SizedBox.shrink();
-        final focusY = _focusY ?? _focusForLetter(widget.activeLetter, height);
-        final waving = focusY != null;
-        return RawGestureDetector(
-          behavior: HitTestBehavior.opaque,
-          gestures: <Type, GestureRecognizerFactory>{
-            _AlphabetDragRecognizer:
-                GestureRecognizerFactoryWithHandlers<_AlphabetDragRecognizer>(
-                  _AlphabetDragRecognizer.new,
-                  (_AlphabetDragRecognizer instance) {
-                    instance
-                      ..onDown = (details) {
-                        _moved = false;
-                        _pressed = _letterAt(details.localPosition.dy, height);
-                        setState(() => _focusY = details.localPosition.dy);
-                      }
-                      ..onStart = (details) {
-                        final letter = _letterAt(
-                          details.localPosition.dy,
-                          height,
-                        );
-                        _moved = true;
-                        widget.onDragLetter(_pressed ?? letter);
-                        setState(() => _focusY = details.localPosition.dy);
-                      }
-                      ..onUpdate = (details) {
-                        final letter = _letterAt(
-                          details.localPosition.dy,
-                          height,
-                        );
-                        if (!_moved) {
-                          _moved = true;
-                          widget.onDragLetter(_pressed ?? letter);
-                        }
-                        widget.onDragLetter(letter);
-                        setState(() => _focusY = details.localPosition.dy);
-                      }
-                      ..onEnd = (_) {
-                        _finishDrag();
-                      }
-                      ..onCancel = _finishDrag;
-                  },
-                ),
-            TapGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                  TapGestureRecognizer.new,
-                  (TapGestureRecognizer instance) {
-                    instance.onTapUp = (details) {
-                      widget.onTapLetter(
-                        _letterAt(details.localPosition.dy, height),
-                      );
-                    };
-                  },
-                ),
-          },
-          child: SizedBox(
-            width: waving ? 48 : 26,
-            height: height,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (var i = 0; i < _alphabetLetters.length; i++)
-                  _AlphabetWaveLetter(
-                    key: ValueKey(_alphabetLetters[i]),
-                    letter: _alphabetLetters[i],
-                    index: i,
-                    count: _alphabetLetters.length,
-                    height: height,
-                    focusY: focusY,
-                    active: widget.activeLetter == _alphabetLetters[i],
-                    scrubbing: widget.scrubbing || _focusY != null,
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _finishDrag() {
-    if (_moved) widget.onDragEnd();
-    _pressed = null;
-    _moved = false;
-    if (_focusY != null) setState(() => _focusY = null);
-  }
-
-  String _letterAt(double dy, double height) {
-    final clamped = dy.clamp(0, height - 0.001);
-    final index = (clamped / height * _alphabetLetters.length).floor().clamp(
-      0,
-      _alphabetLetters.length - 1,
-    );
-    return _alphabetLetters[index];
-  }
-
-  double? _focusForLetter(String? letter, double height) {
-    if (letter == null) return null;
-    final index = _alphabetLetters.indexOf(letter);
-    if (index < 0) return null;
-    return (index + 0.5) / _alphabetLetters.length * height;
-  }
-}
-
-/// Wins the gesture arena so the bottom sheet does not drag-dismiss.
-class _AlphabetDragRecognizer extends VerticalDragGestureRecognizer {
-  @override
-  void rejectGesture(int pointer) {
-    acceptGesture(pointer);
-  }
-}
-
-class _AlphabetWaveLetter extends StatelessWidget {
-  const _AlphabetWaveLetter({
-    super.key,
-    required this.letter,
-    required this.index,
-    required this.count,
-    required this.height,
-    required this.focusY,
-    required this.active,
-    required this.scrubbing,
-  });
-
-  final String letter;
-  final int index;
-  final int count;
-  final double height;
-  final double? focusY;
-  final bool active;
-  final bool scrubbing;
-
-  @override
-  Widget build(BuildContext context) {
-    final slot = height / count;
-    final centerY = (index + 0.5) * slot;
-    final wave = _wave(centerY, slot);
-    final shift = scrubbing || active ? -16 * wave : 0.0;
-    final scale = 1 + 1.1 * wave;
-    return Positioned(
-      top: centerY - slot / 2,
-      right: 2,
-      height: slot,
-      child: Transform.translate(
-        offset: Offset(shift, 0),
-        child: Transform.scale(
-          scale: scale,
-          alignment: Alignment.centerRight,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              letter,
-              key: Key('catalog_letter_$letter'),
-              style: TextStyle(
-                fontSize: 13,
-                height: 1,
-                fontWeight: wave > 0.75
-                    ? FontWeight.w900
-                    : FontWeight.w700,
-                color: Color.lerp(
-                  const Color(0xFF4B5563),
-                  const Color(0xFF0E0D0F),
-                  wave.clamp(0.0, 1.0),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Peak on the focused letter, then steps down on each neighbor.
-  double _wave(double centerY, double slot) {
-    final focus = focusY;
-    if (focus == null) return active ? 0.28 : 0.0;
-    final distSlots = (centerY - focus).abs() / slot;
-    if (distSlots >= 3) return 0.0;
-    // Quadratic falloff: selected=1, ±1≈0.44, ±2≈0.11
-    final t = 1 - distSlots / 3;
-    return t * t;
-  }
 }
 
 class _ProductCard extends StatelessWidget {
@@ -1572,18 +1127,6 @@ class _CatalogPhoto extends StatelessWidget {
 String _skuFromId(String id) {
   final raw = id.startsWith('product-') ? id.substring('product-'.length) : id;
   return raw.toUpperCase();
-}
-
-String _catalogInitial(String name) {
-  final trimmed = name.trim();
-  if (trimmed.isEmpty) return '#';
-  final raw = trimmed[0].toUpperCase();
-  const from = 'ÁÀÂÃÄÅÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ';
-  const to = 'AAAAAAEEEEIIIIOOOOOUUUUCN';
-  final index = from.indexOf(raw);
-  final letter = index >= 0 ? to[index] : raw;
-  if (letter.compareTo('A') < 0 || letter.compareTo('Z') > 0) return '#';
-  return letter;
 }
 
 String _stockUnitLabel(StockProduct product) {
@@ -1738,36 +1281,24 @@ class _SaleCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    InkWell(
-                      key: Key('customer_whatsapp_${order.id}'),
-                      onTap: onWhatsApp,
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _WhatsAppIcon(),
-                          SizedBox(width: 6),
-                          Text(
-                            'mandar mensagem',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF25D366),
-                            ),
-                          ),
-                        ],
+                InkWell(
+                  key: Key('customer_whatsapp_${order.id}'),
+                  onTap: onWhatsApp,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _WhatsAppIcon(),
+                      SizedBox(width: 6),
+                      Text(
+                        'mandar mensagem',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF25D366),
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      formatBrl(order.totalCents),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

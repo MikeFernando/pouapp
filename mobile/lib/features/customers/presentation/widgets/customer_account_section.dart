@@ -46,9 +46,19 @@ ButtonStyle noteQuietButton() {
 }
 
 class CustomerAccountSection extends StatefulWidget {
-  const CustomerAccountSection({super.key, required this.customer});
+  const CustomerAccountSection({
+    super.key,
+    required this.customer,
+    this.itemsTotalCents = 0,
+    this.onRemainingDueSet,
+  });
 
   final Customer customer;
+
+  /// Total of the current note items. Shown as "Saldo em aberto" until a
+  /// receivable exists for this customer.
+  final int itemsTotalCents;
+  final ValueChanged<DateTime>? onRemainingDueSet;
 
   @override
   State<CustomerAccountSection> createState() => _CustomerAccountSectionState();
@@ -81,7 +91,9 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
   Widget build(BuildContext context) {
     final hasStore = sl.isRegistered<ReceivableStore>();
     final account = _account;
-    final balance = hasStore ? account?.balanceCents : 0;
+    final balance = !hasStore || account == null || account.receivables.isEmpty
+        ? widget.itemsTotalCents
+        : account.openCents;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Material(
@@ -98,11 +110,7 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
               ),
               const SizedBox(height: 4),
               Text(
-                balance == null
-                    ? 'Carregando'
-                    : balance < 0
-                    ? 'Crédito de ${formatBrl(-balance)}'
-                    : formatBrl(balance),
+                formatBrl(balance),
                 key: const Key('customer_open_balance'),
                 style: const TextStyle(
                   fontSize: 28,
@@ -114,12 +122,18 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
                 FilledButton(
                   key: const Key('receive_payment'),
                   style: notePrimaryButton(),
-                  onPressed: () => _open(
-                    ReceiptPage(
+                  onPressed: () async {
+                    final changed = await showReceiptSheet(
+                      context,
                       customerId: widget.customer.id,
                       customerName: widget.customer.name,
-                    ),
-                  ),
+                      customerPhone: widget.customer.phone,
+                      customerMobilePhone: widget.customer.mobilePhone,
+                      owedCents: balance > 0 ? balance : widget.itemsTotalCents,
+                      onRemainingDueSet: widget.onRemainingDueSet,
+                    );
+                    if (changed) await _load();
+                  },
                   child: const Text('Receber pagamento'),
                 ),
               ],
@@ -160,12 +174,6 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
         ),
       ),
     );
-  }
-
-  Future<void> _open(Widget page) async {
-    final changed = await Navigator.of(context)
-        .push<bool>(MaterialPageRoute<bool>(builder: (_) => page));
-    if (changed == true) await _load();
   }
 
   Future<void> _reverse(String receiptId) async {

@@ -17,6 +17,9 @@ abstract class CustomerNoteRepository {
 
   Future<Either<Failure, CustomerNote>> note(String id);
 
+  /// Draft notes with a due date and items, for the home upcoming list.
+  Future<Either<Failure, List<CustomerNote>>> draftNotesWithDue();
+
   Future<Either<Failure, CustomerNote>> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,

@@ -50,6 +50,7 @@ void main() {
     expect(find.text('Itens (1)'), findsOneWidget);
     expect(find.text('1.0 x R\$ 10,00'), findsOneWidget);
     expect(_noteTotal(tester), 'R\$ 10,00');
+    expect(_openBalance(tester), 'R\$ 10,00');
 
     await tester.ensureVisible(find.byKey(const Key('edit_Banana nanica')));
     await tester.tap(find.byKey(const Key('edit_Banana nanica')));
@@ -63,6 +64,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
     expect(_noteTotal(tester), 'R\$ 36,00');
+    expect(_openBalance(tester), 'R\$ 36,00');
 
     await tester.ensureVisible(find.byKey(const Key('due_calendar')));
     await tester.tap(find.byKey(const Key('due_calendar')));
@@ -93,6 +95,7 @@ void main() {
 
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
     expect(_noteTotal(tester), 'R\$ 36,00');
+    expect(_openBalance(tester), 'R\$ 36,00');
     expect(_due(tester), startsWith('15/'));
     expect(find.text('Rascunho'), findsOneWidget);
     final reopened = await _real(tester, () => _draft(ana.id));
