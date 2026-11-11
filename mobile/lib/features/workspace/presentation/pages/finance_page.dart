@@ -193,11 +193,11 @@ class _FinancePageState extends State<FinancePage> {
                 final diameter = constraints.maxWidth * 0.68;
                 final ringHeight = diameter + 72;
                 final topInset = MediaQuery.paddingOf(context).top;
-                final headerExtent = topInset + ringHeight + 40;
+                final headerExtent = topInset + ringHeight + 28;
                 final minSheet =
                     ((constraints.maxHeight - headerExtent) /
                             constraints.maxHeight)
-                        .clamp(0.38, 0.52);
+                        .clamp(0.40, 0.54);
                 final maxSheet =
                     ((constraints.maxHeight - topInset - 12) /
                             constraints.maxHeight)
@@ -364,7 +364,7 @@ List<_ProductRank> _demoMerchandise(_Span span) {
   const base = <_ProductRank>[
     _ProductRank(name: 'Alho', cents: 284000),
     _ProductRank(name: 'Batata', cents: 196500),
-    _ProductRank(name: 'Manga', cents: 142000),
+    _ProductRank(name: 'Alface americana', cents: 142000),
     _ProductRank(name: 'Cebola', cents: 87500),
     _ProductRank(name: 'Alface crespa', cents: 72400),
     _ProductRank(name: 'Abacate', cents: 51200),
@@ -614,6 +614,7 @@ class _Ring extends StatelessWidget {
                   child: _PercentPill(
                     label: draw.arc.label,
                     asset: draw.arc.asset,
+                    tint: draw.arc.color,
                     neutral: draw.arc.neutral,
                   ),
                 ),
@@ -721,24 +722,31 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(covariant _RingPainter oldDelegate) => true;
 }
 
+Color _pillFill(Color tint) {
+  return Color.lerp(Colors.white, tint, 0.22) ?? tint.withValues(alpha: 0.18);
+}
+
 class _PercentPill extends StatelessWidget {
   const _PercentPill({
     required this.label,
     this.asset,
+    this.tint,
     this.neutral = false,
   });
 
   final String label;
   final String? asset;
+  final Color? tint;
   final bool neutral;
 
   @override
   Widget build(BuildContext context) {
+    final fill = neutral || tint == null
+        ? const Color(0xFFF1F1F4)
+        : _pillFill(tint!);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: neutral
-            ? const Color(0xFFF1F1F4)
-            : const Color(0xFFF3EADF),
+        color: fill,
         borderRadius: const BorderRadius.all(Radius.circular(14)),
       ),
       child: Padding(
@@ -976,7 +984,7 @@ class _Sheet extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: ListView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 28),
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 40),
         children: [
           const Center(
             child: DecoratedBox(
@@ -1287,6 +1295,7 @@ class _CategoryCard extends StatelessWidget {
                   bottom: 0,
                   child: _PercentPill(
                     label: percent,
+                    tint: category.color,
                     neutral: category.placeholder,
                   ),
                 ),

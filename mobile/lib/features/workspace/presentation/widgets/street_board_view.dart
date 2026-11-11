@@ -655,17 +655,23 @@ class _TomorrowDuesSection extends StatelessWidget {
         else
           _DuesWhiteCard(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
               child: Column(
                 children: [
                   for (var index = 0; index < dues.length; index++) ...[
-                    if (index > 0)
+                    if (index > 0) ...[
+                      const SizedBox(height: 14),
                       const Divider(height: 1, color: Color(0xFFE9E8EB)),
-                    _DueCustomerRow(
-                      due: dues[index],
-                      hidden: valuesHidden,
-                      noteLabel: '1 nota em aberto',
-                      onTap: () => onOpenCustomer(dues[index].customerId),
+                      const SizedBox(height: 14),
+                    ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: _DueCustomerRow(
+                        due: dues[index],
+                        hidden: valuesHidden,
+                        noteLabel: '1 nota em aberto',
+                        onTap: () => onOpenCustomer(dues[index].customerId),
+                      ),
                     ),
                   ],
                 ],

@@ -963,6 +963,7 @@ class _PixWhatsAppDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
@@ -970,122 +971,120 @@ class _PixWhatsAppDialog extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
         clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Enviar chave Pix',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: pouInk,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Abre o WhatsApp da cliente com a mensagem pronta.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: _receiptMuted,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 22),
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-                decoration: BoxDecoration(
-                  color: _receiptField,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      amountLabel,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: pouInk,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      pixKey,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _receiptGreen,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      receiverName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: _receiptMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 140, maxHeight: 180),
-                child: SingleChildScrollView(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.45,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF4B5563),
-                    ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Enviar chave Pix',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: pouInk,
+                    letterSpacing: -0.4,
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 54,
-                child: FilledButton(
-                  key: const Key('receipt_pix_whatsapp_send'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: pouBrand,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: const StadiumBorder(),
-                    textStyle: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: const Text('Enviar no WhatsApp'),
-                ),
-              ),
-              const SizedBox(height: 4),
-              TextButton(
-                key: const Key('receipt_pix_whatsapp_skip'),
-                onPressed: () => Navigator.of(context).pop(false),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF6B7280),
-                  minimumSize: const Size.fromHeight(48),
-                  textStyle: const TextStyle(
+                const SizedBox(height: 10),
+                const Text(
+                  'Abre o WhatsApp da cliente com a mensagem pronta.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
+                    color: _receiptMuted,
+                    height: 1.4,
                   ),
                 ),
-                child: const Text('Agora não'),
-              ),
-            ],
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+                  decoration: BoxDecoration(
+                    color: _receiptField,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        amountLabel,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: pouInk,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        pixKey,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: _receiptGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        receiverName,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: _receiptMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 54,
+                  child: FilledButton(
+                    key: const Key('receipt_pix_whatsapp_send'),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: pouBrand,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    child: const Text('Enviar no WhatsApp'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextButton(
+                  key: const Key('receipt_pix_whatsapp_skip'),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6B7280),
+                    minimumSize: const Size.fromHeight(48),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  child: const Text('Agora não'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
