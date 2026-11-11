@@ -28,13 +28,10 @@ class CustomerRepositoryImpl implements CustomerRepository {
     return _guard(() async {
       if (_hasRemote) {
         try {
-          final remote = await remoteDataSource!.listCustomers(
-            search: query.search,
-            status: query.status,
-          );
-          for (final customer in remote) {
-            await localDataSource.upsertCustomer(customer);
-          }
+          // Full tenant snapshot — filters apply locally after replace.
+          final remote = await remoteDataSource!.listCustomers();
+          // Replace — never merge across accounts (avoids duplicated seeds).
+          await localDataSource.replaceCustomers(remote);
         } on NetworkException {
           // Offline / API down — serve local cache.
         } on ServerException {
@@ -44,6 +41,9 @@ class CustomerRepositoryImpl implements CustomerRepository {
       return localDataSource.getCustomers(query);
     });
   }
+
+  @override
+  Future<void> clearLocalCache() => localDataSource.clearAllCustomers();
 
   @override
   Future<Either<Failure, Customer>> getCustomerById(String id) {

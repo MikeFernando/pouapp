@@ -262,11 +262,11 @@ class StreetBoardViewState extends State<StreetBoardView>
                           style: saleButton,
                           onPressed: widget.onNewSale,
                           icon: const Icon(
-                            Icons.person_add_outlined,
+                            Icons.add_shopping_cart_outlined,
                             color: pouCanvas,
                           ),
                           label: const Text(
-                            'Adicionar',
+                            'Nova Venda',
                             style: TextStyle(color: pouCanvas),
                           ),
                         ),

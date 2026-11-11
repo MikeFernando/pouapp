@@ -9,6 +9,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
+import 'features/customers/domain/repositories/customer_repository.dart';
 import 'features/license/presentation/bloc/license_bloc.dart';
 import 'features/license/presentation/bloc/license_event.dart';
 import 'features/license/presentation/widgets/license_gate.dart';
@@ -83,6 +84,8 @@ class PouApp extends StatelessWidget {
               current is Unauthenticated && previous is! Unauthenticated,
           listener: (context, state) {
             context.read<LicenseBloc>().add(const LicenseCacheCleared());
+            // Drop another account's customers from the on-device cache.
+            di.sl<CustomerRepository>().clearLocalCache();
           },
           child: const AuthGate(
             authenticatedPage: LicenseGate(child: AuthenticatedShell()),

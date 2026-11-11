@@ -8,6 +8,9 @@ import '../entities/customer_contact.dart';
 abstract class CustomerRepository {
   Future<Either<Failure, CustomerPage>> getCustomers(CustomerQuery query);
 
+  /// Clears the on-device customer cache (call on logout / account switch).
+  Future<void> clearLocalCache();
+
   Future<Either<Failure, Customer>> getCustomerById(String id);
 
   Future<Either<Failure, Customer>> createCustomer(CustomerInput input);

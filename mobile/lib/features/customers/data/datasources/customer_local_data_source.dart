@@ -35,6 +35,12 @@ abstract class CustomerLocalDataSource {
   /// Inserts or replaces a customer row with a known server id.
   Future<Customer> upsertCustomer(Customer customer);
 
+  /// Replaces the local customer table with the remote tenant snapshot.
+  Future<void> replaceCustomers(List<Customer> customers);
+
+  /// Drops all local customers (and cascaded addresses/contacts).
+  Future<void> clearAllCustomers();
+
   Future<List<CustomerAddress>> getAddresses(String customerId);
 
   Future<CustomerAddress> addAddress(AddressInput input);
@@ -261,6 +267,32 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       throw CacheException();
     }
     return model;
+  }
+
+  @override
+  Future<void> replaceCustomers(List<Customer> customers) async {
+    final db = await _databaseOrOpen();
+    try {
+      await db.transaction((txn) async {
+        await txn.delete('customers');
+        for (final customer in customers) {
+          final model = CustomerModel.fromEntity(customer);
+          await txn.insert('customers', _customerMap(model));
+        }
+      });
+    } on DatabaseException {
+      throw CacheException();
+    }
+  }
+
+  @override
+  Future<void> clearAllCustomers() async {
+    final db = await _databaseOrOpen();
+    try {
+      await db.delete('customers');
+    } on DatabaseException {
+      throw CacheException();
+    }
   }
 
   @override
