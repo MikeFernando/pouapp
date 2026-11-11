@@ -1,4 +1,52 @@
 import '../../../catalog/domain/entities/catalog.dart';
+import '../entities/customer_note.dart';
+
+/// Appends [incoming] or increments quantity when the same product is already
+/// on the note (same [NoteLine.productId] + unit, or same name + unit).
+List<NoteLineDraft> appendOrIncrementNoteLine({
+  required Iterable<NoteLine> existing,
+  required NoteLineDraft incoming,
+}) {
+  final drafts = [for (final line in existing) NoteLineDraft.fromLine(line)];
+  final match = _indexOfMatchingNoteLine(drafts, incoming);
+  if (match < 0) return [...drafts, incoming];
+  final current = drafts[match];
+  drafts[match] = NoteLineDraft(
+    id: current.id,
+    productId: current.productId ?? incoming.productId,
+    name: current.name,
+    unit: current.unit,
+    quantity: current.quantity + incoming.quantity,
+    unitPriceCents: current.unitPriceCents,
+    referencePriceCents: current.referencePriceCents,
+  );
+  return drafts;
+}
+
+int _indexOfMatchingNoteLine(
+  List<NoteLineDraft> lines,
+  NoteLineDraft incoming,
+) {
+  final productId = incoming.productId?.trim();
+  final name = _normalizedNoteName(incoming.name);
+  for (var index = 0; index < lines.length; index++) {
+    final line = lines[index];
+    if (line.unit != incoming.unit) continue;
+    final lineProductId = line.productId?.trim();
+    if (productId != null &&
+        productId.isNotEmpty &&
+        lineProductId != null &&
+        lineProductId.isNotEmpty) {
+      if (lineProductId == productId) return index;
+      continue;
+    }
+    if (_normalizedNoteName(line.name) == name) return index;
+  }
+  return -1;
+}
+
+String _normalizedNoteName(String name) =>
+    name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
 /// Line total in cents.
 ///

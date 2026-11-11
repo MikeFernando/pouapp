@@ -287,7 +287,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                       rise(
                         _NovaVendaButton(onPressed: widget.onNewSale),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
                       rise(
                         _TomorrowDuesSection(
                           tomorrow: todayStart.add(const Duration(days: 1)),
@@ -296,7 +296,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                           onOpenCustomer: widget.onOpenCustomer,
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
                       rise(
                         _LaterDuesSection(
                           today: todayStart,

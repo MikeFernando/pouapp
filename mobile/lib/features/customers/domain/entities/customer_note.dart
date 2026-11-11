@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../../../catalog/domain/entities/catalog.dart';
 import '../rules/note_rules.dart';
 
-enum NoteStatus { draft, delivered }
+enum NoteStatus { draft, delivered, deleted }
 
 /// A draft is not a sale. A delivered note keeps the prices and items of
 /// the confirmation and can no longer be edited here.

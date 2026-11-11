@@ -249,6 +249,46 @@ void main() {
     expect(drafts.single['id'], first.id);
   });
 
+  test('soft-deletes a draft and lists it under deleted notes', () async {
+    final ana = await customers.createCustomer(
+      const CustomerInput(type: CustomerType.individual, name: 'Ana'),
+    );
+    final draft = _take(await notes.activeDraft(ana.id));
+    _take(
+      await notes.saveLines(
+        noteId: draft.id,
+        lines: const [
+          NoteLineDraft(
+            productId: 'product-banana',
+            name: 'Banana',
+            unit: CatalogUnit.kilogram,
+            quantity: 1000,
+            unitPriceCents: 500,
+          ),
+        ],
+      ),
+    );
+
+    final next = _take(await notes.deleteNote(draft.id));
+    expect(next.id, isNot(draft.id));
+    expect(next.status, NoteStatus.draft);
+    expect(next.lines, isEmpty);
+
+    final deleted = (await notes.deletedNotes(ana.id)).fold(
+      (failure) => throw StateError('$failure'),
+      (value) => value,
+    );
+    expect(deleted, hasLength(1));
+    expect(deleted.single.id, draft.id);
+    expect(deleted.single.status, NoteStatus.deleted);
+    expect(deleted.single.lines, hasLength(1));
+    expect(deleted.single.totalCents, 500);
+
+    final open = _take(await notes.openNote(ana.id));
+    expect(open.id, next.id);
+    expect(open.lines, isEmpty);
+  });
+
   test(
     'upgrades version 1 without dropping customers or inventing lines',
     () async {

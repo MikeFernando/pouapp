@@ -167,13 +167,17 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                               child: _AddCover(
                                 onClose: () => setState(() => _adding = false),
                                 child: AddDeliveryPage(
-                                  onRemoteAdded: () {
+                                  onOpenCustomer: (customerId) async {
+                                    setState(() => _adding = false);
+                                    await Navigator.of(context).pushNamed(
+                                      CustomerRoutes.details(customerId),
+                                    );
+                                    if (!context.mounted) return;
                                     if (ApiConfig.useRemoteApi) {
                                       context.read<HomeBoardBloc>().add(
                                         const HomeBoardRequested(),
                                       );
                                     }
-                                    setState(() => _adding = false);
                                   },
                                 ),
                               ),
@@ -574,11 +578,30 @@ class _AddCoverState extends State<_AddCover>
               bottom: false,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: IconButton(
-                  key: const Key('close_add_delivery'),
-                  tooltip: 'Fechar',
-                  onPressed: _close,
-                  icon: const Icon(Icons.close, color: pouInk),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 0),
+                  child: Tooltip(
+                    message: 'Fechar',
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: const Key('close_add_delivery'),
+                        customBorder: const CircleBorder(),
+                        onTap: _close,
+                        child: const SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(
+                            Icons.close,
+                            size: 20,
+                            color: pouInk,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

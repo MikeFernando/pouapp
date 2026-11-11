@@ -189,8 +189,10 @@ Future<void> init() async {
   sl.registerLazySingleton<CatalogRepository>(
     () => CatalogRepositoryImpl(localDataSource: sl()),
   );
+  // Hortifruti catalog lives in on-device SQLite. Always seed once so
+  // TestFlight/release match the simulator catalog (API has only a small default).
   sl.registerLazySingleton<CatalogLocalDataSource>(
-    () => CatalogLocalDataSourceImpl(seedDemo: !ApiConfig.useRemoteApi),
+    () => CatalogLocalDataSourceImpl(seedDemo: true),
   );
 
   //! Features - Workspace

@@ -4,6 +4,31 @@ import 'package:flutter/services.dart';
 
 const pouAlphabetLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
+/// Large center letter while scrubbing / when a letter filter has no rows.
+class PouAlphabetLetterPreview extends StatelessWidget {
+  const PouAlphabetLetterPreview({
+    super.key,
+    required this.letter,
+    this.faint = false,
+  });
+
+  final String letter;
+  final bool faint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      letter,
+      style: TextStyle(
+        fontSize: 96,
+        fontWeight: FontWeight.w800,
+        height: 1,
+        color: Color(faint ? 0xFFC5CAC7 : 0xFFB0B5B2),
+      ),
+    );
+  }
+}
+
 /// First letter of [name] for A–Z filtering. Accented letters map to A–Z.
 String pouAlphabetInitial(String name) {
   final trimmed = name.trim();

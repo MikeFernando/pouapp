@@ -61,6 +61,16 @@ class CustomerNoteRepositoryImpl implements CustomerNoteRepository {
     return _guard(() => localDataSource.setDueOn(noteId: noteId, dueOn: dueOn));
   }
 
+  @override
+  Future<Either<Failure, CustomerNote>> deleteNote(String noteId) {
+    return _guard(() => localDataSource.deleteNote(noteId));
+  }
+
+  @override
+  Future<Either<Failure, List<CustomerNote>>> deletedNotes(String customerId) {
+    return _guard(() => localDataSource.deletedNotes(customerId));
+  }
+
   Future<Either<Failure, T>> _guard<T>(Future<T> Function() action) async {
     try {
       return Right(await action());

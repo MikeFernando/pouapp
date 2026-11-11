@@ -327,14 +327,13 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                         );
                       }
                       final visible = _visible(state.items);
+                      final letter = _filterLetter;
                       return Stack(
                         children: [
-                          if (visible.isEmpty)
+                          if (visible.isEmpty && letter == null)
                             Center(
                               child: Text(
-                                _filterLetter != null
-                                    ? 'Nenhum cliente com a letra $_filterLetter.'
-                                    : _mode == _CustomerListMode.lateHistory
+                                _mode == _CustomerListMode.lateHistory
                                     ? 'Nenhum atraso registrado.'
                                     : 'Nenhum cliente encontrado.',
                                 key: const Key('customers_letter_empty'),
@@ -344,7 +343,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                 ),
                               ),
                             )
-                          else
+                          else if (visible.isNotEmpty)
                             ListView(
                               padding: const EdgeInsets.fromLTRB(16, 8, 28, 88),
                               children: [
@@ -392,6 +391,21 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                 ),
                               ],
                             ),
+                          if (letter != null &&
+                              (visible.isEmpty || _scrubbing))
+                            IgnorePointer(
+                              child: Center(
+                                child: PouAlphabetLetterPreview(
+                                  key: Key(
+                                    visible.isEmpty
+                                        ? 'customers_letter_empty'
+                                        : 'customers_letter_scrub',
+                                  ),
+                                  letter: letter,
+                                  faint: visible.isNotEmpty,
+                                ),
+                              ),
+                            ),
                           Positioned(
                             key: const Key('customers_alphabet'),
                             right: 0,
@@ -414,8 +428,8 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
               ],
             ),
             Positioned(
-              right: 16,
-              bottom: 16,
+              right: 20,
+              bottom: 0,
               child: FloatingActionButton(
                 key: const Key('customer_add'),
                 heroTag: 'customer_add',

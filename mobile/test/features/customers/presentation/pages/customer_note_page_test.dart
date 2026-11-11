@@ -270,4 +270,16 @@ class _FailingNotes implements CustomerNoteRepository {
   }) async {
     return const Left(CacheFailure());
   }
+
+  @override
+  Future<Either<Failure, CustomerNote>> deleteNote(String noteId) async {
+    return const Left(CacheFailure());
+  }
+
+  @override
+  Future<Either<Failure, List<CustomerNote>>> deletedNotes(
+    String customerId,
+  ) async {
+    return const Right([]);
+  }
 }

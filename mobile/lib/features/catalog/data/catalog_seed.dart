@@ -2,8 +2,8 @@ import '../domain/entities/catalog.dart';
 
 /// Opening balances that match the gestão board already on screen.
 ///
-/// Inserted once in debug. Release starts empty until the operator registers
-/// products. Quantities are grams for weight and whole units otherwise.
+/// Inserted once on first open (debug and release / TestFlight). Quantities
+/// are grams for weight and whole units otherwise.
 ///
 /// Garlic is packed for the home basket: a 500 g pack and a 1 kg pack.
 /// Cebola and batata stay in kilograms. Banana is sold by the dozen.

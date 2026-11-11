@@ -1,8 +1,75 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pouapp/features/catalog/domain/entities/catalog.dart';
+import 'package:pouapp/features/customers/domain/entities/customer_note.dart';
 import 'package:pouapp/features/customers/domain/rules/note_rules.dart';
 
 void main() {
+  test('increments quantity when the same product is added again', () {
+    const existing = [
+      NoteLine(
+        id: '1',
+        productId: 'abobora',
+        name: 'Abóbora',
+        unit: CatalogUnit.piece,
+        quantity: 1,
+        unitPriceCents: 390,
+      ),
+      NoteLine(
+        id: '2',
+        productId: 'abobrinha',
+        name: 'Abobrinha',
+        unit: CatalogUnit.piece,
+        quantity: 1,
+        unitPriceCents: 490,
+      ),
+    ];
+
+    final merged = appendOrIncrementNoteLine(
+      existing: existing,
+      incoming: const NoteLineDraft(
+        productId: 'abobora',
+        name: 'Abóbora',
+        unit: CatalogUnit.piece,
+        quantity: 2,
+        unitPriceCents: 400,
+      ),
+    );
+
+    expect(merged, hasLength(2));
+    expect(merged[0].id, '1');
+    expect(merged[0].quantity, 3);
+    expect(merged[0].unitPriceCents, 390);
+    expect(merged[1].quantity, 1);
+  });
+
+  test('appends when the product is not on the note yet', () {
+    const existing = [
+      NoteLine(
+        id: '1',
+        productId: 'abobrinha',
+        name: 'Abobrinha',
+        unit: CatalogUnit.piece,
+        quantity: 1,
+        unitPriceCents: 490,
+      ),
+    ];
+
+    final merged = appendOrIncrementNoteLine(
+      existing: existing,
+      incoming: const NoteLineDraft(
+        productId: 'abobora',
+        name: 'Abóbora',
+        unit: CatalogUnit.piece,
+        quantity: 1,
+        unitPriceCents: 390,
+      ),
+    );
+
+    expect(merged, hasLength(2));
+    expect(merged[1].productId, 'abobora');
+    expect(merged[1].quantity, 1);
+  });
+
   test('rounds a kilogram line to the nearest cent', () {
     expect(
       lineTotalCents(

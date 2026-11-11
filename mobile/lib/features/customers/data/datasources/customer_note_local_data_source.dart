@@ -33,6 +33,11 @@ abstract class CustomerNoteLocalDataSource {
     required String noteId,
     required DateTime? dueOn,
   });
+
+  /// Marks the draft as deleted and returns a new empty draft for the customer.
+  Future<CustomerNote> deleteNote(String noteId);
+
+  Future<List<CustomerNote>> deletedNotes(String customerId);
 }
 
 class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
@@ -269,6 +274,64 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     } on DatabaseException {
       throw CacheException();
     }
+  }
+
+  @override
+  Future<CustomerNote> deleteNote(String noteId) async {
+    final db = await openDatabase();
+    try {
+      return await db.transaction((txn) async {
+        final current = await _read(txn, noteId);
+        if (current.status != NoteStatus.draft) {
+          throw const NoteNotFoundException();
+        }
+        final now = _clock().toUtc().toIso8601String();
+        final updated = await txn.update(
+          'customer_notes',
+          {
+            'status': NoteStatus.deleted.name,
+            'updated_at': now,
+          },
+          where: 'id = ? AND status = ?',
+          whereArgs: [noteId, NoteStatus.draft.name],
+        );
+        if (updated != 1) throw const NoteNotFoundException();
+        await _queueNote(txn, noteId);
+
+        final draftId = _newId();
+        await txn.insert('customer_notes', {
+          'id': draftId,
+          'customer_id': current.customerId,
+          'status': NoteStatus.draft.name,
+          'due_on': null,
+          'created_at': now,
+          'updated_at': now,
+        });
+        await _purgeExtraDrafts(
+          txn,
+          customerId: current.customerId,
+          keepId: draftId,
+        );
+        return _read(txn, draftId);
+      });
+    } on NoteNotFoundException {
+      rethrow;
+    } on DatabaseException {
+      throw CacheException();
+    }
+  }
+
+  @override
+  Future<List<CustomerNote>> deletedNotes(String customerId) async {
+    final db = await openDatabase();
+    final rows = await db.query(
+      'customer_notes',
+      columns: ['id'],
+      where: 'customer_id = ? AND status = ?',
+      whereArgs: [customerId, NoteStatus.deleted.name],
+      orderBy: 'updated_at DESC, id DESC',
+    );
+    return [for (final row in rows) await _read(db, row['id']! as String)];
   }
 
   NoteLineDraft _checked(NoteLineDraft line) {

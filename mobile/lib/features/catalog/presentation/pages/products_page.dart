@@ -274,19 +274,18 @@ class _ProductsPageState extends State<ProductsPage> {
     if (!hasSource) {
       return const Center(child: Text('Nenhum produto encontrado.'));
     }
+    final letter = _filterLetter;
     return Stack(
       children: [
-        if (products.isEmpty)
-          Center(
+        if (products.isEmpty && letter == null)
+          const Center(
             child: Text(
-              _filterLetter == null
-                  ? 'Nenhum produto encontrado.'
-                  : 'Nenhum produto com a letra $_filterLetter.',
-              key: const Key('products_letter_empty'),
-              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+              'Nenhum produto encontrado.',
+              key: Key('products_letter_empty'),
+              style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
             ),
           )
-        else
+        else if (products.isNotEmpty)
           ListView.separated(
             key: const Key('products_list'),
             padding: const EdgeInsets.fromLTRB(16, 0, 28, 88),
@@ -301,6 +300,20 @@ class _ProductsPageState extends State<ProductsPage> {
                 onEdit: () => _edit(row.product),
               );
             },
+          ),
+        if (letter != null && (products.isEmpty || _scrubbing))
+          IgnorePointer(
+            child: Center(
+              child: PouAlphabetLetterPreview(
+                key: Key(
+                  products.isEmpty
+                      ? 'products_letter_empty'
+                      : 'products_letter_scrub',
+                ),
+                letter: letter,
+                faint: products.isNotEmpty,
+              ),
+            ),
           ),
         Positioned(
           key: const Key('products_alphabet'),

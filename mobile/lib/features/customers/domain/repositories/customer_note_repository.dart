@@ -32,4 +32,10 @@ abstract class CustomerNoteRepository {
     required String noteId,
     required DateTime? dueOn,
   });
+
+  /// Soft-deletes the draft (keeps items) and returns a fresh empty draft.
+  Future<Either<Failure, CustomerNote>> deleteNote(String noteId);
+
+  /// Soft-deleted notes for this customer, newest first.
+  Future<Either<Failure, List<CustomerNote>>> deletedNotes(String customerId);
 }

@@ -23,26 +23,20 @@ import '../../domain/entities/customer.dart';
 import '../../domain/entities/customer_note.dart';
 import '../../domain/repositories/customer_note_repository.dart';
 import '../../domain/rules/note_rules.dart';
-import '../../domain/validation/customer_validators.dart';
 import '../bloc/customer_details_bloc.dart';
 import '../customer_messages.dart';
+import '../note_share.dart';
 import '../whatsapp_launch.dart';
 import '../widgets/customer_account_section.dart';
+import '../widgets/customer_action_card.dart';
 import '../widgets/customer_new_sheet.dart';
 import '../widgets/customer_status_badge.dart';
 import '../widgets/customer_status_sheet.dart';
+import '../widgets/deleted_notes_sheet.dart';
+import '../widgets/send_note_card.dart';
 
-String? whatsAppPhoneDigits(Customer customer) {
-  final raw = onlyDigits(
-    (customer.mobilePhone ?? '').trim().isNotEmpty
-        ? customer.mobilePhone
-        : customer.phone,
-  );
-  final national = raw.replaceFirst(RegExp(r'^0+'), '');
-  if (national.isEmpty) return null;
-  if (national.startsWith('55') && national.length > 11) return national;
-  return '55$national';
-}
+String? whatsAppPhoneDigits(Customer customer) =>
+    customerWhatsAppDigits(customer);
 
 CatalogUnit _catalogUnit(StockUnit unit) {
   return switch (unit) {
@@ -90,6 +84,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   String? _noteError;
   var _noteRequestedFor = '';
   var _memoryLine = 0;
+  final List<CustomerNote> _memoryDeletedNotes = [];
   VoiceVisit? _visit;
 
   @override
@@ -189,12 +184,16 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                     }
                     return;
                   }
-                  if (value == 'clear_note') {
-                    await _clearNote();
+                  if (value == 'delete_note') {
+                    await _deleteNote();
+                    return;
+                  }
+                  if (value == 'deleted_notes') {
+                    await _showDeletedNotes(customer);
                   }
                 },
                 itemBuilder: (context) {
-                  final canClear =
+                  final canDelete =
                       note != null &&
                       note.status != NoteStatus.delivered &&
                       (note.lines.isNotEmpty || note.dueOn != null);
@@ -205,10 +204,15 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                       child: Text('Editar cadastro'),
                     ),
                     PopupMenuItem<String>(
-                      key: const Key('customer_clear_note_menu_item'),
-                      value: 'clear_note',
-                      enabled: canClear,
-                      child: const Text('Limpar nota'),
+                      key: const Key('customer_delete_note_menu_item'),
+                      value: 'delete_note',
+                      enabled: canDelete,
+                      child: const Text('Excluir nota'),
+                    ),
+                    const PopupMenuItem<String>(
+                      key: Key('customer_deleted_notes_menu_item'),
+                      value: 'deleted_notes',
+                      child: Text('Notas excluídas'),
                     ),
                   ];
                 },
@@ -273,6 +277,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                             ? null
                             : _openDueDate,
                       ),
+                      SendNoteCard(customer: customer, note: note),
                       if (note?.status == NoteStatus.delivered) ...[
                         const Padding(
                           padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -530,20 +535,22 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       _rememberFailure(null);
       return;
     }
-    await _persistLines([
-      for (final line in note.lines) NoteLineDraft.fromLine(line),
-      NoteLineDraft(
-        productId: picked.row.product.id,
-        name: picked.row.product.name,
-        unit: unit,
-        quantity: quantity,
-        unitPriceCents: picked.unitPriceCents,
-        referencePriceCents: picked.row.priceCents,
+    await _persistLines(
+      appendOrIncrementNoteLine(
+        existing: note.lines,
+        incoming: NoteLineDraft(
+          productId: picked.row.product.id,
+          name: picked.row.product.name,
+          unit: unit,
+          quantity: quantity,
+          unitPriceCents: picked.unitPriceCents,
+          referencePriceCents: picked.row.priceCents,
+        ),
       ),
-    ]);
+    );
   }
 
-  Future<void> _clearNote() async {
+  Future<void> _deleteNote() async {
     final note = _note;
     if (note == null ||
         note.status == NoteStatus.delivered ||
@@ -552,14 +559,64 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     }
     final confirmed = await showPouConfirmDialog(
       context,
-      title: 'Limpar nota?',
+      title: 'Excluir nota?',
       message:
-          'Todos os itens desta nota serão removidos e o vencimento voltará para sem data.',
-      confirmLabel: 'Limpar',
-      confirmKey: const Key('confirm_clear_note'),
+          'A nota atual vai para Notas excluídas e uma nota vazia abre no lugar.',
+      confirmLabel: 'Excluir',
+      confirmKey: const Key('confirm_delete_note'),
     );
     if (!confirmed || !mounted) return;
-    await _persistLines(const [], clearing: true);
+
+    if (!di.sl.isRegistered<CustomerNoteRepository>()) {
+      final now = DateTime.now();
+      setState(() {
+        _noteError = null;
+        _memoryDeletedNotes.insert(
+          0,
+          note.copyWith(status: NoteStatus.deleted, updatedAt: now),
+        );
+        _note = CustomerNote(
+          id: 'memory-draft-${now.microsecondsSinceEpoch}',
+          customerId: note.customerId,
+          status: NoteStatus.draft,
+          createdAt: now,
+          updatedAt: now,
+          lines: const [],
+        );
+      });
+      await _syncNoteToHome(note, cleared: true);
+      return;
+    }
+
+    final result = await di.sl<CustomerNoteRepository>().deleteNote(note.id);
+    if (!mounted) return;
+    if (result.isLeft()) {
+      _rememberFailure(null);
+      return;
+    }
+    final next = result.getOrElse(() => note);
+    setState(() {
+      _noteError = null;
+      _note = next;
+    });
+    await _syncNoteToHome(next, cleared: true);
+  }
+
+  Future<void> _showDeletedNotes(Customer customer) async {
+    List<CustomerNote> notes = List.of(_memoryDeletedNotes);
+    if (di.sl.isRegistered<CustomerNoteRepository>()) {
+      final result = await di.sl<CustomerNoteRepository>().deletedNotes(
+        customer.id,
+      );
+      if (!mounted) return;
+      notes = result.fold((_) => notes, (value) => value);
+    }
+    if (!mounted) return;
+    await showDeletedNotesSheet(
+      context,
+      customerName: customer.name,
+      notes: notes,
+    );
   }
 
   Future<void> _persistLines(
@@ -769,48 +826,14 @@ class _DueDateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Vencimento',
-                      style: TextStyle(fontSize: 16, color: Color(0xFF0E0D0F)),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      date == null ? 'Sem vencimento' : formatDay(date!),
-                      key: const Key('customer_due_date'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0E0D0F),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                key: const Key('due_calendar'),
-                onPressed: onPick,
-                icon: const Icon(
-                  Icons.calendar_today_outlined,
-                  color: pouAppBlue,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return CustomerActionCard(
+      labelFirst: true,
+      label: 'Vencimento',
+      title: date == null ? 'Sem vencimento' : formatDay(date!),
+      titleKey: const Key('customer_due_date'),
+      iconKey: const Key('due_calendar'),
+      onTap: onPick,
+      icon: const DueCalendarIcon(),
     );
   }
 }
@@ -1104,20 +1127,18 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
                   )
                 : Stack(
                     children: [
-                      if (visible.isEmpty)
-                        Center(
+                      if (visible.isEmpty && _filterLetter == null)
+                        const Center(
                           child: Text(
-                            _filterLetter == null
-                                ? 'Nenhum produto cadastrado.'
-                                : 'Nenhum produto com a letra $_filterLetter.',
-                            key: const Key('catalog_letter_empty'),
-                            style: const TextStyle(
+                            'Nenhum produto cadastrado.',
+                            key: Key('catalog_letter_empty'),
+                            style: TextStyle(
                               fontSize: 14,
                               color: Color(0xFF6B7280),
                             ),
                           ),
                         )
-                      else
+                      else if (visible.isNotEmpty)
                         ListView.separated(
                           padding: EdgeInsets.fromLTRB(
                             16,
@@ -1134,6 +1155,21 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
                               onTap: () => _open(row),
                             );
                           },
+                        ),
+                      if (_filterLetter != null &&
+                          (visible.isEmpty || _scrubbing))
+                        IgnorePointer(
+                          child: Center(
+                            child: PouAlphabetLetterPreview(
+                              key: Key(
+                                visible.isEmpty
+                                    ? 'catalog_letter_empty'
+                                    : 'catalog_letter_scrub',
+                              ),
+                              letter: _filterLetter!,
+                              faint: visible.isNotEmpty,
+                            ),
+                          ),
                         ),
                       Positioned(
                         key: const Key('catalog_alphabet'),
