@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
+
 /// Primary CTA for the PouApp welcome screen.
 class WelcomeOrderButton extends StatelessWidget {
   const WelcomeOrderButton({
@@ -23,7 +25,7 @@ class WelcomeOrderButton extends StatelessWidget {
       width: double.infinity,
       height: height,
       child: Material(
-        color: Colors.black,
+        color: pouBrand,
         borderRadius: BorderRadius.circular(radius),
         child: InkWell(
           key: const Key('welcome_order_now'),

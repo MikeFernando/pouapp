@@ -51,3 +51,12 @@ class AuthRegisterSubmitted extends AuthEvent {
 class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }
+
+class AuthNameSubmitted extends AuthEvent {
+  const AuthNameSubmitted({required this.name});
+
+  final String name;
+
+  @override
+  List<Object?> get props => [name];
+}

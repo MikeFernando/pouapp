@@ -10,6 +10,7 @@ import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_data_source.dart';
 import '../datasources/auth_remote_data_source.dart';
 import '../exceptions/auth_exceptions.dart';
+import '../models/user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
@@ -110,6 +111,44 @@ class AuthRepositoryImpl implements AuthRepository {
       return Right(cached);
     } on CacheException {
       return const Left(CacheFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, User>> updateName({required String name}) async {
+    final trimmed = name.trim();
+    try {
+      if (tokenStore != null) {
+        final user = await remoteDataSource.updateName(name: trimmed);
+        await localDataSource.cacheUser(user);
+        return Right(user);
+      }
+
+      final cached = await localDataSource.getCachedUser();
+      if (cached == null) return const Left(ServerFailure());
+      final updated = UserModel(
+        id: cached.id,
+        name: trimmed,
+        email: cached.email,
+      );
+      await localDataSource.cacheUser(updated);
+      return Right(updated);
+    } on NetworkException {
+      return const Left(NetworkFailure());
+    } on BadRequestException {
+      return const Left(ServerFailure());
+    } on UnauthorizedException {
+      return const Left(ServerFailure());
+    } on NotFoundException {
+      return const Left(ServerFailure());
+    } on SimulatedAuthDisabledException {
+      return const Left(ServerFailure());
+    } on ServerException {
+      return const Left(ServerFailure());
+    } on CacheException {
+      return const Left(CacheFailure());
+    } on UnsupportedError {
+      return const Left(ServerFailure());
     }
   }
 

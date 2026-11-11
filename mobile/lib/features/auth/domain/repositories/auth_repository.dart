@@ -18,5 +18,8 @@ abstract class AuthRepository {
 
   Future<Either<Failure, User?>> getCurrentUser();
 
+  /// Updates the authenticated user's display name.
+  Future<Either<Failure, User>> updateName({required String name});
+
   Future<Either<Failure, Unit>> logout();
 }

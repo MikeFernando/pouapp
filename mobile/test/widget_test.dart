@@ -86,10 +86,6 @@ void main() {
       find.byKey(const Key('register_password')),
       'senha-nova',
     );
-    await tester.enterText(
-      find.byKey(const Key('register_password_confirmation')),
-      'senha-nova',
-    );
     await tester.ensureVisible(find.byKey(const Key('register_submit')));
     await tester.tap(find.byKey(const Key('register_submit')));
     await tester.pump();

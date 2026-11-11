@@ -13,6 +13,7 @@ import 'package:pouapp/features/auth/domain/usecases/get_current_user.dart';
 import 'package:pouapp/features/auth/domain/usecases/login.dart';
 import 'package:pouapp/features/auth/domain/usecases/logout.dart';
 import 'package:pouapp/features/auth/domain/usecases/register_account.dart';
+import 'package:pouapp/features/auth/domain/usecases/update_user_name.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:pouapp/features/license/domain/entities/license_status.dart';
 import 'package:pouapp/features/license/domain/repositories/license_repository.dart';
@@ -29,6 +30,8 @@ class MockGetCurrentUser extends Mock implements GetCurrentUser {}
 
 class MockLogout extends Mock implements Logout {}
 
+class MockUpdateUserName extends Mock implements UpdateUserName {}
+
 class MockCheckLicense extends Mock implements CheckLicense {}
 
 class MockLicenseRepository extends Mock implements LicenseRepository {}
@@ -40,6 +43,7 @@ void main() {
   late MockRegisterAccount mockRegister;
   late MockGetCurrentUser mockGetCurrentUser;
   late MockLogout mockLogout;
+  late MockUpdateUserName mockUpdateUserName;
   late MockCheckLicense mockCheckLicense;
   late MockLicenseRepository mockLicenseRepository;
 
@@ -53,6 +57,7 @@ void main() {
     mockRegister = MockRegisterAccount();
     mockGetCurrentUser = MockGetCurrentUser();
     mockLogout = MockLogout();
+    mockUpdateUserName = MockUpdateUserName();
     mockCheckLicense = MockCheckLicense();
     mockLicenseRepository = MockLicenseRepository();
     when(() => mockGetCurrentUser(any())).thenAnswer(
@@ -93,6 +98,7 @@ void main() {
                 registerAccount: mockRegister,
                 getCurrentUser: mockGetCurrentUser,
                 logout: mockLogout,
+                updateUserName: mockUpdateUserName,
               ),
             ),
             BlocProvider(
@@ -173,6 +179,7 @@ void main() {
                 registerAccount: mockRegister,
                 getCurrentUser: mockGetCurrentUser,
                 logout: mockLogout,
+                updateUserName: mockUpdateUserName,
               ),
             ),
             BlocProvider.value(value: licenseBloc),

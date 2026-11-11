@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../customers/presentation/whatsapp_launch.dart';
 import '../validation/login_validators.dart';
 
-const _sheetGreen = Color(0xFF0D6B3F);
+const _sheetGreen = pouBrand;
 const _fieldFill = Color(0xFFF3F4F6);
 const _hintColor = Color(0xFF9CA3AF);
 const _labelColor = Color(0xFF111827);
@@ -168,7 +169,7 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
                 key: const Key('forgot_password_submit'),
                 onPressed: _sending ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.black,
+                  backgroundColor: pouBrand,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),

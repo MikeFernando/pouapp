@@ -60,15 +60,4 @@ void main() {
     });
   });
 
-  group('validatePasswordConfirmation', () {
-    test('should require the same password', () {
-      expect(validatePasswordConfirmation(null, '123456'), 'Confirme a senha.');
-      expect(validatePasswordConfirmation('', '123456'), 'Confirme a senha.');
-      expect(
-        validatePasswordConfirmation('1234567', '123456'),
-        'As senhas não coincidem.',
-      );
-      expect(validatePasswordConfirmation('123456', '123456'), isNull);
-    });
-  });
 }

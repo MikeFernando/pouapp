@@ -11,6 +11,7 @@ import 'package:pouapp/features/auth/domain/usecases/get_current_user.dart';
 import 'package:pouapp/features/auth/domain/usecases/login.dart';
 import 'package:pouapp/features/auth/domain/usecases/logout.dart';
 import 'package:pouapp/features/auth/domain/usecases/register_account.dart';
+import 'package:pouapp/features/auth/domain/usecases/update_user_name.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:pouapp/features/auth/presentation/pages/login_page.dart';
 
@@ -22,11 +23,14 @@ class MockGetCurrentUser extends Mock implements GetCurrentUser {}
 
 class MockLogout extends Mock implements Logout {}
 
+class MockUpdateUserName extends Mock implements UpdateUserName {}
+
 void main() {
   late MockLogin mockLogin;
   late MockRegisterAccount mockRegister;
   late MockGetCurrentUser mockGetCurrentUser;
   late MockLogout mockLogout;
+  late MockUpdateUserName mockUpdateUserName;
 
   setUpAll(() {
     registerFallbackValue(const NoParams());
@@ -47,6 +51,7 @@ void main() {
     mockRegister = MockRegisterAccount();
     mockGetCurrentUser = MockGetCurrentUser();
     mockLogout = MockLogout();
+    mockUpdateUserName = MockUpdateUserName();
   });
 
   Future<void> pumpLogin(WidgetTester tester) async {
@@ -58,6 +63,7 @@ void main() {
             registerAccount: mockRegister,
             getCurrentUser: mockGetCurrentUser,
             logout: mockLogout,
+            updateUserName: mockUpdateUserName,
           ),
           child: const LoginPage(),
         ),
@@ -225,7 +231,6 @@ void main() {
     expect(find.text('Informe o nome.'), findsOneWidget);
     expect(find.text('Informe o e-mail.'), findsOneWidget);
     expect(find.text('Informe a senha.'), findsOneWidget);
-    expect(find.text('Confirme a senha.'), findsOneWidget);
     verifyNever(() => mockRegister(any()));
   });
 
@@ -244,10 +249,6 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('register_password')),
-      'Senha123',
-    );
-    await tester.enterText(
-      find.byKey(const Key('register_password_confirmation')),
       'Senha123',
     );
     await tester.tap(find.byKey(const Key('register_submit')));
@@ -275,10 +276,6 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('register_password')),
-      'Senha123',
-    );
-    await tester.enterText(
-      find.byKey(const Key('register_password_confirmation')),
       'Senha123',
     );
     await tester.tap(find.byKey(const Key('register_submit')));

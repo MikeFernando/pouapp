@@ -39,13 +39,3 @@ String? validateNewPassword(String? value) {
   }
   return null;
 }
-
-String? validatePasswordConfirmation(String? value, String password) {
-  if (value == null || value.isEmpty) {
-    return 'Confirme a senha.';
-  }
-  if (value != password) {
-    return 'As senhas não coincidem.';
-  }
-  return null;
-}

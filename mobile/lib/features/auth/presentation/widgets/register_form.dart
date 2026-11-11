@@ -21,24 +21,19 @@ class _RegisterFormState extends State<RegisterForm> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmationController = TextEditingController();
   final _nameFocus = FocusNode();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
-  final _confirmationFocus = FocusNode();
   var _obscurePassword = true;
-  var _obscureConfirmation = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmationController.dispose();
     _nameFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
-    _confirmationFocus.dispose();
     super.dispose();
   }
 
@@ -137,7 +132,7 @@ class _RegisterFormState extends State<RegisterForm> {
                           focusNode: _passwordFocus,
                           enabled: !isSubmitting,
                           obscureText: _obscurePassword,
-                          textInputAction: TextInputAction.next,
+                          textInputAction: TextInputAction.done,
                           autocorrect: false,
                           enableSuggestions: false,
                           autofillHints: const [AutofillHints.newPassword],
@@ -164,47 +159,6 @@ class _RegisterFormState extends State<RegisterForm> {
                             ),
                           ),
                           validator: validateNewPassword,
-                          onFieldSubmitted: (_) =>
-                              _confirmationFocus.requestFocus(),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          key: const Key('register_password_confirmation'),
-                          controller: _confirmationController,
-                          focusNode: _confirmationFocus,
-                          enabled: !isSubmitting,
-                          obscureText: _obscureConfirmation,
-                          textInputAction: TextInputAction.done,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          autofillHints: const [AutofillHints.newPassword],
-                          decoration: InputDecoration(
-                            labelText: 'Confirmar senha',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              key: const Key('register_toggle_confirmation'),
-                              tooltip: _obscureConfirmation
-                                  ? 'Mostrar senha'
-                                  : 'Ocultar senha',
-                              onPressed: isSubmitting
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _obscureConfirmation =
-                                            !_obscureConfirmation;
-                                      });
-                                    },
-                              icon: Icon(
-                                _obscureConfirmation
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
-                            ),
-                          ),
-                          validator: (value) => validatePasswordConfirmation(
-                            value,
-                            _passwordController.text,
-                          ),
                           onFieldSubmitted: (_) => _submit(),
                         ),
                         if (errorMessage != null) ...[

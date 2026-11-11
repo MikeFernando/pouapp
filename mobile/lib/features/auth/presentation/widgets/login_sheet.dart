@@ -8,7 +8,7 @@ import '../bloc/auth_state.dart';
 import '../validation/login_validators.dart';
 import 'forgot_password_sheet.dart';
 
-const _sheetGreen = Color(0xFF0D6B3F);
+const _sheetGreen = pouBrand;
 const _fieldFill = Color(0xFFF3F4F6);
 const _hintColor = Color(0xFF9CA3AF);
 const _subtitleColor = Color(0xFF6B7280);
@@ -51,7 +51,7 @@ class _LoginSheetState extends State<LoginSheet> {
     final media = MediaQuery.of(context);
     final keyboard = media.viewInsets.bottom;
     final baseHeight =
-        media.size.height * (_creatingAccount ? 0.72 : 0.58);
+        media.size.height * (_creatingAccount ? 0.64 : 0.58);
     final sheetHeight =
         (baseHeight + keyboard).clamp(baseHeight, media.size.height * 0.94);
 
@@ -138,10 +138,10 @@ InputDecoration _sheetFieldDecoration({
   );
 }
 
-ButtonStyle get _blackPillButtonStyle => FilledButton.styleFrom(
-      backgroundColor: Colors.black,
+ButtonStyle get _primaryPillButtonStyle => FilledButton.styleFrom(
+      backgroundColor: pouBrand,
       foregroundColor: Colors.white,
-      disabledBackgroundColor: Colors.black.withValues(alpha: 0.45),
+      disabledBackgroundColor: pouBrand.withValues(alpha: 0.45),
       disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
       shape: const StadiumBorder(),
       textStyle: const TextStyle(
@@ -360,7 +360,7 @@ class _LoginSheetFormState extends State<_LoginSheetForm> {
                 child: FilledButton(
                   key: const Key('login_submit'),
                   onPressed: isSubmitting ? null : _submit,
-                  style: _blackPillButtonStyle,
+                  style: _primaryPillButtonStyle,
                   child: isSubmitting
                       ? const SizedBox(
                           width: 22,
@@ -435,24 +435,19 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmationController = TextEditingController();
   final _nameFocus = FocusNode();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
-  final _confirmationFocus = FocusNode();
   var _obscurePassword = true;
-  var _obscureConfirmation = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmationController.dispose();
     _nameFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
-    _confirmationFocus.dispose();
     super.dispose();
   }
 
@@ -592,7 +587,7 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                 focusNode: _passwordFocus,
                 enabled: !isSubmitting,
                 obscureText: _obscurePassword,
-                textInputAction: TextInputAction.next,
+                textInputAction: TextInputAction.done,
                 autocorrect: false,
                 enableSuggestions: false,
                 autofillHints: const [AutofillHints.newPassword],
@@ -617,7 +612,7 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                   ),
                 ),
                 validator: _validateSheetPassword,
-                onFieldSubmitted: (_) => _confirmationFocus.requestFocus(),
+                onFieldSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -626,47 +621,6 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                   fontSize: 12,
                   color: _subtitleColor,
                 ),
-              ),
-              const SizedBox(height: 14),
-              _fieldLabel('Confirmar senha'),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('register_password_confirmation'),
-                controller: _confirmationController,
-                focusNode: _confirmationFocus,
-                enabled: !isSubmitting,
-                obscureText: _obscureConfirmation,
-                textInputAction: TextInputAction.done,
-                autocorrect: false,
-                enableSuggestions: false,
-                autofillHints: const [AutofillHints.newPassword],
-                decoration: _sheetFieldDecoration(
-                  hint: 'Repita sua senha',
-                  prefix: Icons.lock_outline_rounded,
-                  suffix: IconButton(
-                    key: const Key('register_toggle_confirmation'),
-                    tooltip: _obscureConfirmation
-                        ? 'Mostrar senha'
-                        : 'Ocultar senha',
-                    onPressed: isSubmitting
-                        ? null
-                        : () => setState(
-                              () =>
-                                  _obscureConfirmation = !_obscureConfirmation,
-                            ),
-                    icon: Icon(
-                      _obscureConfirmation
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: const Color(0xFF6B7280),
-                    ),
-                  ),
-                ),
-                validator: (value) => validatePasswordConfirmation(
-                  value,
-                  _passwordController.text,
-                ),
-                onFieldSubmitted: (_) => _submit(),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -690,10 +644,10 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                   key: const Key('register_submit'),
                   onPressed: isSubmitting ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: pouBrand,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor:
-                        Colors.black.withValues(alpha: 0.45),
+                        pouBrand.withValues(alpha: 0.45),
                     disabledForegroundColor:
                         Colors.white.withValues(alpha: 0.7),
                     shape: RoundedRectangleBorder(

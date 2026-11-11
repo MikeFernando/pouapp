@@ -87,6 +87,21 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
     }
   }
 
+  @override
+  Future<UserModel> updateName({required String name}) async {
+    try {
+      final response = await _dio.patch<Map<String, dynamic>>(
+        '/auth/me',
+        data: {'name': name.trim()},
+      );
+      final user = response.data?['user'];
+      if (user is! Map) throw ServerException('Resposta inválida.');
+      return UserModel.fromJson(Map<String, dynamic>.from(user));
+    } on DioException catch (error) {
+      mapDioException(error);
+    }
+  }
+
   Future<UserModel> _persistSession(Map<String, dynamic>? data) async {
     if (data == null) throw ServerException('Resposta vazia.');
     final accessToken = data['accessToken'] as String?;

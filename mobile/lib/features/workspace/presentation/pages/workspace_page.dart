@@ -14,6 +14,7 @@ import '../../../auth/data/datasources/profile_avatar_store.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../auth/presentation/widgets/edit_user_name_sheet.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
 import '../../../customers/presentation/customer_routes.dart';
 import '../../../customers/presentation/pages/customers_page.dart';
@@ -267,32 +268,40 @@ class _WorkspaceHeader extends StatelessWidget {
                     _HeaderAvatar(userId: user.id),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: _ink,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.3,
+                      child: InkWell(
+                        key: const Key('workspace_edit_user_name'),
+                        onTap: () => showEditUserNameSheet(
+                          context,
+                          user: user,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _ink,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.3,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            user.email,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: _muted,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 2),
+                            Text(
+                              user.email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _muted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     _HeaderRoundIcon(

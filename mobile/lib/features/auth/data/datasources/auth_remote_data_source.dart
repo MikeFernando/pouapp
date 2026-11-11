@@ -32,6 +32,11 @@ abstract class AuthRemoteDataSource {
   ///
   /// Simulated auth has no remote session probe and throws [UnsupportedError].
   Future<UserModel> currentUser();
+
+  /// Updates the authenticated user's display name on the API.
+  ///
+  /// Simulated auth has no remote session and throws [UnsupportedError].
+  Future<UserModel> updateName({required String name});
 }
 
 /// Development-only stand-in for a future REST data source.
@@ -144,6 +149,11 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
   @override
   Future<UserModel> currentUser() {
     throw UnsupportedError('Simulated auth has no remote /me.');
+  }
+
+  @override
+  Future<UserModel> updateName({required String name}) {
+    throw UnsupportedError('Simulated auth has no remote name update.');
   }
 
   List<_DevelopmentAccount> _readStored() {

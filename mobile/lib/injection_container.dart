@@ -21,6 +21,7 @@ import 'features/auth/domain/usecases/get_current_user.dart';
 import 'features/auth/domain/usecases/login.dart';
 import 'features/auth/domain/usecases/logout.dart';
 import 'features/auth/domain/usecases/register_account.dart';
+import 'features/auth/domain/usecases/update_user_name.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/license/data/datasources/license_local_data_source.dart';
 import 'features/license/data/datasources/license_remote_data_source.dart';
@@ -78,12 +79,14 @@ Future<void> init() async {
       registerAccount: sl(),
       getCurrentUser: sl(),
       logout: sl(),
+      updateUserName: sl(),
     ),
   );
   sl.registerLazySingleton(() => Login(sl()));
   sl.registerLazySingleton(() => RegisterAccount(sl()));
   sl.registerLazySingleton(() => GetCurrentUser(sl()));
   sl.registerLazySingleton(() => Logout(sl()));
+  sl.registerLazySingleton(() => UpdateUserName(sl()));
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remoteDataSource: sl(),
