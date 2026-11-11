@@ -9,15 +9,17 @@ import '../../domain/validation/customer_validators.dart';
 import '../bloc/customer_form_bloc.dart';
 import '../customer_messages.dart';
 
-Future<bool?> showNewCustomerSheet(BuildContext context) {
+/// Returns the saved customer id, or null if dismissed.
+Future<String?> showNewCustomerSheet(BuildContext context) {
   return showCustomerQuickSheet(context);
 }
 
-Future<bool?> showCustomerQuickSheet(
+/// Returns the saved customer id, or null if dismissed.
+Future<String?> showCustomerQuickSheet(
   BuildContext context, {
   Customer? customer,
 }) {
-  return showModalBottomSheet<bool>(
+  return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     useSafeArea: false,
@@ -89,8 +91,9 @@ class _CustomerQuickSheetState extends State<CustomerQuickSheet> {
           );
         }
         if (state.saved) {
+          final id = state.customerId ?? state.customer?.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) Navigator.of(context).pop(true);
+            if (context.mounted) Navigator.of(context).pop(id);
           });
         }
       },

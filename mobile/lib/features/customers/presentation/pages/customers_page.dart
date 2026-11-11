@@ -455,8 +455,8 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   }
 
   Future<void> _openForm(BuildContext context) async {
-    final saved = await showNewCustomerSheet(context);
-    if (saved == true && context.mounted) {
+    final savedId = await showNewCustomerSheet(context);
+    if (savedId != null && context.mounted) {
       _notifySaved(context);
       await _loadRanks();
     }
@@ -647,8 +647,8 @@ class _CustomersViewState extends State<CustomersView> {
   }
 
   Future<void> _openForm(BuildContext context) async {
-    final saved = await showNewCustomerSheet(context);
-    if (saved == true && context.mounted) {
+    final savedId = await showNewCustomerSheet(context);
+    if (savedId != null && context.mounted) {
       _notifySaved(context);
     }
   }

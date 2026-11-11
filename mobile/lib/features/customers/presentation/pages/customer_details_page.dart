@@ -172,12 +172,12 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 color: Colors.white,
                 onSelected: (value) async {
                   if (value == 'edit') {
-                    final saved = await showCustomerQuickSheet(
+                    final savedId = await showCustomerQuickSheet(
                       context,
                       customer: customer,
                     );
                     if (!context.mounted) return;
-                    if (saved == true) {
+                    if (savedId != null) {
                       context.read<CustomerDetailsBloc>().add(
                         CustomerDetailsRequested(customer.id),
                       );
@@ -515,7 +515,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final media = MediaQuery.of(context);
     final sheetHeight =
         media.size.height - media.padding.top - kToolbarHeight;
-    final picked = await showModalBottomSheet<_CatalogSelection>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
@@ -525,10 +525,17 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       ),
       builder: (_) => SizedBox(
         height: sheetHeight,
-        child: _ProductCatalogPage(products: products),
+        child: _ProductCatalogPage(
+          products: products,
+          onAdd: _addCatalogSelection,
+        ),
       ),
     );
-    if (picked == null || !mounted) return;
+  }
+
+  Future<void> _addCatalogSelection(_CatalogSelection picked) async {
+    final note = _note;
+    if (note == null || note.status == NoteStatus.delivered) return;
     final unit = _catalogUnit(picked.row.product.unit);
     final quantity = baseQuantityFromDisplay(unit, picked.quantity);
     if (quantity == null) {
@@ -1020,7 +1027,12 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
 }
 
 class _ProductCatalogPage extends StatefulWidget {
-  const _ProductCatalogPage({required this.products});
+  const _ProductCatalogPage({
+    required this.products,
+    required this.onAdd,
+  });
+
+  final Future<void> Function(_CatalogSelection selection) onAdd;
 
   final List<StockProduct> products;
 
@@ -1200,8 +1212,8 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
       unitPriceCents: row.priceCents,
       referencePriceCents: row.priceCents,
     );
-    if (!mounted || result == null) return;
-    Navigator.of(context).pop(
+    if (!mounted || result == null || result.removed) return;
+    await widget.onAdd(
       _CatalogSelection(
         row: row,
         quantity: result.quantity,

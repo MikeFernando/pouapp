@@ -64,10 +64,9 @@ class _AddDeliveryPageState extends State<AddDeliveryPage> {
   }
 
   Future<void> _openNewCustomer() async {
-    final saved = await showNewCustomerSheet(context);
-    if (saved == true && mounted) {
-      await _load();
-    }
+    final customerId = await showNewCustomerSheet(context);
+    if (!mounted || customerId == null) return;
+    widget.onOpenCustomer(customerId);
   }
 
   void _setLetter(String? letter) {
