@@ -15,7 +15,7 @@ String _sendNoteSubtitle({
   if (!hasItems) return 'Adicione um item para enviar';
   if (busy) return 'Gerando PDF…';
   if (error != null) return error;
-  if (hasWhatsApp) return 'Abrir WhatsApp com o PDF';
+  if (hasWhatsApp) return 'Enviar PDF pelo WhatsApp';
   return 'Compartilhar PDF com itens e valores';
 }
 

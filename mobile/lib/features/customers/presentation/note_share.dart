@@ -13,12 +13,14 @@ import '../../workspace/presentation/operation_labels.dart';
 import '../data/note_pdf_document.dart';
 import '../domain/entities/customer.dart';
 import '../domain/entities/customer_note.dart';
-import 'whatsapp_launch.dart';
 
 const _whatsAppShareChannel = MethodChannel('com.pouapp.app/whatsapp_share');
 
-/// Builds and shares the customer note PDF. Prefers the customer's WhatsApp
-/// chat when a phone number is available. Read-only: no sale/stock/debt side effects.
+/// Builds and shares the customer note PDF.
+///
+/// On Android, opens the customer's WhatsApp chat with the PDF attached when a
+/// phone number is known. On iOS, WhatsApp URL schemes cannot attach files, so
+/// the system share sheet is presented with the PDF (never an empty chat).
 Future<void> shareCustomerNotePdf({
   required Customer customer,
   required CustomerNote note,
@@ -55,6 +57,7 @@ Future<void> shareCustomerNotePdf({
     bytes: bytes,
     fileName: _pdfFileName(customer.name),
     subject: 'Nota PouApp - ${customer.name}',
+    text: 'Segue a nota em PDF.',
     sharePositionOrigin: sharePositionOrigin,
     whatsAppDigits: digits,
   );
@@ -63,52 +66,72 @@ Future<void> shareCustomerNotePdf({
 /// Digits for WhatsApp from mobile first, then landline.
 String? customerWhatsAppDigits(Customer customer) {
   return whatsAppDigits(
-        (customer.mobilePhone ?? '').trim().isNotEmpty
-            ? customer.mobilePhone
-            : customer.phone,
-      );
+    (customer.mobilePhone ?? '').trim().isNotEmpty
+        ? customer.mobilePhone
+        : customer.phone,
+  );
 }
 
 Future<void> sharePdfBytes({
   required Uint8List bytes,
   required String fileName,
   String? subject,
+  String? text,
   Rect? sharePositionOrigin,
   String? whatsAppDigits,
 }) async {
   final dir = await getTemporaryDirectory();
-  final file = File(p.join(dir.path, fileName));
+  // share_plus / FileProvider serve from cache; keep the PDF there.
+  final shareDir = Directory(p.join(dir.path, 'note_share'));
+  if (!shareDir.existsSync()) {
+    shareDir.createSync(recursive: true);
+  }
+  final file = File(p.join(shareDir.path, fileName));
   await file.writeAsBytes(bytes, flush: true);
 
   final digits = whatsAppDigits?.trim();
   if (digits != null && digits.isNotEmpty) {
-    // Android can open that chat with the PDF already attached.
+    // Android: open that chat with the PDF ready to send.
     final sentToChat = await _sharePdfToWhatsAppChat(
       filePath: file.path,
       digits: digits,
     );
     if (sentToChat) return;
-
-    // iOS / fallback: open the customer's WhatsApp conversation first, then
-    // present the share sheet so the PDF can be attached in the same send.
-    await launchCustomerWhatsApp(
-      digits,
-      message: 'Segue a nota em PDF.',
-    );
   }
 
+  // iOS (and Android fallback): share the PDF file. Do not open WhatsApp via
+  // URL first — that only prefills text and hides the share sheet behind chat.
   final xFile = XFile(
     file.path,
     mimeType: 'application/pdf',
     name: fileName,
   );
 
-  Future<void> present(Rect? origin) {
+  Future<ShareResult> present(Rect? origin) {
     return SharePlus.instance.share(
       ShareParams(
         files: [xFile],
         subject: subject,
+        text: text,
         sharePositionOrigin: origin,
+        // Keep the sheet focused on sending the PDF (WhatsApp / WA Business).
+        excludedCupertinoActivities: const [
+          CupertinoActivityType.airDrop,
+          CupertinoActivityType.mail,
+          CupertinoActivityType.message,
+          CupertinoActivityType.print,
+          CupertinoActivityType.copyToPasteboard,
+          CupertinoActivityType.assignToContact,
+          CupertinoActivityType.addToReadingList,
+          CupertinoActivityType.openInIBooks,
+          CupertinoActivityType.markupAsPDF,
+          CupertinoActivityType.postToFacebook,
+          CupertinoActivityType.postToTwitter,
+          CupertinoActivityType.postToWeibo,
+          CupertinoActivityType.postToFlickr,
+          CupertinoActivityType.postToVimeo,
+          CupertinoActivityType.postToTencentWeibo,
+        ],
       ),
     );
   }
@@ -117,7 +140,6 @@ Future<void> sharePdfBytes({
     await present(sharePositionOrigin);
   } catch (error, stack) {
     debugPrint('note share: first attempt failed: $error\n$stack');
-    // iPad / macOS often require a non-zero origin rect.
     final fallbackOrigin =
         sharePositionOrigin ?? const Rect.fromLTWH(0, 0, 1, 1);
     await present(fallbackOrigin);
@@ -125,7 +147,6 @@ Future<void> sharePdfBytes({
 }
 
 /// Android: opens the customer's WhatsApp chat with the PDF ready to send.
-/// Other platforms return false and the caller opens chat + share sheet.
 Future<bool> _sharePdfToWhatsAppChat({
   required String filePath,
   required String digits,

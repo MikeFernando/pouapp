@@ -22,7 +22,11 @@ class LicenseBloc extends Bloc<LicenseEvent, LicenseState> {
     LicenseCheckRequested event,
     Emitter<LicenseState> emit,
   ) async {
-    emit(const LicenseChecking());
+    // Keep AuthenticatedShell mounted when revalidating an already-active
+    // license (e.g. AppLifecycle resume). Emitting LicenseChecking would swap
+    // the gate to SessionLoadingView and reset navigation back to home.
+    final refreshing = state is LicenseActive;
+    if (!refreshing) emit(const LicenseChecking());
     final result = await checkLicense(
       CheckLicenseParams(forceRemote: event.forceRemote),
     );

@@ -2,6 +2,7 @@ package com.example.pouapp
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -49,14 +50,21 @@ class MainActivity : FlutterActivity() {
                 "${applicationContext.packageName}.fileprovider",
                 file,
             )
+        grantUriPermission(
+            packageName,
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
         val jid = "${digits.filter { it.isDigit() }}@s.whatsapp.net"
         val intent =
             Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
                 setPackage(packageName)
                 putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, "Segue a nota em PDF.")
                 putExtra("jid", jid)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = android.content.ClipData.newUri(contentResolver, "nota", uri)
             }
         startActivity(intent)
         return true
