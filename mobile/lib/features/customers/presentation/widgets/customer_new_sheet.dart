@@ -10,6 +10,13 @@ import '../bloc/customer_form_bloc.dart';
 import '../customer_messages.dart';
 
 Future<bool?> showNewCustomerSheet(BuildContext context) {
+  return showCustomerQuickSheet(context);
+}
+
+Future<bool?> showCustomerQuickSheet(
+  BuildContext context, {
+  Customer? customer,
+}) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -19,25 +26,45 @@ Future<bool?> showNewCustomerSheet(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (context) => BlocProvider(
-      create: (_) =>
-          di.sl<CustomerFormBloc>()..add(const CustomerFormStarted()),
-      child: const NewCustomerSheet(),
+      create: (_) => di.sl<CustomerFormBloc>()
+        ..add(CustomerFormStarted(customerId: customer?.id)),
+      child: CustomerQuickSheet(customer: customer),
     ),
   );
 }
 
-class NewCustomerSheet extends StatefulWidget {
-  const NewCustomerSheet({super.key});
+class CustomerQuickSheet extends StatefulWidget {
+  const CustomerQuickSheet({super.key, this.customer});
+
+  final Customer? customer;
 
   @override
-  State<NewCustomerSheet> createState() => _NewCustomerSheetState();
+  State<CustomerQuickSheet> createState() => _CustomerQuickSheetState();
 }
 
-class _NewCustomerSheetState extends State<NewCustomerSheet> {
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
+/// Kept for existing imports/tests.
+typedef NewCustomerSheet = CustomerQuickSheet;
+
+class _CustomerQuickSheetState extends State<CustomerQuickSheet> {
+  late final TextEditingController _name;
+  late final TextEditingController _phone;
   var _submitting = false;
   CustomerValidationError? _fieldError;
+
+  bool get _editing => widget.customer != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final customer = widget.customer;
+    _name = TextEditingController(text: customer?.name ?? '');
+    final digits = onlyDigits(
+      (customer?.mobilePhone ?? '').trim().isNotEmpty
+          ? customer!.mobilePhone
+          : customer?.phone,
+    );
+    _phone = TextEditingController(text: _formatPhoneMask(digits));
+  }
 
   @override
   void dispose() {
@@ -92,9 +119,9 @@ class _NewCustomerSheetState extends State<NewCustomerSheet> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Novo cliente',
-                    style: TextStyle(
+                  Text(
+                    _editing ? 'Editar cliente' : 'Novo cliente',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: pouInk,
@@ -117,7 +144,7 @@ class _NewCustomerSheetState extends State<NewCustomerSheet> {
                     keyboardType: TextInputType.phone,
                     enabled: !saving,
                     inputFormatters: const [_PhoneInputFormatter()],
-                    onSubmitted: (_) => saving ? null : _submit(),
+                    onSubmitted: (_) => saving ? null : _submit(state),
                     decoration: _fieldDecoration('Telefone (opcional)'),
                   ),
                   if (_fieldError != null) ...[
@@ -139,7 +166,7 @@ class _NewCustomerSheetState extends State<NewCustomerSheet> {
                     height: 56,
                     child: FilledButton(
                       key: const Key('customer_save'),
-                      onPressed: saving ? null : _submit,
+                      onPressed: saving ? null : () => _submit(state),
                       child: saving
                           ? const SizedBox(
                               width: 22,
@@ -162,13 +189,22 @@ class _NewCustomerSheetState extends State<NewCustomerSheet> {
     );
   }
 
-  void _submit() {
+  void _submit(CustomerFormState state) {
     if (_submitting) return;
     final phoneDigits = onlyDigits(_phone.text);
+    final current = state.customer ?? widget.customer;
+    final preferMobile = (current?.mobilePhone ?? '').trim().isNotEmpty;
+    final phoneValue = phoneDigits.isEmpty ? null : phoneDigits;
     final input = CustomerInput(
-      type: CustomerType.individual,
+      type: current?.type ?? CustomerType.individual,
       name: _name.text,
-      phone: phoneDigits.isEmpty ? null : phoneDigits,
+      tradeName: current?.tradeName,
+      document: current?.document,
+      email: current?.email,
+      phone: preferMobile ? current?.phone : phoneValue,
+      mobilePhone: preferMobile ? phoneValue : current?.mobilePhone,
+      status: current?.status ?? CustomerStatus.active,
+      notes: current?.notes,
     );
     final error = validateCustomerInput(input);
     if (error != null) {

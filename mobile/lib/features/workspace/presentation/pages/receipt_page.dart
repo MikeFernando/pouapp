@@ -144,12 +144,16 @@ class _ReceiptPageState extends State<ReceiptPage> {
   Future<void> _pickDate({
     required TextEditingController controller,
     required String title,
+    DateTime? firstDate,
   }) async {
-    final current = parseBrazilianDay(controller.text) ?? DateTime.now();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final current = parseBrazilianDay(controller.text) ?? today;
     final picked = await showPouDateSheet(
       context,
       initial: current,
       title: title,
+      firstDate: firstDate,
     );
     if (picked == null || !mounted) return;
     setState(() => controller.text = formatDay(picked));
@@ -605,10 +609,18 @@ class _ReceiptPageState extends State<ReceiptPage> {
                         placeholder: 'Selecionar data',
                         onTap: _saving
                             ? null
-                            : () => _pickDate(
-                                  controller: _remainingDue,
-                                  title: 'Escolha a data de vencimento',
-                                ),
+                            : () {
+                                  final now = DateTime.now();
+                                  _pickDate(
+                                    controller: _remainingDue,
+                                    title: 'Escolha a data de vencimento',
+                                    firstDate: DateTime(
+                                      now.year,
+                                      now.month,
+                                      now.day,
+                                    ),
+                                  );
+                                },
                       ),
                     ],
                     if (_error != null ||

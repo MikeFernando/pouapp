@@ -47,12 +47,8 @@ class PouDateSheet extends StatefulWidget {
 }
 
 class _PouDateSheetState extends State<PouDateSheet> {
-  late DateTime _selected = DateTime(
-    widget.initial.year,
-    widget.initial.month,
-    widget.initial.day,
-  );
-  late DateTime _month = DateTime(widget.initial.year, widget.initial.month);
+  late DateTime _selected;
+  late DateTime _month;
 
   static const _months = [
     'janeiro',
@@ -69,8 +65,31 @@ class _PouDateSheetState extends State<PouDateSheet> {
     'dezembro',
   ];
 
-  DateTime get _first => widget.firstDate ?? DateTime(2020);
-  DateTime get _last => widget.lastDate ?? DateTime(2100);
+  DateTime get _first {
+    final value = widget.firstDate ?? DateTime(2020);
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  DateTime get _last {
+    final value = widget.lastDate ?? DateTime(2100);
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = DateTime(
+      widget.initial.year,
+      widget.initial.month,
+      widget.initial.day,
+    );
+    _selected = initial.isBefore(_first)
+        ? _first
+        : initial.isAfter(_last)
+        ? _last
+        : initial;
+    _month = DateTime(_selected.year, _selected.month);
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../features/customers/presentation/customer_routes.dart';
 import '../features/customers/presentation/pages/customer_details_page.dart';
-import '../features/customers/presentation/pages/customer_form_page.dart';
 import '../features/customers/presentation/pages/customers_page.dart';
 import '../features/workspace/presentation/pages/workspace_page.dart';
 
@@ -55,20 +54,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
       return MaterialPageRoute<void>(
         settings: settings,
         builder: (_) => const CustomersPage(),
-      );
-    }
-    if (name == CustomerRoutes.create) {
-      return MaterialPageRoute<bool>(
-        settings: settings,
-        builder: (_) => const CustomerFormPage(),
-      );
-    }
-    final edit = RegExp(r'^/customers/([^/]+)/edit$').firstMatch(name);
-    if (edit != null) {
-      return MaterialPageRoute<bool>(
-        settings: settings,
-        builder: (_) =>
-            CustomerFormPage(customerId: Uri.decodeComponent(edit.group(1)!)),
       );
     }
     final details = RegExp(r'^/customers/([^/]+)$').firstMatch(name);

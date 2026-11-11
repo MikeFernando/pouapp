@@ -36,6 +36,7 @@ class StreetBoardViewState extends State<StreetBoardView>
   late final AnimationController _entrance;
   late final ScrollController _scroll;
   List<UpcomingDueCustomer> _noteDues = const [];
+  Set<String> _clearedNoteCustomers = const {};
   var _notesReady = false;
 
   @override
@@ -61,13 +62,16 @@ class StreetBoardViewState extends State<StreetBoardView>
       if (mounted) setState(() => _notesReady = true);
       return;
     }
-    final result = await sl<CustomerNoteRepository>().draftNotesWithDue();
+    final notesRepo = sl<CustomerNoteRepository>();
+    final result = await notesRepo.draftNotesWithDue();
+    final clearedResult = await notesRepo.clearedDraftCustomerIds();
     if (!mounted) return;
     if (result.isLeft()) {
       setState(() => _notesReady = true);
       return;
     }
     final items = result.getOrElse(() => const []);
+    final cleared = clearedResult.getOrElse(() => const <String>{});
     final mapped = <UpcomingDueCustomer>[];
     for (final note in items) {
       if (note.dueOn == null || note.totalCents <= 0) continue;
@@ -93,6 +97,7 @@ class StreetBoardViewState extends State<StreetBoardView>
     if (!mounted) return;
     setState(() {
       _noteDues = mapped;
+      _clearedNoteCustomers = cleared;
       _notesReady = true;
     });
   }
@@ -167,6 +172,7 @@ class StreetBoardViewState extends State<StreetBoardView>
             board: board,
             localNotes: _noteDues,
             now: DateTime.now(),
+            clearedCustomerIds: _clearedNoteCustomers,
           );
           return _boardBody(
             context: context,

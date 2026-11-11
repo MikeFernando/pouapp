@@ -84,6 +84,7 @@ homeSectionsForLocalDay({
   required HomeBoard board,
   required List<UpcomingDueCustomer> localNotes,
   required DateTime now,
+  Set<String> clearedCustomerIds = const {},
 }) {
   final todayStart = DateTime(now.year, now.month, now.day);
   final todayIso = isoDate(todayStart);
@@ -99,6 +100,8 @@ homeSectionsForLocalDay({
   void putRemote(UpcomingDueCustomer due) {
     if (!_isRealHomeDue(due)) return;
     if (localByCustomer.containsKey(due.customerId)) return;
+    // Local draft was emptied / due cleared — don't keep the stale API row.
+    if (clearedCustomerIds.contains(due.customerId)) return;
     byCustomer.putIfAbsent(due.customerId, () => due);
   }
 

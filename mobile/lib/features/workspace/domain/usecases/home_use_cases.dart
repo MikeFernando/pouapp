@@ -48,3 +48,23 @@ class CreateHomeNote {
     }
   }
 }
+
+class ClearHomeNote {
+  ClearHomeNote(this.remote);
+
+  final HomeRemoteDataSource remote;
+
+  Future<Either<Failure, Unit>> call({required String customerId}) async {
+    try {
+      await remote.deleteDraftNote(customerId: customerId);
+      return const Right(unit);
+    } on NotFoundException {
+      // Already gone on the API (or route not deployed yet) — local clear wins.
+      return const Right(unit);
+    } on NetworkException {
+      return const Left(NetworkFailure());
+    } on ServerException {
+      return const Left(ServerFailure());
+    }
+  }
+}

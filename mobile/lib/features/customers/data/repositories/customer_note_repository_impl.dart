@@ -39,6 +39,11 @@ class CustomerNoteRepositoryImpl implements CustomerNoteRepository {
   }
 
   @override
+  Future<Either<Failure, Set<String>>> clearedDraftCustomerIds() {
+    return _guard(localDataSource.clearedDraftCustomerIds);
+  }
+
+  @override
   Future<Either<Failure, CustomerNote>> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,

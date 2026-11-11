@@ -74,4 +74,32 @@ void main() {
 
     expect(sections.later, isEmpty);
   });
+
+  test('cleared local draft hides stale remote upcoming due', () {
+    const board = HomeBoard(
+      date: '2026-11-11',
+      receivedTodayCents: 0,
+      receiptsDueToday: [],
+      duesTomorrow: [],
+      upcomingDues: [
+        HomeDueItem(
+          customerId: 'mike',
+          customerName: 'Mike Fernando',
+          openCents: 2870,
+          dueOn: '2026-11-30',
+          settled: false,
+          openNotes: 1,
+        ),
+      ],
+    );
+
+    final sections = homeSectionsForLocalDay(
+      board: board,
+      localNotes: const [],
+      now: DateTime(2026, 11, 11, 12),
+      clearedCustomerIds: const {'mike'},
+    );
+
+    expect(sections.later, isEmpty);
+  });
 }

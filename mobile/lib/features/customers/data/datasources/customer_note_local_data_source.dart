@@ -21,6 +21,9 @@ abstract class CustomerNoteLocalDataSource {
   /// Draft notes that already have a due date and a positive total.
   Future<List<CustomerNote>> draftNotesWithDue();
 
+  /// Customers whose draft is empty or has no due — home must hide remote rows.
+  Future<Set<String>> clearedDraftCustomerIds();
+
   Future<CustomerNote> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,
@@ -166,6 +169,30 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
       notes.add(note);
     }
     return notes;
+  }
+
+  @override
+  Future<Set<String>> clearedDraftCustomerIds() async {
+    final db = await openDatabase();
+    try {
+      await consolidateCustomerDraftNotes(db);
+    } on DatabaseException {
+      // Prefer returning what we can over failing the home board.
+    }
+    final rows = await db.query(
+      'customer_notes',
+      columns: ['id', 'customer_id'],
+      where: 'status = ?',
+      whereArgs: [NoteStatus.draft.name],
+    );
+    final cleared = <String>{};
+    for (final row in rows) {
+      final note = await _read(db, row['id']! as String);
+      if (note.dueOn == null || note.totalCents <= 0) {
+        cleared.add(note.customerId);
+      }
+    }
+    return cleared;
   }
 
   @override

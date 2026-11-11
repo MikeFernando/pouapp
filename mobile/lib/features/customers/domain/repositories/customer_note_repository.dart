@@ -20,6 +20,9 @@ abstract class CustomerNoteRepository {
   /// Draft notes with a due date and items, for the home upcoming list.
   Future<Either<Failure, List<CustomerNote>>> draftNotesWithDue();
 
+  /// Customers with an empty / undated draft — suppress stale remote home rows.
+  Future<Either<Failure, Set<String>>> clearedDraftCustomerIds();
+
   Future<Either<Failure, CustomerNote>> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,

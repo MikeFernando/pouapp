@@ -251,6 +251,11 @@ class _FailingNotes implements CustomerNoteRepository {
   }
 
   @override
+  Future<Either<Failure, Set<String>>> clearedDraftCustomerIds() async {
+    return const Right({});
+  }
+
+  @override
   Future<Either<Failure, CustomerNote>> saveLines({
     required String noteId,
     required List<NoteLineDraft> lines,

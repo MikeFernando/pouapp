@@ -14,6 +14,8 @@ abstract class HomeRemoteDataSource {
     required int totalCents,
   });
 
+  Future<void> deleteDraftNote({required String customerId});
+
   Future<void> createSale({
     required String customerId,
     required String occurredOn,
@@ -61,6 +63,17 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
         },
       );
     } on DioException catch (error) {
+      mapDioException(error);
+    }
+  }
+
+  @override
+  Future<void> deleteDraftNote({required String customerId}) async {
+    try {
+      await _dio.delete<Map<String, dynamic>>('/notes/drafts/$customerId');
+    } on DioException catch (error) {
+      // Nothing to remove (or old API without this route) — treat as cleared.
+      if (error.response?.statusCode == 404) return;
       mapDioException(error);
     }
   }

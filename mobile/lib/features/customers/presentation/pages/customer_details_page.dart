@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
+import '../../../../app/pou_confirm_dialog.dart';
 import '../../../../app/pou_date_sheet.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
 import '../../../../core/config/api_config.dart';
@@ -27,6 +28,7 @@ import '../bloc/customer_details_bloc.dart';
 import '../customer_messages.dart';
 import '../whatsapp_launch.dart';
 import '../widgets/customer_account_section.dart';
+import '../widgets/customer_new_sheet.dart';
 import '../widgets/customer_status_badge.dart';
 import '../widgets/customer_status_sheet.dart';
 
@@ -176,6 +178,50 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
               color: Colors.white,
             ),
             title: Text(customer.name),
+            actions: [
+              PopupMenuButton<String>(
+                key: const Key('customer_details_menu'),
+                icon: const Icon(Icons.more_vert),
+                color: Colors.white,
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    final saved = await showCustomerQuickSheet(
+                      context,
+                      customer: customer,
+                    );
+                    if (!context.mounted) return;
+                    if (saved == true) {
+                      context.read<CustomerDetailsBloc>().add(
+                        CustomerDetailsRequested(customer.id),
+                      );
+                    }
+                    return;
+                  }
+                  if (value == 'clear_note') {
+                    await _clearNote();
+                  }
+                },
+                itemBuilder: (context) {
+                  final canClear =
+                      note != null &&
+                      note.status != NoteStatus.delivered &&
+                      (note.lines.isNotEmpty || note.dueOn != null);
+                  return [
+                    const PopupMenuItem<String>(
+                      key: Key('customer_edit_menu_item'),
+                      value: 'edit',
+                      child: Text('Editar cadastro'),
+                    ),
+                    PopupMenuItem<String>(
+                      key: const Key('customer_clear_note_menu_item'),
+                      value: 'clear_note',
+                      enabled: canClear,
+                      child: const Text('Limpar nota'),
+                    ),
+                  ];
+                },
+              ),
+            ],
           ),
           body: ClipRRect(
             borderRadius: const BorderRadius.vertical(
@@ -364,10 +410,13 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   Future<void> _openDueDate() async {
     final note = _note;
     if (note == null || note.status == NoteStatus.delivered) return;
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
     final picked = await showPouDateSheet(
       context,
-      initial: note.dueOn ?? DateTime.now(),
+      initial: note.dueOn ?? todayStart,
       title: 'Escolha a data de vencimento',
+      firstDate: todayStart,
     );
     if (picked == null || !mounted) return;
     final dueOn = DateTime(picked.year, picked.month, picked.day);
@@ -477,7 +526,29 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     ]);
   }
 
-  Future<void> _persistLines(List<NoteLineDraft> drafts) async {
+  Future<void> _clearNote() async {
+    final note = _note;
+    if (note == null ||
+        note.status == NoteStatus.delivered ||
+        (note.lines.isEmpty && note.dueOn == null)) {
+      return;
+    }
+    final confirmed = await showPouConfirmDialog(
+      context,
+      title: 'Limpar nota?',
+      message:
+          'Todos os itens desta nota serão removidos e o vencimento voltará para sem data.',
+      confirmLabel: 'Limpar',
+      confirmKey: const Key('confirm_clear_note'),
+    );
+    if (!confirmed || !mounted) return;
+    await _persistLines(const [], clearing: true);
+  }
+
+  Future<void> _persistLines(
+    List<NoteLineDraft> drafts, {
+    bool clearing = false,
+  }) async {
     final note = _note;
     if (note == null) return;
     if (!di.sl.isRegistered<CustomerNoteRepository>()) {
@@ -485,6 +556,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         _noteError = null;
         _note = note.copyWith(
           updatedAt: DateTime.now(),
+          clearDueOn: clearing,
           lines: [
             for (final draft in drafts)
               NoteLine(
@@ -506,24 +578,49 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       lines: drafts,
     );
     if (!mounted) return;
-    result.fold(_rememberFailure, (saved) {
-      setState(() {
-        _noteError = null;
-        _note = saved;
-      });
-      _syncNoteToHome(saved);
+    if (result.isLeft()) {
+      _rememberFailure(null);
+      return;
+    }
+    var next = result.getOrElse(() => note);
+    if (clearing || next.totalCents <= 0) {
+      final dueCleared = await di.sl<CustomerNoteRepository>().setDueOn(
+        noteId: next.id,
+        dueOn: null,
+      );
+      next = dueCleared.fold(
+        (_) => next.copyWith(clearDueOn: true),
+        (value) => value,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _noteError = null;
+      _note = next;
     });
+    await _syncNoteToHome(next, cleared: clearing || next.totalCents <= 0);
   }
 
-  Future<void> _syncNoteToHome(CustomerNote note) async {
+  Future<void> _syncNoteToHome(
+    CustomerNote note, {
+    bool cleared = false,
+  }) async {
     if (!ApiConfig.useRemoteApi) return;
-    if (note.dueOn == null || note.totalCents <= 0) return;
-    if (!di.sl.isRegistered<CreateHomeNote>()) return;
-    await di.sl<CreateHomeNote>()(
-      customerId: note.customerId,
-      dueOn: isoDate(note.dueOn!),
-      totalCents: note.totalCents,
-    );
+    try {
+      if (cleared || note.dueOn == null || note.totalCents <= 0) {
+        if (di.sl.isRegistered<ClearHomeNote>()) {
+          await di.sl<ClearHomeNote>()(customerId: note.customerId);
+        }
+      } else if (di.sl.isRegistered<CreateHomeNote>()) {
+        await di.sl<CreateHomeNote>()(
+          customerId: note.customerId,
+          dueOn: isoDate(note.dueOn!),
+          totalCents: note.totalCents,
+        );
+      }
+    } catch (_) {
+      // Local note already saved; home sync must not crash the clear flow.
+    }
     if (di.sl.isRegistered<HomeBoardBloc>()) {
       di.sl<HomeBoardBloc>().add(const HomeBoardRequested());
     }

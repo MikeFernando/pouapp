@@ -200,6 +200,7 @@ Future<void> init() async {
     );
     sl.registerLazySingleton(() => GetHomeBoard(sl()));
     sl.registerLazySingleton(() => CreateHomeNote(sl()));
+    sl.registerLazySingleton(() => ClearHomeNote(sl()));
     sl.registerLazySingleton(() => HomeBoardBloc(getHomeBoard: sl()));
   }
   sl.registerLazySingleton(
