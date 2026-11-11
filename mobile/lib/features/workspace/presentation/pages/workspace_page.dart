@@ -257,16 +257,21 @@ class _WorkspaceHeader extends StatelessWidget {
         systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarContrastEnforced: false,
       ),
-      child: ColoredBox(
+      child: ClipRRect(
         key: const Key('workspace_header'),
-        color: Colors.white,
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        child: ColoredBox(
+          color: Colors.white,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   children: [
                     _HeaderAvatar(userId: user.id),
@@ -340,9 +345,9 @@ class _WorkspaceHeader extends StatelessWidget {
                           ),
                           style: const TextStyle(
                             color: _ink,
-                            fontSize: 40,
+                            fontSize: 34,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -1.2,
+                            letterSpacing: -1.0,
                             height: 1,
                           ),
                         ),
@@ -370,6 +375,7 @@ class _WorkspaceHeader extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
