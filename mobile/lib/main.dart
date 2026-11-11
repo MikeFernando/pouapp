@@ -37,9 +37,9 @@ class PouApp extends StatelessWidget {
       title: 'PouApp',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: pouAccent,
+          seedColor: pouBrand,
         ).copyWith(
-          primary: pouInk,
+          primary: pouBrand,
           onPrimary: pouCanvas,
           secondary: pouAccent,
           onSecondary: pouInk,
@@ -48,21 +48,31 @@ class PouApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: pouCanvas,
         appBarTheme: const AppBarTheme(
-          backgroundColor: pouInk,
+          backgroundColor: pouBrand,
           foregroundColor: pouCanvas,
           surfaceTintColor: Colors.transparent,
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: pouInk,
+            backgroundColor: pouBrand,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: pouInk.withValues(alpha: 0.38),
+            disabledBackgroundColor: pouBrand.withValues(alpha: 0.38),
             disabledForegroundColor: Colors.white.withValues(alpha: 0.38),
           ),
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: pouInk,
+          backgroundColor: pouBrand,
           foregroundColor: Colors.white,
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: pouBrand,
+          indicatorColor: Colors.white24,
+          iconTheme: WidgetStatePropertyAll(
+            IconThemeData(color: Colors.white),
+          ),
+          labelTextStyle: WidgetStatePropertyAll(
+            TextStyle(color: Colors.white),
+          ),
         ),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(

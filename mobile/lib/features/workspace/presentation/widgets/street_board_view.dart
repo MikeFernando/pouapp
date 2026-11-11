@@ -251,7 +251,7 @@ class StreetBoardViewState extends State<StreetBoardView>
     final valuesHidden = widget.valuesHidden;
     final saleButton = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(52),
-      backgroundColor: pouInk,
+      backgroundColor: pouBrand,
       foregroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );

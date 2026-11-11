@@ -259,7 +259,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                         if (mode != _CustomerListMode.values.first)
                           const SizedBox(width: 8),
                         Material(
-                          color: _mode == mode ? pouInk : Colors.white,
+                          color: _mode == mode ? pouBrand : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           child: InkWell(
                             key: Key('customers_filter_${mode.keyName}'),
@@ -274,7 +274,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: _mode == mode
-                                      ? pouInk
+                                      ? pouBrand
                                       : const Color(0xFFE9E8EB),
                                 ),
                               ),
@@ -420,7 +420,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                 key: const Key('customer_add'),
                 heroTag: 'customer_add',
                 tooltip: 'Novo cliente',
-                backgroundColor: pouInk,
+                backgroundColor: pouBrand,
                 foregroundColor: Colors.white,
                 onPressed: () => _openForm(context),
                 child: const Icon(Icons.add),
@@ -468,7 +468,8 @@ class _CustomersViewState extends State<CustomersView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Clientes')),
+      backgroundColor: pouLeafChrome,
+      appBar: pouLeafAppBar(title: const Text('Clientes')),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('customer_add'),
         onPressed: () => _openForm(context),

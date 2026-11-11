@@ -97,7 +97,7 @@ ThemeData workspaceTheme(ThemeData base) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: pouInk,
+        backgroundColor: pouBrand,
         foregroundColor: Colors.white,
         textStyle: const TextStyle(
           fontSize: workspaceFontPrimary,

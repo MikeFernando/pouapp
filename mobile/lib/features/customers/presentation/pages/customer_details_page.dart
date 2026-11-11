@@ -143,7 +143,8 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         }
         if (customer == null) {
           return Scaffold(
-            appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, title: const Text('Cliente')),
+            backgroundColor: pouLeafChrome,
+            appBar: pouLeafAppBar(title: const Text('Cliente')),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -164,19 +165,10 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
             (sales.status == BoardStatus.initial ||
                 sales.status == BoardStatus.loading);
         final ledger = operation?.street;
+        const bodyRadius = 32.0;
         return Scaffold(
-          backgroundColor: pouAppBlue,
-          appBar: AppBar(
-            backgroundColor: pouAppBlue,
-            foregroundColor: pouCanvas,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            surfaceTintColor: Colors.transparent,
-            titleTextStyle: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+          backgroundColor: pouLeafChrome,
+          appBar: pouLeafAppBar(
             title: Text(customer.name),
             actions: [
               PopupMenuButton<String>(
@@ -223,13 +215,36 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
               ),
             ],
           ),
-          body: ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(32),
-            ),
-            child: ColoredBox(
-              color: const Color(0xFFF6F5F7),
-              child: LayoutBuilder(
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Leaf continues into the rounded-card corner reveals.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: bodyRadius,
+                child: ClipRect(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    heightFactor: bodyRadius /
+                        (MediaQuery.paddingOf(context).top + kToolbarHeight),
+                    child: SizedBox(
+                      height:
+                          MediaQuery.paddingOf(context).top + kToolbarHeight,
+                      width: double.infinity,
+                      child: pouLeafBackdrop(),
+                    ),
+                  ),
+                ),
+              ),
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(bodyRadius),
+                ),
+                child: ColoredBox(
+                  color: const Color(0xFFF6F5F7),
+                  child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 88),
@@ -357,8 +372,10 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 ),
               );
             },
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         );
       },

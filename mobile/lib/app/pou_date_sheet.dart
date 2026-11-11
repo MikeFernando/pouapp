@@ -225,7 +225,7 @@ class _PouDateSheetState extends State<PouDateSheet> {
                 key: const Key('due_confirm'),
                 onPressed: () => Navigator.of(context).pop(_selected),
                 style: FilledButton.styleFrom(
-                  backgroundColor: pouInk,
+                  backgroundColor: pouBrand,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: const StadiumBorder(),
@@ -263,7 +263,7 @@ class _PouDateSheetState extends State<PouDateSheet> {
         child: Center(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: selected ? pouInk : null,
+              color: selected ? pouBrand : null,
               shape: BoxShape.circle,
             ),
             child: SizedBox(

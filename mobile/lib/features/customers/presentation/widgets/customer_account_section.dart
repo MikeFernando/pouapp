@@ -11,7 +11,7 @@ import '../../../workspace/presentation/operation_labels.dart';
 import '../../../workspace/presentation/pages/receipt_page.dart';
 import '../../domain/entities/customer.dart';
 
-const noteActionColor = pouInk;
+const noteActionColor = pouBrand;
 
 ButtonStyle notePrimaryButton() {
   return FilledButton.styleFrom(
@@ -28,8 +28,8 @@ ButtonStyle noteSecondaryButton() {
   return OutlinedButton.styleFrom(
     minimumSize: const Size.fromHeight(52),
     backgroundColor: pouCanvas,
-    foregroundColor: pouInk,
-    side: const BorderSide(color: pouInk, width: 1.5),
+    foregroundColor: pouBrand,
+    side: const BorderSide(color: pouBrand, width: 1.5),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
   );
@@ -37,7 +37,7 @@ ButtonStyle noteSecondaryButton() {
 
 ButtonStyle noteQuietButton() {
   return TextButton.styleFrom(
-    foregroundColor: pouInk,
+    foregroundColor: pouBrand,
     minimumSize: const Size.fromHeight(44),
     textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
   );

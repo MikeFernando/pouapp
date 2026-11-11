@@ -320,7 +320,7 @@ class _BusinessSettingsPageState extends State<BusinessSettingsPage> {
                           key: const Key('pix_settings_save'),
                           onPressed: _saving ? null : _save,
                           style: FilledButton.styleFrom(
-                            backgroundColor: pouInk,
+                            backgroundColor: pouBrand,
                             foregroundColor: Colors.white,
                             disabledBackgroundColor: const Color(0xFFD1D1D6),
                             elevation: 0,

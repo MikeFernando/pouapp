@@ -17,7 +17,7 @@ const _fieldFill = pouSurface;
 PreferredSizeWidget _operationBar(String title, {bool implyLeading = true}) {
   return AppBar(
     automaticallyImplyLeading: implyLeading,
-    backgroundColor: pouInk,
+    backgroundColor: pouBrand,
     foregroundColor: pouCanvas,
     titleTextStyle: const TextStyle(
       fontSize: 18,

@@ -126,7 +126,7 @@ class _StatusOption extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? pouInk : const Color(0xFFE9E8EB),
+              color: selected ? pouBrand : const Color(0xFFE9E8EB),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -146,7 +146,7 @@ class _StatusOption extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked
                     : Icons.radio_button_off,
-                color: selected ? pouInk : const Color(0xFF9CA3AF),
+                color: selected ? pouBrand : const Color(0xFF9CA3AF),
               ),
             ],
           ),

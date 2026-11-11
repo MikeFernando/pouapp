@@ -187,11 +187,10 @@ class _PouItemEditSheetState extends State<PouItemEditSheet> {
                   ),
                   const SizedBox(height: 16),
                   if (widget.showAvailability)
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF6F5F7),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    Material(
+                      color: const Color(0xFFF6F5F7),
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
                       child: SwitchListTile.adaptive(
                         key: const Key('item_unavailable'),
                         value: _unavailable,
@@ -209,7 +208,7 @@ class _PouItemEditSheetState extends State<PouItemEditSheet> {
                           ),
                         ),
                         activeThumbColor: Colors.white,
-                        activeTrackColor: pouInk,
+                        activeTrackColor: pouBrand,
                       ),
                     )
                   else ...[

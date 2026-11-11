@@ -20,7 +20,7 @@ class NavGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size.square(24),
+      size: const Size.square(28),
       painter: _NavGlyphPainter(kind: kind, color: color, filled: filled),
     );
   }

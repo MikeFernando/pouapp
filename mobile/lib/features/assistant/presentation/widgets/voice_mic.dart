@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/pou_app_colors.dart';
-import '../../../../app/rounded_navigation_scaffold.dart';
+import '../../../../app/pou_shell_navigation.dart';
 import '../../../../injection_container.dart';
 import '../../../customers/domain/usecases/customer_use_cases.dart';
 import '../../../customers/presentation/customer_routes.dart';
@@ -103,7 +103,7 @@ class VoiceMicLayer extends StatelessWidget {
         final onHome = name == null || name == CustomerRoutes.home;
         final bottom =
             16 +
-            (onHome ? RoundedBottomNavigationBar.itemExtent : 0) +
+            (onHome ? PouShellBottomBar.itemExtent : 0) +
             MediaQuery.paddingOf(context).bottom +
             MediaQuery.viewInsetsOf(context).bottom;
         return Positioned(
@@ -144,7 +144,7 @@ class VoiceAssistantButton extends StatelessWidget {
         key: const Key('voice_assistant_button'),
         heroTag: null,
         tooltip: 'Assistente de voz',
-        backgroundColor: pouInk,
+        backgroundColor: pouBrand,
         foregroundColor: Colors.white,
         onPressed: () {
           final session = VoiceSession.current;

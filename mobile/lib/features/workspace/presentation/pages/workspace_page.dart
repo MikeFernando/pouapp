@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/nav_glyphs.dart';
 import '../../../../app/pou_app_colors.dart';
-import '../../../../app/rounded_navigation_scaffold.dart';
+import '../../../../app/pou_shell_navigation.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../auth/data/datasources/profile_avatar_store.dart';
@@ -248,7 +248,7 @@ class _WorkspaceHeader extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
-        systemNavigationBarColor: pouInk,
+        systemNavigationBarColor: pouBrand,
         systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarContrastEnforced: false,
       ),

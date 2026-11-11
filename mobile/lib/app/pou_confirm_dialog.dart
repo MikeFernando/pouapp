@@ -127,7 +127,7 @@ class PouConfirmDialog extends StatelessWidget {
                   key: confirmKey,
                   onPressed: () => Navigator.of(context).pop(true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: pouInk,
+                    backgroundColor: pouBrand,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: const StadiumBorder(),

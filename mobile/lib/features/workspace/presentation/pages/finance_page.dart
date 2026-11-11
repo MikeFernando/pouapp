@@ -21,13 +21,112 @@ const _cardFill = Color(0xFFF6F6F7);
 const _neutral = Color(0xFFD0D0D6);
 const _neutralInk = Color(0xFF8E8E93);
 
-const _sliceColors = <Color>[
-  Color(0xFF3479F8),
-  Color(0xFFF44E4E),
-  Color(0xFF37C652),
-  Color(0xFF725BDD),
-  Color(0xFFFFA800),
-];
+enum _HueFamily {
+  yellow,
+  green,
+  red,
+  purple,
+  orange,
+  brown,
+  pink,
+  blue,
+  other,
+}
+
+/// Product → hue family (same family gets distinct shades on the chart).
+const _merchandiseFamilies = <String, _HueFamily>{
+  'banana': _HueFamily.yellow,
+  'batata': _HueFamily.yellow,
+  'abacaxi': _HueFamily.yellow,
+  'carambola': _HueFamily.yellow,
+  'limao': _HueFamily.yellow,
+  'limão': _HueFamily.yellow,
+  'ovo': _HueFamily.yellow,
+  'milho': _HueFamily.yellow,
+  'alface': _HueFamily.green,
+  'abacate': _HueFamily.green,
+  'melancia': _HueFamily.green,
+  'pepino': _HueFamily.green,
+  'couve': _HueFamily.green,
+  'brocolis': _HueFamily.green,
+  'brócolis': _HueFamily.green,
+  'chuchu': _HueFamily.green,
+  'tomate': _HueFamily.red,
+  'morango': _HueFamily.red,
+  'pimenta': _HueFamily.red,
+  'roma': _HueFamily.red,
+  'alho': _HueFamily.purple,
+  'uva': _HueFamily.purple,
+  'repolho': _HueFamily.purple,
+  'berinjela': _HueFamily.purple,
+  'ameixa': _HueFamily.purple,
+  'laranja': _HueFamily.orange,
+  'cenoura': _HueFamily.orange,
+  'mamao': _HueFamily.orange,
+  'mamão': _HueFamily.orange,
+  'manga': _HueFamily.orange,
+  'caqui': _HueFamily.orange,
+  'tangerina': _HueFamily.orange,
+  'cebola': _HueFamily.brown,
+  'inhame': _HueFamily.brown,
+  'mandioca': _HueFamily.brown,
+  'coco': _HueFamily.brown,
+  'beterraba': _HueFamily.pink,
+  'pitaya': _HueFamily.pink,
+  'kiwi': _HueFamily.green,
+};
+
+/// Base HSL for each family (hue, saturation). Lightness is varied per sibling.
+const _familyHsl = <_HueFamily, (double, double)>{
+  _HueFamily.yellow: (48, 0.92),
+  _HueFamily.green: (128, 0.55),
+  _HueFamily.red: (4, 0.78),
+  _HueFamily.purple: (275, 0.48),
+  _HueFamily.orange: (28, 0.95),
+  _HueFamily.brown: (32, 0.42),
+  _HueFamily.pink: (330, 0.62),
+  _HueFamily.blue: (214, 0.72),
+  _HueFamily.other: (210, 0.35),
+};
+
+_HueFamily _familyFor(String name) {
+  final key = name.trim().toLowerCase();
+  for (final entry in _merchandiseFamilies.entries) {
+    if (key.contains(entry.key)) return entry.value;
+  }
+  return _HueFamily.other;
+}
+
+Color _shadeInFamily(_HueFamily family, int indexInFamily, int familyCount) {
+  final base = _familyHsl[family] ?? (210.0, 0.35);
+  // One product: mid tone. Several: light → deep so slices stay readable.
+  final t = familyCount <= 1 ? 0.5 : indexInFamily / (familyCount - 1);
+  final lightness = 0.72 - (t * 0.34);
+  final saturation = (base.$2 + (0.08 * (0.5 - t))).clamp(0.25, 1.0);
+  return HSLColor.fromAHSL(1, base.$1, saturation, lightness).toColor();
+}
+
+/// Colors for [ranked] products: siblings in the same hue get distinct tones.
+Map<String, Color> _merchandiseColors(List<_ProductRank> ranked) {
+  final families = <String, _HueFamily>{
+    for (final row in ranked) row.name: _familyFor(row.name),
+  };
+  final counts = <_HueFamily, int>{};
+  final indexes = <String, int>{};
+  for (final row in ranked) {
+    final family = families[row.name]!;
+    indexes[row.name] = counts[family] ?? 0;
+    counts[family] = (counts[family] ?? 0) + 1;
+  }
+  return {
+    for (final row in ranked)
+      row.name: _shadeInFamily(
+        families[row.name]!,
+        indexes[row.name]!,
+        counts[families[row.name]!]!,
+      ),
+  };
+}
 
 /// Measured clockwise from the upper-left of the reference ring.
 const _structuralWeights = <double>[67, 26, 41, 82, 131];
@@ -61,8 +160,8 @@ class _FinancePageState extends State<FinancePage> {
           _span,
           now,
         );
-        // Demo only offline/simulated — never for a real remote account.
-        if (!ApiConfig.useRemoteApi && ranked.isEmpty && sales.isEmpty) {
+        // Empty board: show feira-style demo so chart/colors can be reviewed.
+        if (ranked.isEmpty && sales.isEmpty) {
           ranked = _demoMerchandise(_span);
         }
         final figures = sales.isEmpty
@@ -83,7 +182,7 @@ class _FinancePageState extends State<FinancePage> {
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.dark,
             statusBarBrightness: Brightness.light,
-            systemNavigationBarColor: pouInk,
+            systemNavigationBarColor: pouBrand,
             systemNavigationBarIconBrightness: Brightness.light,
             systemNavigationBarContrastEnforced: false,
           ),
@@ -91,8 +190,8 @@ class _FinancePageState extends State<FinancePage> {
             color: _page,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final diameter = constraints.maxWidth * 0.70;
-                final ringHeight = diameter + 52;
+                final diameter = constraints.maxWidth * 0.68;
+                final ringHeight = diameter + 72;
                 final topInset = MediaQuery.paddingOf(context).top;
                 final headerExtent = topInset + ringHeight + 40;
                 final minSheet =
@@ -263,12 +362,12 @@ int? _share(int part, int whole) {
 /// Demo mix for an empty finance board (feira-style merchandise).
 List<_ProductRank> _demoMerchandise(_Span span) {
   const base = <_ProductRank>[
-    _ProductRank(name: 'Banana nanica', cents: 284000),
-    _ProductRank(name: 'Tomate italiano', cents: 196500),
-    _ProductRank(name: 'Alface crespa', cents: 87500),
-    _ProductRank(name: 'Cebola', cents: 72400),
-    _ProductRank(name: 'Batata', cents: 51200),
-    _ProductRank(name: 'Mamão formosa', cents: 36800),
+    _ProductRank(name: 'Alho', cents: 284000),
+    _ProductRank(name: 'Batata', cents: 196500),
+    _ProductRank(name: 'Manga', cents: 142000),
+    _ProductRank(name: 'Cebola', cents: 87500),
+    _ProductRank(name: 'Alface crespa', cents: 72400),
+    _ProductRank(name: 'Abacate', cents: 51200),
   ];
   final factor = switch (span) {
     _Span.week => 0.28,
@@ -333,36 +432,49 @@ List<_Category> _categories(List<_ProductRank> ranked) {
         ),
     ];
   }
+  final colors = _merchandiseColors(ranked);
   return [
-    for (var index = 0; index < top.length; index++)
+    for (final product in top)
       _Category(
-        name: top[index].name,
-        cents: top[index].cents,
-        percent: _share(top[index].cents, total),
-        color: _sliceColors[index],
-        asset: produceAsset(top[index].name),
+        name: product.name,
+        cents: product.cents,
+        percent: _share(product.cents, total),
+        color: colors[product.name] ?? _neutral,
+        asset: produceAsset(product.name),
         placeholder: false,
       ),
   ];
 }
 
 class _Slice {
-  const _Slice({required this.cents, required this.color});
+  const _Slice({
+    required this.cents,
+    required this.color,
+    this.asset,
+    this.neutral = false,
+  });
 
   final int cents;
   final Color color;
+  final String? asset;
+  final bool neutral;
 }
 
 List<_Slice> _merchandiseSlices(List<_ProductRank> ranked) {
   if (ranked.isEmpty) return const [];
   final top = ranked.take(4).toList();
+  final colors = _merchandiseColors(ranked);
   final slices = <_Slice>[
-    for (var index = 0; index < top.length; index++)
-      _Slice(cents: top[index].cents, color: _sliceColors[index]),
+    for (final product in top)
+      _Slice(
+        cents: product.cents,
+        color: colors[product.name] ?? _neutral,
+        asset: produceAsset(product.name),
+      ),
   ];
   final rest = ranked.skip(4).fold<int>(0, (sum, product) => sum + product.cents);
   if (rest > 0) {
-    slices.add(_Slice(cents: rest, color: _neutral));
+    slices.add(_Slice(cents: rest, color: _neutral, neutral: true));
   }
   return slices;
 }
@@ -373,12 +485,14 @@ class _Arc {
     required this.color,
     required this.label,
     required this.neutral,
+    this.asset,
   });
 
   final double sweepDegrees;
   final Color color;
   final String label;
   final bool neutral;
+  final String? asset;
 }
 
 List<double> _structuralSweeps() {
@@ -412,7 +526,8 @@ List<_Arc> _arcs(List<_Slice> slices) {
         sweepDegrees: total == 0 ? 0 : available * slice.cents / total,
         color: slice.color,
         label: total == 0 ? '—' : '${_share(slice.cents, total) ?? 0}%',
-        neutral: false,
+        neutral: slice.neutral,
+        asset: slice.asset,
       ),
     for (var index = 0; index < missing; index++)
       const _Arc(
@@ -496,7 +611,11 @@ class _Ring extends StatelessWidget {
                 top: draw.label.dy,
                 child: FractionalTranslation(
                   translation: const Offset(-0.5, -0.5),
-                  child: _PercentPill(draw: draw),
+                  child: _PercentPill(
+                    label: draw.arc.label,
+                    asset: draw.arc.asset,
+                    neutral: draw.arc.neutral,
+                  ),
                 ),
               ),
           ],
@@ -544,7 +663,7 @@ _Layout _layout(Size size, double diameter, List<_Arc> arcs) {
   for (final arc in arcs) {
     final sweep = arc.sweepDegrees * math.pi / 180;
     final mid = angle + sweep / 2;
-    final reach = radius + stroke / 2 + 16;
+    final reach = radius + stroke / 2 + 22;
     draws.add(
       _Draw(
         start: angle,
@@ -603,30 +722,58 @@ class _RingPainter extends CustomPainter {
 }
 
 class _PercentPill extends StatelessWidget {
-  const _PercentPill({required this.draw});
+  const _PercentPill({
+    required this.label,
+    this.asset,
+    this.neutral = false,
+  });
 
-  final _Draw draw;
+  final String label;
+  final String? asset;
+  final bool neutral;
 
   @override
   Widget build(BuildContext context) {
-    final neutral = draw.arc.neutral;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: neutral
             ? const Color(0xFFF1F1F4)
-            : draw.arc.color.withValues(alpha: 0.16),
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+            : const Color(0xFFF3EADF),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        child: Text(
-          draw.arc.label,
-          style: TextStyle(
-            color: neutral ? _neutralInk : const Color(0xFF3A3A3C),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.1,
-          ),
+        padding: EdgeInsets.fromLTRB(
+          asset == null ? 8 : 4,
+          3,
+          8,
+          3,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (asset != null) ...[
+              ClipOval(
+                child: Image.asset(
+                  asset!,
+                  width: 18,
+                  height: 18,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox(width: 18, height: 18),
+                ),
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: neutral ? _neutralInk : const Color(0xFF3A3A3C),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.1,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -655,7 +802,7 @@ class _Filters extends StatelessWidget {
               child: Text(
                 labels[index],
                 style: TextStyle(
-                  color: _Span.values[index] == span ? pouInk : _idle,
+                  color: _Span.values[index] == span ? pouBrand : _idle,
                   fontSize: 15,
                   fontWeight: _Span.values[index] == span
                       ? FontWeight.w700
@@ -872,7 +1019,7 @@ class _Sheet extends StatelessWidget {
           _ClientPaymentSection(
             title: 'Pagamentos a receber',
             subtitle: 'Saldo em aberto das notas',
-            accent: pouInk,
+            accent: pouBrand,
             items: receivable,
             emptyLabel: 'Nada a receber no momento.',
             showTotal: true,
@@ -1085,97 +1232,125 @@ class _CategoryCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // ~42% of inner width keeps long R$ values readable on narrow cards.
+            final photoSize = (constraints.maxWidth * 0.36).clamp(48.0, 68.0);
+            return Stack(
+              clipBehavior: Clip.hardEdge,
               children: [
-                Expanded(
-                  child: Text(
-                    formatBrl(category.cents),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: pouInk,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                      height: 1.05,
-                    ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: _CategoryPhoto(
+                    category: category,
+                    size: photoSize,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  percent,
-                  style: const TextStyle(
-                    color: Color(0xFF8B8B90),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    height: 1.05,
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  right: photoSize * 0.45,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatBrl(category.cents),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: pouInk,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          height: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        category.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  bottom: 0,
+                  child: _PercentPill(
+                    label: percent,
+                    neutral: category.placeholder,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              category.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _muted,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                height: 1.1,
-              ),
-            ),
-            Expanded(
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: _MerchandiseMark(category: category),
-                ),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _MerchandiseMark extends StatelessWidget {
-  const _MerchandiseMark({required this.category});
+class _CategoryPhoto extends StatelessWidget {
+  const _CategoryPhoto({
+    required this.category,
+    required this.size,
+  });
 
   final _Category category;
+  final double size;
+
+  static const _zoom = 1.10;
 
   @override
   Widget build(BuildContext context) {
-    final asset = category.asset;
+    final asset = category.placeholder ? null : category.asset;
     final letter = category.placeholder || category.name.trim().isEmpty
         ? ''
         : category.name.trim()[0].toUpperCase();
-    return ClipOval(
-      child: asset == null
-          ? ColoredBox(
-              color: category.placeholder ? _neutral : category.color,
-              child: SizedBox(
-                width: 34,
-                height: 34,
-                child: Center(
-                  child: Text(
-                    letter,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+    if (asset == null) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: category.placeholder ? _neutral : category.color,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              letter,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: size * 0.36,
+                fontWeight: FontWeight.w700,
               ),
-            )
-          : Image.asset(asset, width: 34, height: 34, fit: BoxFit.cover),
+            ),
+          ),
+        ),
+      );
+    }
+    return ClipOval(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Transform.scale(
+          scale: _zoom,
+          child: Image.asset(
+            asset,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1187,6 +1362,7 @@ extension on _Arc {
       color: color,
       label: label,
       neutral: neutral,
+      asset: asset,
     );
   }
 }

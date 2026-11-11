@@ -646,9 +646,9 @@ class _ReceiptPageState extends State<ReceiptPage> {
                         key: const Key('receipt_save'),
                         onPressed: _saving ? null : _save,
                         style: FilledButton.styleFrom(
-                          backgroundColor: pouInk,
+                          backgroundColor: pouBrand,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: pouInk.withValues(
+                          disabledBackgroundColor: pouBrand.withValues(
                             alpha: 0.38,
                           ),
                           elevation: 0,
@@ -1059,7 +1059,7 @@ class _PixWhatsAppDialog extends StatelessWidget {
                   key: const Key('receipt_pix_whatsapp_send'),
                   onPressed: () => Navigator.of(context).pop(true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: pouInk,
+                    backgroundColor: pouBrand,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: const StadiumBorder(),
@@ -1138,7 +1138,7 @@ class _PixSetupDialog extends StatelessWidget {
                   key: const Key('receipt_pix_open_settings'),
                   onPressed: () => Navigator.of(context).pop(true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: pouInk,
+                    backgroundColor: pouBrand,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: const StadiumBorder(),

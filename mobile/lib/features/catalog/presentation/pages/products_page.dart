@@ -234,7 +234,7 @@ class _ProductsPageState extends State<ProductsPage> {
                 key: const Key('product_add'),
                 heroTag: 'product_add',
                 tooltip: 'Novo produto',
-                backgroundColor: pouInk,
+                backgroundColor: pouBrand,
                 foregroundColor: Colors.white,
                 onPressed: _addProduct,
                 child: const Icon(Icons.add),
