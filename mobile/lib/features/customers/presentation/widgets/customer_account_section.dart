@@ -7,8 +7,6 @@ import '../../../workspace/data/receivable_store.dart';
 import '../../../workspace/presentation/bloc/company_operation_bloc.dart';
 import '../../../workspace/domain/entities/receivable.dart';
 import '../../../workspace/domain/entities/street_ledger.dart';
-import '../../../workspace/domain/rules/receivable_rules.dart'
-    hide paymentMethodLabel;
 import '../../../workspace/presentation/operation_labels.dart';
 import '../../../workspace/presentation/pages/receipt_page.dart';
 import '../../domain/entities/customer.dart';
@@ -161,13 +159,6 @@ class _CustomerAccountSectionState extends State<CustomerAccountSection> {
                             onPressed: () => _reverse(receipt.id),
                             child: const Text('Estornar'),
                           ),
-                  ),
-              if (account != null)
-                for (final charge in account.charges)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(chargeStatusLabel(charge.status)),
-                    subtitle: Text(formatBrl(charge.amountCents)),
                   ),
             ],
           ),

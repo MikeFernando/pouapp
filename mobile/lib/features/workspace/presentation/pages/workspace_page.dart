@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/nav_glyphs.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/rounded_navigation_scaffold.dart';
 import '../../../../core/config/api_config.dart';
+import '../../../../injection_container.dart' as di;
+import '../../../auth/data/datasources/profile_avatar_store.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -140,10 +145,17 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                                 child: StreetBoardView(
                                   valuesHidden: _valuesHidden,
                                   onNewSale: _addDeliveryPerson,
-                                  onOpenCustomer: (customerId) {
-                                    Navigator.of(context).pushNamed(
+                                  onOpenCustomer: (customerId) async {
+                                    await Navigator.of(context).pushNamed(
                                       CustomerRoutes.details(customerId),
                                     );
+                                    if (!context.mounted) return;
+                                    // Reload hoje/amanhã after editing vencimento.
+                                    if (ApiConfig.useRemoteApi) {
+                                      context.read<HomeBoardBloc>().add(
+                                        const HomeBoardRequested(),
+                                      );
+                                    }
                                   },
                                 ),
                               ),
@@ -252,7 +264,7 @@ class _WorkspaceHeader extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const _HeaderAvatar(),
+                    _HeaderAvatar(userId: user.id),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -388,17 +400,116 @@ class _HeaderRoundIcon extends StatelessWidget {
   }
 }
 
-class _HeaderAvatar extends StatelessWidget {
-  const _HeaderAvatar();
+class _HeaderAvatar extends StatefulWidget {
+  const _HeaderAvatar({required this.userId});
+
+  final String userId;
+
+  @override
+  State<_HeaderAvatar> createState() => _HeaderAvatarState();
+}
+
+class _HeaderAvatarState extends State<_HeaderAvatar> {
+  String? _path;
+  var _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeaderAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      _path = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final path = await di.sl<ProfileAvatarStore>().pathForUser(widget.userId);
+    if (!mounted) return;
+    setState(() => _path = path);
+  }
+
+  Future<void> _pick() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 88,
+      );
+      if (picked == null) return;
+      final saved = await di.sl<ProfileAvatarStore>().saveFromGallery(
+        userId: widget.userId,
+        sourcePath: picked.path,
+      );
+      if (!mounted) return;
+      setState(() => _path = saved);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível atualizar a foto.')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const ClipOval(
-      child: Image(
-        image: AssetImage('assets/header_avatar.jpg'),
-        width: 44,
-        height: 44,
-        fit: BoxFit.cover,
+    final image = _path == null
+        ? const AssetImage('assets/header_avatar.jpg')
+        : FileImage(File(_path!)) as ImageProvider;
+
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const Key('profile_avatar'),
+        onTap: _loading ? null : _pick,
+        customBorder: const CircleBorder(),
+        child: Ink.image(
+          image: image,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          child: _loading
+              ? const ColoredBox(
+                  color: Color(0x66000000),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                )
+              : Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: const SizedBox(
+                      width: 44,
+                      height: 14,
+                      child: Icon(
+                        Icons.photo_camera_outlined,
+                        size: 11,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
       ),
     );
   }

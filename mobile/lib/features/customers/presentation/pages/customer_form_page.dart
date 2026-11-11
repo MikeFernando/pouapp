@@ -212,7 +212,9 @@ class _CustomerFormViewState extends State<CustomerFormView> {
                   : TextInputAction.next,
               keyboardType: TextInputType.phone,
               enabled: !saving,
-              decoration: const InputDecoration(labelText: 'Telefone'),
+              decoration: const InputDecoration(
+                labelText: 'Telefone (opcional)',
+              ),
               onChanged: _markDirty,
             ),
             if (!creating) ...[
@@ -223,7 +225,9 @@ class _CustomerFormViewState extends State<CustomerFormView> {
                 textInputAction: TextInputAction.next,
                 keyboardType: TextInputType.phone,
                 enabled: !saving,
-                decoration: const InputDecoration(labelText: 'Celular'),
+                decoration: const InputDecoration(
+                  labelText: 'Celular (opcional)',
+                ),
                 onChanged: _markDirty,
               ),
               const SizedBox(height: 12),
@@ -353,14 +357,16 @@ class _CustomerFormViewState extends State<CustomerFormView> {
   void _submit() {
     if (_submitting) return;
     final creating = context.read<CustomerFormBloc>().state.customerId == null;
+    final phoneDigits = onlyDigits(_phone.text);
+    final mobileDigits = onlyDigits(_mobile.text);
     final input = CustomerInput(
       type: creating ? CustomerType.individual : _type,
       name: _name.text,
       tradeName: _tradeName.text,
       document: _document.text,
       email: _email.text,
-      phone: _phone.text,
-      mobilePhone: _mobile.text,
+      phone: phoneDigits.isEmpty ? null : phoneDigits,
+      mobilePhone: mobileDigits.isEmpty ? null : mobileDigits,
       status: _status,
       notes: _notes.text,
     );

@@ -49,6 +49,7 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     final db = await openDatabase();
     try {
       return await db.transaction((txn) async {
+        await _purgeExtraDrafts(txn, customerId: customerId);
         final existing = await txn.query(
           'customer_notes',
           where: 'customer_id = ? AND status = ?',
@@ -73,6 +74,7 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     } on DatabaseException catch (error) {
       if (!error.isUniqueConstraintError()) throw CacheException();
       final db = await openDatabase();
+      await consolidateCustomerDraftNotes(db);
       final existing = await db.query(
         'customer_notes',
         columns: ['id'],
@@ -88,6 +90,11 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
   @override
   Future<CustomerNote> openNote(String customerId) async {
     final db = await openDatabase();
+    try {
+      await consolidateCustomerDraftNotes(db);
+    } on DatabaseException {
+      // Still open/create a draft even if cleanup fails.
+    }
     final draft = await db.query(
       'customer_notes',
       columns: ['id'],
@@ -113,6 +120,11 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
   @override
   Future<CustomerNote?> currentNote(String customerId) async {
     final db = await openDatabase();
+    try {
+      await consolidateCustomerDraftNotes(db);
+    } on DatabaseException {
+      // Ignore cleanup failures when only reading.
+    }
     final draft = await db.query(
       'customer_notes',
       columns: ['id'],
@@ -136,19 +148,24 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
   @override
   Future<List<CustomerNote>> draftNotesWithDue() async {
     final db = await openDatabase();
+    try {
+      await consolidateCustomerDraftNotes(db);
+    } on DatabaseException {
+      // Prefer returning what we can over failing the home board.
+    }
     final rows = await db.query(
       'customer_notes',
       where: 'status = ? AND due_on IS NOT NULL',
       whereArgs: [NoteStatus.draft.name],
       orderBy: 'due_on ASC',
     );
-    final result = <CustomerNote>[];
+    final notes = <CustomerNote>[];
     for (final row in rows) {
       final note = await _read(db, row['id']! as String);
       if (note.dueOn == null || note.totalCents <= 0) continue;
-      result.add(note);
+      notes.add(note);
     }
-    return result;
+    return notes;
   }
 
   @override
@@ -167,6 +184,12 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     try {
       return await db.transaction((txn) async {
         await _touchDraft(txn, noteId);
+        final current = await _read(txn, noteId);
+        await _purgeExtraDrafts(
+          txn,
+          customerId: current.customerId,
+          keepId: noteId,
+        );
         await txn.delete(
           'customer_note_lines',
           where: 'note_id = ?',
@@ -204,6 +227,12 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     final db = await openDatabase();
     try {
       return await db.transaction((txn) async {
+        final current = await _read(txn, noteId);
+        await _purgeExtraDrafts(
+          txn,
+          customerId: current.customerId,
+          keepId: noteId,
+        );
         await _touchDraft(txn, noteId, dueOn: dueOn, replaceDueOn: true);
         await _queueNote(txn, noteId);
         return _read(txn, noteId);
@@ -256,6 +285,31 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
       whereArgs: [noteId, NoteStatus.draft.name],
     );
     if (updated != 1) throw const NoteNotFoundException();
+  }
+
+  /// Enforces one open draft per customer. Prefer [keepId] when provided,
+  /// otherwise keep the newest `updated_at`.
+  Future<void> _purgeExtraDrafts(
+    DatabaseExecutor txn, {
+    required String customerId,
+    String? keepId,
+  }) async {
+    final rows = await txn.query(
+      'customer_notes',
+      columns: ['id', 'updated_at'],
+      where: 'customer_id = ? AND status = ?',
+      whereArgs: [customerId, NoteStatus.draft.name],
+      orderBy: 'updated_at DESC, id DESC',
+    );
+    if (rows.length <= 1) return;
+    final survivor =
+        keepId ??
+        (rows.first['id']! as String);
+    await txn.delete(
+      'customer_notes',
+      where: 'customer_id = ? AND status = ? AND id != ?',
+      whereArgs: [customerId, NoteStatus.draft.name, survivor],
+    );
   }
 
   Future<CustomerNote> _read(DatabaseExecutor txn, String id) async {

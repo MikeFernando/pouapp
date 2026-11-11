@@ -6,13 +6,16 @@ import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/pou_date_sheet.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
+import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../assistant/presentation/voice_attendance.dart';
 import '../../../catalog/domain/entities/catalog.dart';
 import '../../../catalog/presentation/produce_assets.dart';
 import '../../../workspace/domain/entities/stock_board.dart';
 import '../../../workspace/domain/entities/street_ledger.dart';
+import '../../../workspace/domain/usecases/home_use_cases.dart';
 import '../../../workspace/presentation/bloc/company_operation_bloc.dart';
+import '../../../workspace/presentation/bloc/home_board_bloc.dart';
 import '../../../workspace/presentation/loaded_operation.dart';
 import '../../../workspace/presentation/operation_labels.dart';
 import '../../domain/entities/customer.dart';
@@ -21,6 +24,7 @@ import '../../domain/repositories/customer_note_repository.dart';
 import '../../domain/rules/note_rules.dart';
 import '../../domain/validation/customer_validators.dart';
 import '../bloc/customer_details_bloc.dart';
+import '../customer_messages.dart';
 import '../whatsapp_launch.dart';
 import '../widgets/customer_account_section.dart';
 import '../widgets/customer_status_badge.dart';
@@ -192,6 +196,16 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                         status: customer.status,
                         onTap: () => _openStatus(customer),
                       ),
+                      Builder(
+                        builder: (context) {
+                          final phone = primaryPhone(customer);
+                          if (phone.isEmpty) return const SizedBox.shrink();
+                          return _WhatsAppPhoneCard(
+                            phone: phone,
+                            onTap: () => _openWhatsApp(customer),
+                          );
+                        },
+                      ),
                       _DueDateCard(
                         date: note?.dueOn,
                         onPick: note?.status == NoteStatus.delivered
@@ -288,6 +302,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                               _noteError = null;
                               _note = saved;
                             });
+                            _syncNoteToHome(saved);
                           });
                         },
                       ),
@@ -370,6 +385,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         _noteError = null;
         _note = saved;
       });
+      _syncNoteToHome(saved);
     });
   }
 
@@ -495,7 +511,22 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         _noteError = null;
         _note = saved;
       });
+      _syncNoteToHome(saved);
     });
+  }
+
+  Future<void> _syncNoteToHome(CustomerNote note) async {
+    if (!ApiConfig.useRemoteApi) return;
+    if (note.dueOn == null || note.totalCents <= 0) return;
+    if (!di.sl.isRegistered<CreateHomeNote>()) return;
+    await di.sl<CreateHomeNote>()(
+      customerId: note.customerId,
+      dueOn: isoDate(note.dueOn!),
+      totalCents: note.totalCents,
+    );
+    if (di.sl.isRegistered<HomeBoardBloc>()) {
+      di.sl<HomeBoardBloc>().add(const HomeBoardRequested());
+    }
   }
 
   void _rememberFailure(Object? _) {
@@ -564,6 +595,49 @@ class _SituationBar extends StatelessWidget {
                   ),
                 ),
                 CustomerStatusBadge(status: status),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WhatsAppPhoneCard extends StatelessWidget {
+  const _WhatsAppPhoneCard({required this.phone, required this.onTap});
+
+  final String phone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const Key('customer_whatsapp_card'),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                const _WhatsAppIcon(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    phone,
+                    key: const Key('customer_whatsapp_phone'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0E0D0F),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

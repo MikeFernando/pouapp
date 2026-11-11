@@ -87,7 +87,7 @@ void main() {
 
     expect(find.text('Novo cliente'), findsOneWidget);
     expect(find.text('Nome'), findsOneWidget);
-    expect(find.text('Telefone'), findsOneWidget);
+    expect(find.text('Telefone (opcional)'), findsOneWidget);
     expect(find.text('Pessoa física'), findsNothing);
     expect(find.text('Nome fantasia'), findsNothing);
     expect(find.text('E-mail'), findsNothing);
@@ -113,6 +113,24 @@ void main() {
     );
     expect(find.text('João Oliveira'), findsOneWidget);
     verifyZeroInteractions(createCustomer);
+  });
+
+  testWidgets('should save with name only when phone is empty', (tester) async {
+    when(() => createCustomer(any())).thenAnswer((_) async => Right(customer));
+
+    await openSheet(tester);
+    await tester.enterText(
+      find.byKey(const Key('customer_name')),
+      'Dona Maria',
+    );
+    await tester.tap(find.byKey(const Key('customer_save')));
+    await tester.pumpAndSettle();
+
+    final captured = verify(() => createCustomer(captureAny())).captured.single
+        as CustomerInput;
+    expect(captured.name, 'Dona Maria');
+    expect(captured.phone, isNull);
+    expect(find.byType(NewCustomerSheet), findsNothing);
   });
 
   testWidgets('should keep the typed name when saving fails', (tester) async {

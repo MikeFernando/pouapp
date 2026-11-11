@@ -14,6 +14,7 @@ import 'features/assistant/domain/usecases/voice_use_cases.dart';
 import 'features/auth/data/datasources/api_auth_remote_data_source.dart';
 import 'features/auth/data/datasources/auth_local_data_source.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
+import 'features/auth/data/datasources/profile_avatar_store.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/get_current_user.dart';
@@ -66,6 +67,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => InternetConnection());
   sl.registerLazySingleton(() => AuthTokenStore(sharedPreferences: sl()));
   sl.registerLazySingleton(() => ApiClient(tokenStore: sl()));
+  sl.registerLazySingleton(
+    () => ProfileAvatarStore(sharedPreferences: sl()),
+  );
 
   //! Features - Auth
   sl.registerFactory(

@@ -75,7 +75,8 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         '/customers',
         data: {
           'name': input.name.trim(),
-          'phone': input.phone?.trim() ?? input.mobilePhone?.trim(),
+          if ((input.phone ?? input.mobilePhone)?.trim().isNotEmpty == true)
+            'phone': (input.phone ?? input.mobilePhone)!.trim(),
           'type': input.type.name,
           'status': input.status.name,
         },

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/home_board.dart';
+import '../../domain/entities/street_ledger.dart';
 import '../../domain/usecases/home_use_cases.dart';
 
 enum HomeBoardStatus { initial, loading, ready, failure }
@@ -60,7 +61,8 @@ class HomeBoardBloc extends Bloc<HomeBoardEvent, HomeBoardState> {
     Emitter<HomeBoardState> emit,
   ) async {
     emit(state.copyWith(status: HomeBoardStatus.loading, clearMessage: true));
-    final result = await getHomeBoard(event.date);
+    // Always send the device calendar day so UTC servers don't shift hoje/amanhã.
+    final result = await getHomeBoard(event.date ?? isoDate(DateTime.now()));
     result.fold(
       (failure) => emit(
         state.copyWith(

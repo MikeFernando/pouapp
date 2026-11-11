@@ -31,6 +31,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>A galeria é usada só para escolher a foto de perfil da sua conta.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>O microfone ouve um comando por vez para anotar um produto ou consultar a conta.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

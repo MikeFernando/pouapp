@@ -1,16 +1,17 @@
-import 'dart:io';
-
 /// Runtime API wiring for the PouApp backend.
 ///
-/// Override with `--dart-define=API_BASE_URL=...`.
-/// Android emulator defaults to `http://10.0.2.2:3333`.
-/// iOS simulator / desktop default to `http://127.0.0.1:3333`.
-/// Physical devices need the host LAN IP via dart-define.
+/// Defaults to the Railway production host. Override locally with
+/// `--dart-define=API_BASE_URL=http://127.0.0.1:3333` (iOS) or
+/// `--dart-define=API_BASE_URL=http://10.0.2.2:3333` (Android emulator).
 /// Force the old simulated auth with `--dart-define=USE_SIMULATED_AUTH=true`.
 class ApiConfig {
   const ApiConfig._();
 
   static const String _definedBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  /// Public Railway URL (no custom domain required).
+  static const String productionBaseUrl =
+      'https://pouapp-api-production.up.railway.app';
 
   static const bool useSimulatedAuth = bool.fromEnvironment(
     'USE_SIMULATED_AUTH',
@@ -21,8 +22,7 @@ class ApiConfig {
 
   static String get baseUrl {
     if (_definedBaseUrl.isNotEmpty) return _definedBaseUrl;
-    if (Platform.isAndroid) return 'http://10.0.2.2:3333';
-    return 'http://127.0.0.1:3333';
+    return productionBaseUrl;
   }
 
   /// Stripe Payment Link (admin / tooling). Override with dart-define.

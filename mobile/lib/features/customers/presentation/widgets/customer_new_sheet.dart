@@ -118,7 +118,7 @@ class _NewCustomerSheetState extends State<NewCustomerSheet> {
                     enabled: !saving,
                     inputFormatters: const [_PhoneInputFormatter()],
                     onSubmitted: (_) => saving ? null : _submit(),
-                    decoration: _fieldDecoration('Telefone'),
+                    decoration: _fieldDecoration('Telefone (opcional)'),
                   ),
                   if (_fieldError != null) ...[
                     const SizedBox(height: 12),
@@ -164,10 +164,11 @@ class _NewCustomerSheetState extends State<NewCustomerSheet> {
 
   void _submit() {
     if (_submitting) return;
+    final phoneDigits = onlyDigits(_phone.text);
     final input = CustomerInput(
       type: CustomerType.individual,
       name: _name.text,
-      phone: _phone.text,
+      phone: phoneDigits.isEmpty ? null : phoneDigits,
     );
     final error = validateCustomerInput(input);
     if (error != null) {

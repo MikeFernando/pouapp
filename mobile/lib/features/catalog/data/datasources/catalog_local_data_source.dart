@@ -1205,6 +1205,7 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
         if (oldVersion < 7) await upgradeVoiceTables(db);
         if (oldVersion < 8) await upgradeVoiceExecutions(db);
         if (oldVersion < 9) await upgradeReferencePrices(db);
+        if (oldVersion < 10) await ensureOneDraftNotePerCustomer(db);
       },
     );
     await _ensureLocationsAndSeed(database);

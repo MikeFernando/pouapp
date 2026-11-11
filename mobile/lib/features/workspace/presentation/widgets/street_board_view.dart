@@ -36,6 +36,7 @@ class StreetBoardViewState extends State<StreetBoardView>
   late final AnimationController _entrance;
   late final ScrollController _scroll;
   List<UpcomingDueCustomer> _noteDues = const [];
+  var _notesReady = false;
 
   @override
   void initState() {
@@ -56,20 +57,30 @@ class StreetBoardViewState extends State<StreetBoardView>
   }
 
   Future<void> _loadNoteDues() async {
-    if (!sl.isRegistered<CustomerNoteRepository>()) return;
+    if (!sl.isRegistered<CustomerNoteRepository>()) {
+      if (mounted) setState(() => _notesReady = true);
+      return;
+    }
     final result = await sl<CustomerNoteRepository>().draftNotesWithDue();
-    if (!mounted || result.isLeft()) return;
+    if (!mounted) return;
+    if (result.isLeft()) {
+      setState(() => _notesReady = true);
+      return;
+    }
     final items = result.getOrElse(() => const []);
     final mapped = <UpcomingDueCustomer>[];
     for (final note in items) {
       if (note.dueOn == null || note.totalCents <= 0) continue;
-      var name = 'Cliente';
-      if (sl.isRegistered<CustomerRepository>()) {
-        final found = await sl<CustomerRepository>().getCustomerById(
-          note.customerId,
-        );
-        found.fold((_) {}, (customer) => name = customer.name);
-      }
+      // Orphan / seed drafts without a real customer must not appear on home.
+      if (!sl.isRegistered<CustomerRepository>()) continue;
+      final found = await sl<CustomerRepository>().getCustomerById(
+        note.customerId,
+      );
+      final name = found.fold<String?>(
+        (_) => null,
+        (customer) => customer.name.trim().isEmpty ? null : customer.name,
+      );
+      if (name == null) continue;
       mapped.add(
         UpcomingDueCustomer(
           customerId: note.customerId,
@@ -80,7 +91,10 @@ class StreetBoardViewState extends State<StreetBoardView>
       );
     }
     if (!mounted) return;
-    setState(() => _noteDues = mapped);
+    setState(() {
+      _noteDues = mapped;
+      _notesReady = true;
+    });
   }
 
   double _span(double begin, double end) {
@@ -120,10 +134,20 @@ class StreetBoardViewState extends State<StreetBoardView>
   @override
   Widget build(BuildContext context) {
     if (ApiConfig.useRemoteApi) {
-      return BlocBuilder<HomeBoardBloc, HomeBoardState>(
+      return BlocConsumer<HomeBoardBloc, HomeBoardState>(
+        listenWhen: (previous, current) =>
+            previous.board != current.board ||
+            previous.status != current.status,
+        listener: (context, state) {
+          if (state.status == HomeBoardStatus.ready) {
+            setState(() => _notesReady = false);
+            _loadNoteDues();
+          }
+        },
         builder: (context, state) {
           if (state.status == HomeBoardStatus.initial ||
-              state.status == HomeBoardStatus.loading) {
+              state.status == HomeBoardStatus.loading ||
+              !_notesReady) {
             return const Center(
               child: CircularProgressIndicator(
                 semanticsLabel: 'Carregando a home',
@@ -139,12 +163,16 @@ class StreetBoardViewState extends State<StreetBoardView>
             );
           }
           final board = state.board!;
-          final receipts = dayReceiptsFromHome(board);
+          final sections = homeSectionsForLocalDay(
+            board: board,
+            localNotes: _noteDues,
+            now: DateTime.now(),
+          );
           return _boardBody(
             context: context,
-            receipts: receipts,
-            tomorrowDues: tomorrowDuesFromHome(board),
-            laterDues: laterDuesFromHome(board),
+            receipts: sections.receipts,
+            tomorrowDues: sections.tomorrow,
+            laterDues: sections.later,
           );
         },
       );

@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
-const catalogDatabaseVersion = 9;
+const catalogDatabaseVersion = 10;
 
 const operationSourceKey = 'operation_source';
 const operationSourceSqlite = 'sqlite';
@@ -19,11 +19,7 @@ Future<void> createOperationalTables(DatabaseExecutor db) async {
       updated_at TEXT NOT NULL
     )
   ''');
-  await db.execute('''
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_notes_one_draft
-    ON customer_notes(customer_id)
-    WHERE status = 'draft'
-  ''');
+  await ensureOneDraftNotePerCustomer(db);
   await db.execute('''
     CREATE TABLE IF NOT EXISTS customer_note_lines (
       id TEXT PRIMARY KEY,
@@ -389,6 +385,32 @@ Future<void> upgradeVoiceTables(Database db) async {
     'alias': 'jp',
     'target': 'Jardim Paraíso',
   }, conflictAlgorithm: ConflictAlgorithm.ignore);
+}
+
+/// One open draft per customer — drop older duplicates, then restore the index.
+Future<void> ensureOneDraftNotePerCustomer(DatabaseExecutor db) async {
+  final tables = await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'customer_notes'",
+  );
+  if (tables.isEmpty) return;
+  final drafts = await db.query(
+    'customer_notes',
+    columns: ['id', 'customer_id', 'updated_at'],
+    where: "status = 'draft'",
+    orderBy: 'updated_at DESC, id DESC',
+  );
+  final keptCustomer = <String>{};
+  for (final row in drafts) {
+    final customerId = row['customer_id']! as String;
+    final id = row['id']! as String;
+    if (keptCustomer.add(customerId)) continue;
+    await db.delete('customer_notes', where: 'id = ?', whereArgs: [id]);
+  }
+  await db.execute('''
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_notes_one_draft
+    ON customer_notes(customer_id)
+    WHERE status = 'draft'
+  ''');
 }
 
 Future<void> _createVoiceCommands(DatabaseExecutor db) {

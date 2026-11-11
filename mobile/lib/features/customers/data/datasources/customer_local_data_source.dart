@@ -80,7 +80,7 @@ abstract class CustomerLocalDataSource {
   Future<Database> database();
 }
 
-const customerDatabaseVersion = 3;
+const customerDatabaseVersion = 4;
 
 /// Local development database.
 ///
@@ -258,11 +258,16 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
     final db = await _databaseOrOpen();
     final model = CustomerModel.fromEntity(customer);
     try {
-      await db.insert(
+      // UPDATE/INSERT — never REPLACE (SQLite REPLACE deletes and cascades notes).
+      final updated = await db.update(
         'customers',
         _customerMap(model),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        where: 'id = ?',
+        whereArgs: [model.id],
       );
+      if (updated == 0) {
+        await db.insert('customers', _customerMap(model));
+      }
     } on DatabaseException {
       throw CacheException();
     }
@@ -274,10 +279,25 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
     final db = await _databaseOrOpen();
     try {
       await db.transaction((txn) async {
-        await txn.delete('customers');
+        final keepIds = <String>{};
         for (final customer in customers) {
           final model = CustomerModel.fromEntity(customer);
-          await txn.insert('customers', _customerMap(model));
+          keepIds.add(model.id);
+          final updated = await txn.update(
+            'customers',
+            _customerMap(model),
+            where: 'id = ?',
+            whereArgs: [model.id],
+          );
+          if (updated == 0) {
+            await txn.insert('customers', _customerMap(model));
+          }
+        }
+        final existing = await txn.query('customers', columns: ['id']);
+        for (final row in existing) {
+          final id = row['id']! as String;
+          if (keepIds.contains(id)) continue;
+          await txn.delete('customers', where: 'id = ?', whereArgs: [id]);
         }
       });
     } on DatabaseException {
@@ -571,6 +591,7 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await createCustomerNoteTables(db);
         if (oldVersion < 3) await upgradeCustomerNotePrices(db);
+        if (oldVersion < 4) await consolidateCustomerDraftNotes(db);
       },
     );
     if (customerDemoAllowed && _seedDemo) {
@@ -792,7 +813,7 @@ Future<void> createCustomerNoteTables(DatabaseExecutor db) async {
     )
     ''');
   await db.execute('''
-    CREATE UNIQUE INDEX idx_customer_notes_one_draft
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_notes_one_draft
     ON customer_notes(customer_id)
     WHERE status = 'draft'
     ''');
@@ -810,9 +831,61 @@ Future<void> createCustomerNoteTables(DatabaseExecutor db) async {
     )
     ''');
   await db.execute(
-    'CREATE INDEX idx_customer_note_lines_note '
+    'CREATE INDEX IF NOT EXISTS idx_customer_note_lines_note '
     'ON customer_note_lines(note_id, position)',
   );
+  await ensureCustomerNoteSyncQueue(db);
+}
+
+/// Queue used when a note is edited on this phone.
+Future<void> ensureCustomerNoteSyncQueue(DatabaseExecutor db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS pending_sync (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL,
+      recorded_at TEXT NOT NULL,
+      payload TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      last_attempt_at TEXT
+    )
+  ''');
+}
+
+/// Keeps the newest draft per customer and restores the unique index.
+/// Older open notes caused tripled home totals (ex.: R$ 28,70 → R$ 86,10).
+Future<void> consolidateCustomerDraftNotes(DatabaseExecutor db) async {
+  // Drop drafts tied to removed / never-synced customers (showed as "Cliente").
+  await db.delete(
+    'customer_notes',
+    where: '''
+      status = 'draft'
+      AND customer_id NOT IN (SELECT id FROM customers)
+    ''',
+  );
+  final drafts = await db.query(
+    'customer_notes',
+    columns: ['id', 'customer_id', 'updated_at'],
+    where: "status = 'draft'",
+    orderBy: 'updated_at DESC, id DESC',
+  );
+  final keptCustomer = <String>{};
+  for (final row in drafts) {
+    final customerId = row['customer_id']! as String;
+    final id = row['id']! as String;
+    if (keptCustomer.add(customerId)) continue;
+    await db.delete('customer_notes', where: 'id = ?', whereArgs: [id]);
+  }
+  try {
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_notes_one_draft
+      ON customer_notes(customer_id)
+      WHERE status = 'draft'
+    ''');
+  } on DatabaseException {
+    // Duplicates already purged above; ignore if the index still cannot form.
+  }
+  await ensureCustomerNoteSyncQueue(db);
 }
 
 Future<void> upgradeCustomerNotePrices(Database db) async {

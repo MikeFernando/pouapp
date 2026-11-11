@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
+import '../../../../core/config/api_config.dart';
 import '../../../catalog/presentation/produce_assets.dart';
 import '../../../customers/presentation/customer_routes.dart';
 import '../../domain/entities/posted_sale.dart';
@@ -60,8 +61,8 @@ class _FinancePageState extends State<FinancePage> {
           _span,
           now,
         );
-        // Temporary filled demo until confirmed street sales exist.
-        if (ranked.isEmpty && sales.isEmpty) {
+        // Demo only offline/simulated — never for a real remote account.
+        if (!ApiConfig.useRemoteApi && ranked.isEmpty && sales.isEmpty) {
           ranked = _demoMerchandise(_span);
         }
         final figures = sales.isEmpty
@@ -721,7 +722,10 @@ _PaymentBuckets _paymentBuckets(List<PostedSale> sales, DateTime now) {
       onTime.add(item);
     }
   }
-  if (overdue.isEmpty && onTime.isEmpty && receivable.isEmpty) {
+  if (!ApiConfig.useRemoteApi &&
+      overdue.isEmpty &&
+      onTime.isEmpty &&
+      receivable.isEmpty) {
     return _demoPaymentBuckets(today);
   }
   overdue.sort((a, b) => b.cents.compareTo(a.cents));

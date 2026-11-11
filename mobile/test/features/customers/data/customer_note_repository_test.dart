@@ -183,7 +183,70 @@ void main() {
       'customer_note_lines',
       'customer_notes',
       'customers',
+      'pending_sync',
     ]);
+  });
+
+  test('keeps a single open draft per customer after duplicates', () async {
+    final ana = await customers.createCustomer(
+      const CustomerInput(type: CustomerType.individual, name: 'Ana'),
+    );
+    final first = _take(await notes.activeDraft(ana.id));
+    expect(_take(await notes.activeDraft(ana.id)).id, first.id);
+
+    final saved = _take(
+      await notes.saveLines(
+        noteId: first.id,
+        lines: const [
+          NoteLineDraft(
+            name: 'Banana nanica',
+            unit: CatalogUnit.kilogram,
+            quantity: 1000,
+            unitPriceCents: 2870,
+          ),
+        ],
+      ),
+    );
+    expect(saved.totalCents, 2870);
+    _take(await notes.setDueOn(noteId: first.id, dueOn: DateTime(2026, 11, 11)));
+
+    final db = await customers.database();
+    await db.execute('DROP INDEX IF EXISTS idx_customer_notes_one_draft');
+    await db.insert('customer_notes', {
+      'id': 'orphan-draft',
+      'customer_id': ana.id,
+      'status': 'draft',
+      'due_on': '2026-11-10',
+      'created_at': '2026-06-01T00:00:00.000Z',
+      'updated_at': '2026-06-01T00:00:00.000Z',
+    });
+    await db.insert('customer_note_lines', {
+      'id': 'orphan-line',
+      'note_id': 'orphan-draft',
+      'position': 0,
+      'name': 'Banana nanica',
+      'unit': 'kilogram',
+      'quantity': 1000,
+      'unit_price_cents': 2870,
+      'reference_price_cents': 2870,
+    });
+
+    final listed = (await notes.draftNotesWithDue()).fold(
+      (failure) => throw StateError('$failure'),
+      (value) => value,
+    );
+    expect(listed, hasLength(1));
+    expect(listed.single.id, first.id);
+    expect(listed.single.totalCents, 2870);
+    expect(listed.single.dueOn, DateTime(2026, 11, 11));
+
+    final drafts = await db.query(
+      'customer_notes',
+      where: 'customer_id = ? AND status = ?',
+      whereArgs: [ana.id, 'draft'],
+    );
+    expect(drafts, hasLength(1));
+    expect(drafts.single['id'], first.id);
   });
 
   test(
