@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
-import '../../../../core/config/api_config.dart';
 import '../../../catalog/presentation/produce_assets.dart';
 import '../../../customers/presentation/customer_routes.dart';
 import '../../domain/entities/posted_sale.dart';
@@ -877,10 +876,8 @@ _PaymentBuckets _paymentBuckets(List<PostedSale> sales, DateTime now) {
       onTime.add(item);
     }
   }
-  if (!ApiConfig.useRemoteApi &&
-      overdue.isEmpty &&
-      onTime.isEmpty &&
-      receivable.isEmpty) {
+  // Empty board: feira-style examples so the payment sections can be reviewed.
+  if (overdue.isEmpty && onTime.isEmpty && receivable.isEmpty) {
     return _demoPaymentBuckets(today);
   }
   overdue.sort((a, b) => b.cents.compareTo(a.cents));
@@ -1028,9 +1025,9 @@ class _Sheet extends StatelessWidget {
             title: 'Pagamentos a receber',
             subtitle: 'Saldo em aberto das notas',
             accent: pouBrand,
+            amountColor: pouInk,
             items: receivable,
             emptyLabel: 'Nada a receber no momento.',
-            showTotal: true,
           ),
         ],
       ),
@@ -1074,12 +1071,14 @@ class _ClientPaymentSection extends StatelessWidget {
     required this.accent,
     required this.items,
     required this.emptyLabel,
+    this.amountColor,
     this.showTotal = false,
   });
 
   final String title;
   final String subtitle;
   final Color accent;
+  final Color? amountColor;
   final List<_ClientPayment> items;
   final String emptyLabel;
   final bool showTotal;
@@ -1087,6 +1086,7 @@ class _ClientPaymentSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = items.fold<int>(0, (sum, item) => sum + item.cents);
+    final amounts = amountColor ?? accent;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1121,7 +1121,7 @@ class _ClientPaymentSection extends StatelessWidget {
               Text(
                 formatBrl(total),
                 style: TextStyle(
-                  color: accent,
+                  color: amounts,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1141,7 +1141,11 @@ class _ClientPaymentSection extends StatelessWidget {
         else
           for (var index = 0; index < items.length; index++) ...[
             if (index > 0) const SizedBox(height: 8),
-            _ClientPaymentTile(item: items[index], accent: accent),
+            _ClientPaymentTile(
+              item: items[index],
+              accent: accent,
+              amountColor: amounts,
+            ),
           ],
       ],
     );
@@ -1149,10 +1153,15 @@ class _ClientPaymentSection extends StatelessWidget {
 }
 
 class _ClientPaymentTile extends StatelessWidget {
-  const _ClientPaymentTile({required this.item, required this.accent});
+  const _ClientPaymentTile({
+    required this.item,
+    required this.accent,
+    required this.amountColor,
+  });
 
   final _ClientPayment item;
   final Color accent;
+  final Color amountColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1212,7 +1221,7 @@ class _ClientPaymentTile extends StatelessWidget {
               Text(
                 item.cents <= 0 ? '—' : formatBrl(item.cents),
                 style: TextStyle(
-                  color: accent,
+                  color: amountColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),

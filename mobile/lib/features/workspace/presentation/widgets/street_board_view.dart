@@ -249,12 +249,6 @@ class StreetBoardViewState extends State<StreetBoardView>
     required List<UpcomingDueCustomer> laterDues,
   }) {
     final valuesHidden = widget.valuesHidden;
-    final saleButton = FilledButton.styleFrom(
-      minimumSize: const Size.fromHeight(52),
-      backgroundColor: pouBrand,
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    );
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final progress = dayReceiptProgress(receipts);
@@ -291,19 +285,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                       ),
                       const SizedBox(height: 16),
                       rise(
-                        FilledButton.icon(
-                          key: const Key('action_new_sale'),
-                          style: saleButton,
-                          onPressed: widget.onNewSale,
-                          icon: const Icon(
-                            Icons.add_shopping_cart_outlined,
-                            color: pouCanvas,
-                          ),
-                          label: const Text(
-                            'Nova Venda',
-                            style: TextStyle(color: pouCanvas),
-                          ),
-                        ),
+                        _NovaVendaButton(onPressed: widget.onNewSale),
                       ),
                       const SizedBox(height: 28),
                       rise(
@@ -330,6 +312,76 @@ class StreetBoardViewState extends State<StreetBoardView>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NovaVendaButton extends StatelessWidget {
+  const _NovaVendaButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  static const _radius = 14.0;
+  static const _forest = Color(0xFF062E0C);
+  static const _height = 52.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Nova Venda',
+      child: Material(
+        color: _forest,
+        borderRadius: BorderRadius.circular(_radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const Key('action_new_sale'),
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(_radius),
+          child: SizedBox(
+            width: double.infinity,
+            height: _height,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/images/nova-venda-fundo-botanico.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  excludeFromSemantics: true,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const ColoredBox(color: _forest);
+                  },
+                ),
+                Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/images/carrinho-botanico.png',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.contain,
+                        excludeFromSemantics: true,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Nova Venda',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -563,8 +615,6 @@ class _DayReceiptTile extends StatelessWidget {
 }
 
 const _duesMuted = Color(0xFF8E8E93);
-const _duesGreen = Color(0xFF1B7A45);
-const _duesGreenSoft = Color(0xFFE5F6EC);
 const _duesBadge = Color(0xFFF0F0F2);
 
 const _monthShort = [
@@ -693,17 +743,13 @@ class _TomorrowEmptyCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _duesGreenSoft,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.event_available_rounded,
-                color: _duesGreen,
-                size: 26,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                'assets/images/calendario-botanico.png',
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(width: 14),
