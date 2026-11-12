@@ -193,6 +193,12 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     final cleared = <String>{};
     for (final row in rows) {
       final note = await _read(db, row['id']! as String);
+      // Brand-new empty drafts (open customer, no edit) must not hide remote
+      // home dues. Only drafts that lost their due/amount after having content
+      // — or an explicit due clear with lines still present — count as cleared.
+      final emptyShell =
+          note.dueOn == null && note.totalCents <= 0 && note.lines.isEmpty;
+      if (emptyShell) continue;
       if (note.dueOn == null || note.totalCents <= 0) {
         cleared.add(note.customerId);
       }

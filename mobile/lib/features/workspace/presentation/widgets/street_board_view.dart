@@ -13,6 +13,8 @@ import '../home_board_mapping.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
 import 'day_receipts_card.dart';
+import 'overdue_receipts_card.dart';
+import 'upcoming_month_dues_card.dart';
 
 class StreetBoardView extends StatefulWidget {
   const StreetBoardView({
@@ -177,6 +179,7 @@ class StreetBoardViewState extends State<StreetBoardView>
           return _boardBody(
             context: context,
             receipts: sections.receipts,
+            overdueDues: sections.overdue,
             tomorrowDues: sections.tomorrow,
             laterDues: sections.later,
           );
@@ -224,17 +227,22 @@ class StreetBoardViewState extends State<StreetBoardView>
           ))
             if (due.dueOn != todayIso) due,
         ];
+        final overdueDues = [
+          for (final due in allUpcoming)
+            if (due.dueOn.compareTo(todayIso) < 0) due,
+        ];
         final tomorrowDues = [
           for (final due in allUpcoming)
             if (due.dueOn == tomorrowIso) due,
         ];
         final laterDues = [
           for (final due in allUpcoming)
-            if (due.dueOn != tomorrowIso) due,
+            if (due.dueOn.compareTo(tomorrowIso) > 0) due,
         ];
         return _boardBody(
           context: context,
           receipts: receipts,
+          overdueDues: overdueDues,
           tomorrowDues: tomorrowDues,
           laterDues: laterDues,
         );
@@ -245,6 +253,7 @@ class StreetBoardViewState extends State<StreetBoardView>
   Widget _boardBody({
     required BuildContext context,
     required List<DayReceiptCustomer> receipts,
+    required List<UpcomingDueCustomer> overdueDues,
     required List<UpcomingDueCustomer> tomorrowDues,
     required List<UpcomingDueCustomer> laterDues,
   }) {
@@ -252,6 +261,21 @@ class StreetBoardViewState extends State<StreetBoardView>
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final progress = dayReceiptProgress(receipts);
+    final monthPrefix =
+        '${todayStart.year}-${todayStart.month.toString().padLeft(2, '0')}';
+    final upcomingMonthDues = [
+      ...tomorrowDues,
+      for (final due in laterDues)
+        if (due.dueOn.startsWith(monthPrefix)) due,
+    ]..sort((a, b) {
+        final byDate = a.dueOn.compareTo(b.dueOn);
+        if (byDate != 0) return byDate;
+        return a.customerName.compareTo(b.customerName);
+      });
+    final beyondMonthDues = [
+      for (final due in laterDues)
+        if (!due.dueOn.startsWith(monthPrefix)) due,
+    ];
     return ClipRect(
       child: Stack(
         children: [
@@ -287,24 +311,33 @@ class StreetBoardViewState extends State<StreetBoardView>
                       rise(
                         _NovaVendaButton(onPressed: widget.onNewSale),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       rise(
-                        _TomorrowDuesSection(
-                          tomorrow: todayStart.add(const Duration(days: 1)),
-                          dues: tomorrowDues,
+                        OverdueReceiptsCard(
+                          dues: overdueDues,
                           valuesHidden: valuesHidden,
                           onOpenCustomer: widget.onOpenCustomer,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       rise(
-                        _LaterDuesSection(
-                          today: todayStart,
-                          dues: laterDues,
+                        UpcomingMonthDuesCard(
+                          dues: upcomingMonthDues,
                           valuesHidden: valuesHidden,
                           onOpenCustomer: widget.onOpenCustomer,
                         ),
                       ),
+                      if (beyondMonthDues.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        rise(
+                          _LaterDuesSection(
+                            today: todayStart,
+                            dues: beyondMonthDues,
+                            valuesHidden: valuesHidden,
+                            onOpenCustomer: widget.onOpenCustomer,
+                          ),
+                        ),
+                      ],
                     ],
                   );
                 },
@@ -390,21 +423,6 @@ class _NovaVendaButton extends StatelessWidget {
 const _duesMuted = Color(0xFF8E8E93);
 const _duesBadge = Color(0xFFF0F0F2);
 
-const _monthShort = [
-  'jan',
-  'fev',
-  'mar',
-  'abr',
-  'mai',
-  'jun',
-  'jul',
-  'ago',
-  'set',
-  'out',
-  'nov',
-  'dez',
-];
-
 DateTime? _parseDueDay(String iso) {
   final parts = iso.split('-');
   if (parts.length != 3) return null;
@@ -414,9 +432,6 @@ DateTime? _parseDueDay(String iso) {
   if (year == null || month == null || day == null) return null;
   return DateTime(year, month, day);
 }
-
-String _shortMonthDay(DateTime date) =>
-    '${date.day} ${_monthShort[date.month - 1]}.';
 
 String _monthDayLabel(DateTime date) {
   final month = monthNames[date.month - 1].toLowerCase();
@@ -430,132 +445,6 @@ String _relativeDaysLabel(DateTime due, DateTime today) {
   if (days == -1) return 'Ontem';
   if (days < -1) return 'Há ${-days} dias';
   return 'Em $days dias';
-}
-
-class _TomorrowDuesSection extends StatelessWidget {
-  const _TomorrowDuesSection({
-    required this.tomorrow,
-    required this.dues,
-    required this.valuesHidden,
-    required this.onOpenCustomer,
-  });
-
-  final DateTime tomorrow;
-  final List<UpcomingDueCustomer> dues;
-  final bool valuesHidden;
-  final ValueChanged<String> onOpenCustomer;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Amanhã',
-                style: TextStyle(
-                  color: Color(0xFF0E0D0F),
-                  fontSize: workspaceFontPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              _shortMonthDay(tomorrow),
-              style: const TextStyle(
-                color: _duesMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (dues.isEmpty)
-          const _TomorrowEmptyCard()
-        else
-          _DuesWhiteCard(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-              child: Column(
-                children: [
-                  for (var index = 0; index < dues.length; index++) ...[
-                    if (index > 0) ...[
-                      const SizedBox(height: 14),
-                      const Divider(height: 1, color: Color(0xFFE9E8EB)),
-                      const SizedBox(height: 14),
-                    ],
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: _DueCustomerRow(
-                        due: dues[index],
-                        hidden: valuesHidden,
-                        noteLabel: '1 nota em aberto',
-                        onTap: () => onOpenCustomer(dues[index].customerId),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TomorrowEmptyCard extends StatelessWidget {
-  const _TomorrowEmptyCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _DuesWhiteCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.asset(
-                'assets/images/calendario-botanico.png',
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Tudo em dia',
-                    style: TextStyle(
-                      color: Color(0xFF0E0D0F),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'Nenhuma cobrança para amanhã.',
-                    style: TextStyle(
-                      color: _duesMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _LaterDuesSection extends StatelessWidget {
@@ -583,7 +472,7 @@ class _LaterDuesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Próximos vencimentos',
+          'Depois deste mês',
           style: TextStyle(
             color: Color(0xFF0E0D0F),
             fontSize: workspaceFontPrimary,
@@ -591,26 +480,16 @@ class _LaterDuesSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        if (dues.isEmpty)
-          const Text(
-            'Nenhuma nota próxima do vencimento.',
-            style: TextStyle(
-              color: _duesMuted,
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          )
-        else
-          for (var dayIndex = 0; dayIndex < orderedDays.length; dayIndex++) ...[
-            if (dayIndex > 0) const SizedBox(height: 14),
-            _LaterDueDayCard(
-              dueOn: orderedDays[dayIndex],
-              today: today,
-              dues: groups[orderedDays[dayIndex]]!,
-              valuesHidden: valuesHidden,
-              onOpenCustomer: onOpenCustomer,
-            ),
-          ],
+        for (var dayIndex = 0; dayIndex < orderedDays.length; dayIndex++) ...[
+          if (dayIndex > 0) const SizedBox(height: 14),
+          _LaterDueDayCard(
+            dueOn: orderedDays[dayIndex],
+            today: today,
+            dues: groups[orderedDays[dayIndex]]!,
+            valuesHidden: valuesHidden,
+            onOpenCustomer: onOpenCustomer,
+          ),
+        ],
       ],
     );
   }

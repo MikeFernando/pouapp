@@ -77,6 +77,7 @@ bool _isRealHomeDue(UpcomingDueCustomer due) {
 /// keep someone in "amanhã" after the user moved vencimento to today.
 ({
   List<DayReceiptCustomer> receipts,
+  List<UpcomingDueCustomer> overdue,
   List<UpcomingDueCustomer> tomorrow,
   List<UpcomingDueCustomer> later,
 })
@@ -117,6 +118,7 @@ homeSectionsForLocalDay({
   byCustomer.addAll(localByCustomer);
 
   final receipts = <DayReceiptCustomer>[];
+  final overdue = <UpcomingDueCustomer>[];
   final tomorrow = <UpcomingDueCustomer>[];
   final later = <UpcomingDueCustomer>[];
 
@@ -130,6 +132,8 @@ homeSectionsForLocalDay({
           done: false,
         ),
       );
+    } else if (due.dueOn.compareTo(todayIso) < 0) {
+      overdue.add(due);
     } else if (due.dueOn == tomorrowIso) {
       tomorrow.add(due);
     } else if (due.dueOn.compareTo(tomorrowIso) > 0) {
@@ -138,6 +142,11 @@ homeSectionsForLocalDay({
   }
 
   receipts.sort((a, b) => a.customerName.compareTo(b.customerName));
+  overdue.sort((a, b) {
+    final byDate = a.dueOn.compareTo(b.dueOn);
+    if (byDate != 0) return byDate;
+    return a.customerName.compareTo(b.customerName);
+  });
   tomorrow.sort((a, b) => a.customerName.compareTo(b.customerName));
   later.sort((a, b) {
     final byDate = a.dueOn.compareTo(b.dueOn);
@@ -145,5 +154,10 @@ homeSectionsForLocalDay({
     return a.customerName.compareTo(b.customerName);
   });
 
-  return (receipts: receipts, tomorrow: tomorrow, later: later);
+  return (
+    receipts: receipts,
+    overdue: overdue,
+    tomorrow: tomorrow,
+    later: later,
+  );
 }

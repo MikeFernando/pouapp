@@ -249,6 +249,19 @@ void main() {
     expect(drafts.single['id'], first.id);
   });
 
+  test('empty open draft is not treated as a cleared home due', () async {
+    final maria = await customers.createCustomer(
+      const CustomerInput(type: CustomerType.individual, name: 'Maria'),
+    );
+    _take(await notes.openNote(maria.id));
+
+    final cleared = (await notes.clearedDraftCustomerIds()).fold(
+      (failure) => throw StateError('$failure'),
+      (value) => value,
+    );
+    expect(cleared.contains(maria.id), isFalse);
+  });
+
   test('soft-deletes a draft and lists it under deleted notes', () async {
     final ana = await customers.createCustomer(
       const CustomerInput(type: CustomerType.individual, name: 'Ana'),

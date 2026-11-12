@@ -75,6 +75,82 @@ void main() {
     expect(sections.later, isEmpty);
   });
 
+  test('past due dates land in overdue, not later', () {
+    const board = HomeBoard(
+      date: '2026-11-12',
+      receivedTodayCents: 0,
+      receiptsDueToday: [],
+      duesTomorrow: [],
+      upcomingDues: [
+        HomeDueItem(
+          customerId: 'maria',
+          customerName: 'Maria Oliveira',
+          openCents: 8650,
+          dueOn: '2026-11-09',
+          settled: false,
+          openNotes: 1,
+        ),
+        HomeDueItem(
+          customerId: 'ana',
+          customerName: 'Ana Souza',
+          openCents: 2500,
+          dueOn: '2026-11-07',
+          settled: false,
+          openNotes: 1,
+        ),
+        HomeDueItem(
+          customerId: 'joao',
+          customerName: 'João Silva',
+          openCents: 4000,
+          dueOn: '2026-11-20',
+          settled: false,
+          openNotes: 1,
+        ),
+      ],
+    );
+
+    final sections = homeSectionsForLocalDay(
+      board: board,
+      localNotes: const [],
+      now: DateTime(2026, 11, 12, 12),
+    );
+
+    expect(sections.overdue, hasLength(2));
+    expect(sections.overdue.first.customerId, 'ana');
+    expect(sections.overdue.last.customerId, 'maria');
+    expect(sections.later, hasLength(1));
+    expect(sections.later.single.customerId, 'joao');
+  });
+
+  test('empty cleared set keeps remote overdue visible', () {
+    const board = HomeBoard(
+      date: '2026-11-12',
+      receivedTodayCents: 0,
+      receiptsDueToday: [],
+      duesTomorrow: [],
+      upcomingDues: [
+        HomeDueItem(
+          customerId: 'maria',
+          customerName: 'Maria Oliveira',
+          openCents: 8650,
+          dueOn: '2026-11-09',
+          settled: false,
+          openNotes: 1,
+        ),
+      ],
+    );
+
+    final sections = homeSectionsForLocalDay(
+      board: board,
+      localNotes: const [],
+      now: DateTime(2026, 11, 12, 12),
+      clearedCustomerIds: const {},
+    );
+
+    expect(sections.overdue, hasLength(1));
+    expect(sections.overdue.single.customerId, 'maria');
+  });
+
   test('cleared local draft hides stale remote upcoming due', () {
     const board = HomeBoard(
       date: '2026-11-11',
