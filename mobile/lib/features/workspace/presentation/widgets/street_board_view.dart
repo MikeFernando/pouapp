@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../app/pou_app_colors.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
@@ -13,6 +12,7 @@ import '../bloc/home_board_bloc.dart';
 import '../home_board_mapping.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
+import 'day_receipts_card.dart';
 
 class StreetBoardView extends StatefulWidget {
   const StreetBoardView({
@@ -275,7 +275,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       rise(
-                        _DayReceiptsBoard(
+                        DayReceiptsCard(
                           titleKey: _routeKey,
                           progress: progress,
                           receipts: receipts,
@@ -381,233 +381,6 @@ class _NovaVendaButton extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VisitCheck extends StatelessWidget {
-  const _VisitCheck({required this.done, this.onTap});
-
-  final bool done;
-  final VoidCallback? onTap;
-
-  static const _blue = pouAccent;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: done
-          ? const DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFFE7EDFF),
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: Icon(Icons.check, size: 15, color: _blue),
-              ),
-            )
-          : Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _blue, width: 1.6),
-              ),
-            ),
-    );
-  }
-}
-
-class _DayReceiptsBoard extends StatelessWidget {
-  const _DayReceiptsBoard({
-    required this.titleKey,
-    required this.progress,
-    required this.receipts,
-    required this.valuesHidden,
-    required this.onOpenCustomer,
-  });
-
-  final Key titleKey;
-  final VisitProgress progress;
-  final List<DayReceiptCustomer> receipts;
-  final bool valuesHidden;
-  final ValueChanged<String> onOpenCustomer;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = workspaceColorsOf(context);
-    final fraction = progress.total == 0 ? 0.0 : progress.done / progress.total;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A0E0D0F),
-            blurRadius: 24,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Recebimentos do dia',
-                          key: titleKey,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: workspaceFontPrimary,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0E0D0F),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colors.accentSoft,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          child: Text(
-                            '${progress.done} de ${progress.total}',
-                            key: const Key('route_progress'),
-                            style: TextStyle(
-                              fontSize: workspaceFontSecondary,
-                              fontWeight: FontWeight.w700,
-                              color: colors.accent,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: fraction,
-                      minHeight: 4,
-                      backgroundColor: const Color(0xFFEEF2F6),
-                      color: colors.accent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (receipts.isEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  'Nenhum recebimento com vencimento hoje.',
-                  style: TextStyle(
-                    fontSize: workspaceFontSecondary,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              )
-            else
-              for (var index = 0; index < receipts.length; index++) ...[
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  indent: 16,
-                  endIndent: 16,
-                  color: Color(0xFFE9E8EB),
-                ),
-                _DayReceiptTile(
-                  receipt: receipts[index],
-                  valuesHidden: valuesHidden,
-                  onOpenCustomer: () =>
-                      onOpenCustomer(receipts[index].customerId),
-                ),
-              ],
-            const SizedBox(height: 4),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DayReceiptTile extends StatelessWidget {
-  const _DayReceiptTile({
-    required this.receipt,
-    required this.valuesHidden,
-    required this.onOpenCustomer,
-  });
-
-  final DayReceiptCustomer receipt;
-  final bool valuesHidden;
-  final VoidCallback onOpenCustomer;
-
-  @override
-  Widget build(BuildContext context) {
-    final done = receipt.done;
-    return Material(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            _VisitCheck(done: done, onTap: done ? null : onOpenCustomer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                key: Key('day_receipt_${receipt.customerId}'),
-                onTap: onOpenCustomer,
-                child: Text(
-                  receipt.customerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: workspaceFontPrimary,
-                    fontWeight: FontWeight.w700,
-                    color: done
-                        ? const Color(0xFF8B97C2)
-                        : const Color(0xFF0E0D0F),
-                    decoration: done
-                        ? TextDecoration.lineThrough
-                        : TextDecoration.none,
-                    decorationColor: const Color(0xFF8B97C2),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              formatBrl(receipt.amountCents, hidden: valuesHidden),
-              key: Key('day_receipt_amount_${receipt.customerId}'),
-              style: TextStyle(
-                fontSize: workspaceFontPrimary,
-                fontWeight: FontWeight.w700,
-                color: done ? const Color(0xFF8B97C2) : const Color(0xFF0E0D0F),
-              ),
-            ),
-          ],
         ),
       ),
     );
