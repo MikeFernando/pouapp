@@ -7,6 +7,7 @@ import '../../../../app/pou_app_colors.dart';
 import '../../../../app/pou_confirm_dialog.dart';
 import '../../../../app/pou_date_sheet.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
+import '../../../../app/pou_top_snack.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../assistant/presentation/voice_attendance.dart';
@@ -33,7 +34,8 @@ import '../widgets/customer_new_sheet.dart';
 import '../widgets/customer_status_badge.dart';
 import '../widgets/customer_status_sheet.dart';
 import '../widgets/deleted_notes_sheet.dart';
-import '../widgets/send_note_card.dart';
+import '../widgets/note_summary_bar.dart';
+import '../widgets/save_note_sheet.dart';
 
 String? whatsAppPhoneDigits(Customer customer) =>
     customerWhatsAppDigits(customer);
@@ -81,17 +83,69 @@ class CustomerDetailsView extends StatefulWidget {
 
 class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   CustomerNote? _note;
+  CustomerNote? _savedNote;
   String? _noteError;
   var _noteRequestedFor = '';
   var _memoryLine = 0;
+  PaymentMethod? _paymentMethod;
+  PaymentMethod? _savedPayment;
+  var _allowLeave = false;
   final List<CustomerNote> _memoryDeletedNotes = [];
   VoiceVisit? _visit;
 
+  bool get _noteDirty {
+    if (_allowLeave) return false;
+    final note = _note;
+    final saved = _savedNote;
+    if (note == null || saved == null) return false;
+    if (note.status == NoteStatus.delivered) return false;
+    if (note.id != saved.id) return false;
+    if (_paymentMethod != _savedPayment) return true;
+    if (note.dueOn != saved.dueOn) return true;
+    if (note.lines.length != saved.lines.length) return true;
+    for (var index = 0; index < note.lines.length; index++) {
+      if (note.lines[index] != saved.lines[index]) return true;
+    }
+    return false;
+  }
+
+  void _rememberSavedSnapshot({
+    CustomerNote? note,
+    PaymentMethod? paymentMethod,
+  }) {
+    final current = note ?? _note;
+    _savedNote = current;
+    _savedPayment = paymentMethod ?? current?.paymentMethod ?? _paymentMethod;
+  }
+
   @override
   void dispose() {
+    dismissPouTopSnack();
     final visit = _visit;
     if (visit != null) VoiceAttendance.unmount(visit);
     super.dispose();
+  }
+
+  Future<bool> _confirmLeaveWithoutSaving() {
+    return showPouConfirmDialog(
+      context,
+      title: 'Sair sem salvar?',
+      message: 'Você alterou os dados desta nota. Deseja sair sem salvar?',
+      confirmLabel: 'Sair sem salvar',
+      cancelLabel: 'Continuar editando',
+      icon: Icons.logout_rounded,
+      confirmKey: const Key('confirm_leave_note'),
+    );
+  }
+
+  Future<void> _handleLeaveAttempt() async {
+    if (!_noteDirty) return;
+    final leave = await _confirmLeaveWithoutSaving();
+    if (!leave || !mounted) return;
+    setState(() => _allowLeave = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
   }
 
   void _rememberVisit(String id, String label) {
@@ -161,230 +215,401 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                 sales.status == BoardStatus.loading);
         final ledger = operation?.street;
         const bodyRadius = 32.0;
-        return Scaffold(
-          backgroundColor: pouLeafChrome,
-          appBar: pouLeafAppBar(
-            title: Text(customer.name),
-            actions: [
-              PopupMenuButton<String>(
-                key: const Key('customer_details_menu'),
-                icon: const Icon(Icons.more_vert),
-                color: Colors.white,
-                onSelected: (value) async {
-                  if (value == 'edit') {
-                    final savedId = await showCustomerQuickSheet(
-                      context,
-                      customer: customer,
-                    );
-                    if (!context.mounted) return;
-                    if (savedId != null) {
-                      context.read<CustomerDetailsBloc>().add(
-                        CustomerDetailsRequested(customer.id),
-                      );
-                    }
-                    return;
-                  }
-                  if (value == 'delete_note') {
-                    await _deleteNote();
-                    return;
-                  }
-                  if (value == 'deleted_notes') {
-                    await _showDeletedNotes(customer);
-                  }
-                },
-                itemBuilder: (context) {
-                  final canDelete =
-                      note != null &&
-                      note.status != NoteStatus.delivered &&
-                      (note.lines.isNotEmpty || note.dueOn != null);
-                  return [
-                    const PopupMenuItem<String>(
-                      key: Key('customer_edit_menu_item'),
-                      value: 'edit',
-                      child: Text('Editar cadastro'),
-                    ),
-                    PopupMenuItem<String>(
-                      key: const Key('customer_delete_note_menu_item'),
-                      value: 'delete_note',
-                      enabled: canDelete,
-                      child: const Text('Excluir nota'),
-                    ),
-                    const PopupMenuItem<String>(
-                      key: Key('customer_deleted_notes_menu_item'),
-                      value: 'deleted_notes',
-                      child: Text('Notas excluídas'),
-                    ),
-                  ];
-                },
-              ),
-            ],
-          ),
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Leaf continues into the rounded-card corner reveals.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: bodyRadius,
-                child: ClipRect(
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    heightFactor: bodyRadius /
-                        (MediaQuery.paddingOf(context).top + kToolbarHeight),
-                    child: SizedBox(
-                      height:
-                          MediaQuery.paddingOf(context).top + kToolbarHeight,
-                      width: double.infinity,
-                      child: pouLeafBackdrop(),
-                    ),
-                  ),
-                ),
-              ),
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(bodyRadius),
-                ),
-                child: ColoredBox(
-                  color: const Color(0xFFF6F5F7),
-                  child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 88),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SituationBar(
-                        status: customer.status,
-                        onTap: () => _openStatus(customer),
-                      ),
-                      Builder(
-                        builder: (context) {
-                          final phone = primaryPhone(customer);
-                          if (phone.isEmpty) return const SizedBox.shrink();
-                          return _WhatsAppPhoneCard(
-                            phone: phone,
-                            onTap: () => _openWhatsApp(customer),
-                          );
-                        },
-                      ),
-                      _DueDateCard(
-                        date: note?.dueOn,
-                        onPick: note?.status == NoteStatus.delivered
-                            ? null
-                            : _openDueDate,
-                      ),
-                      SendNoteCard(customer: customer, note: note),
-                      if (note?.status == NoteStatus.delivered) ...[
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Text(
-                            'Entrega confirmada. Correções desta nota ficam para a etapa própria.',
-                            key: Key('delivery_locked'),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: OutlinedButton(
-                            key: const Key('new_purchase'),
-                            style: noteSecondaryButton(),
-                            onPressed: () => _newPurchase(customer.id),
-                            child: const Text('Nova compra'),
-                          ),
-                        ),
-                      ],
-                      if (_noteError != null)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Text(
-                            _noteError!,
-                            key: const Key('note_save_error'),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFFC62828),
-                            ),
-                          ),
-                        ),
-                      if (loadingSales)
-                        const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              semanticsLabel: 'Carregando vendas',
-                            ),
-                          ),
-                        )
-                      else if (ledger == null)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            sales.message ??
-                                'Não foi possível carregar as vendas.',
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      else
-                        _SalesList(
-                          customer: customer,
-                          ledger: ledger,
-                          lines: note?.lines ?? const [],
-                          ready: note != null,
-                          onWhatsApp: () => _openWhatsApp(customer),
-                          onAdd:
-                              note == null ||
-                                  note.status == NoteStatus.delivered
-                              ? null
-                              : _addLine,
-                          onEdit: note?.status == NoteStatus.delivered
-                              ? null
-                              : _editLine,
-                        ),
-                      CustomerAccountSection(
+        return PopScope(
+          canPop: !_noteDirty,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop || !_noteDirty) return;
+            await _handleLeaveAttempt();
+          },
+          child: Scaffold(
+            backgroundColor: pouLeafChrome,
+            appBar: pouLeafAppBar(
+              title: Text(customer.name),
+              actions: [
+                PopupMenuButton<String>(
+                  key: const Key('customer_details_menu'),
+                  icon: const Icon(Icons.more_vert),
+                  color: Colors.white,
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      final savedId = await showCustomerQuickSheet(
+                        context,
                         customer: customer,
-                        itemsTotalCents: note?.totalCents ?? 0,
-                        onRemainingDueSet: (dueOn) async {
-                          final current = _note;
-                          if (current == null ||
-                              current.status == NoteStatus.delivered) {
-                            return;
-                          }
-                          if (!di.sl.isRegistered<CustomerNoteRepository>()) {
-                            setState(
-                              () => _note = current.copyWith(dueOn: dueOn),
-                            );
-                            return;
-                          }
-                          final result =
-                              await di.sl<CustomerNoteRepository>().setDueOn(
-                            noteId: current.id,
-                            dueOn: dueOn,
-                          );
-                          if (!mounted) return;
-                          result.fold(_rememberFailure, (saved) {
-                            setState(() {
-                              _noteError = null;
-                              _note = saved;
-                            });
-                            _syncNoteToHome(saved);
-                          });
-                        },
+                      );
+                      if (!context.mounted) return;
+                      if (savedId != null) {
+                        context.read<CustomerDetailsBloc>().add(
+                          CustomerDetailsRequested(customer.id),
+                        );
+                      }
+                      return;
+                    }
+                    if (value == 'send_note') {
+                      await _sendNote(customer);
+                      return;
+                    }
+                    if (value == 'delete_note') {
+                      await _deleteNote();
+                      return;
+                    }
+                    if (value == 'deleted_notes') {
+                      await _showDeletedNotes(customer);
+                    }
+                  },
+                  itemBuilder: (context) {
+                    final canSend = note != null && note.lines.isNotEmpty;
+                    final canDelete =
+                        note != null &&
+                        note.status != NoteStatus.delivered &&
+                        (note.lines.isNotEmpty || note.dueOn != null);
+                    return [
+                      const PopupMenuItem<String>(
+                        key: Key('customer_edit_menu_item'),
+                        value: 'edit',
+                        child: Text('Editar cadastro'),
                       ),
-                    ],
+                      PopupMenuItem<String>(
+                        key: const Key('customer_send_note_menu_item'),
+                        value: 'send_note',
+                        enabled: canSend,
+                        child: const Text('Enviar nota'),
+                      ),
+                      PopupMenuItem<String>(
+                        key: const Key('customer_delete_note_menu_item'),
+                        value: 'delete_note',
+                        enabled: canDelete,
+                        child: const Text('Excluir nota'),
+                      ),
+                      const PopupMenuItem<String>(
+                        key: Key('customer_deleted_notes_menu_item'),
+                        value: 'deleted_notes',
+                        child: Text('Notas excluídas'),
+                      ),
+                    ];
+                  },
+                ),
+              ],
+            ),
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Leaf continues into the rounded-card corner reveals.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: bodyRadius,
+                  child: ClipRect(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      heightFactor:
+                          bodyRadius /
+                          (MediaQuery.paddingOf(context).top + kToolbarHeight),
+                      child: SizedBox(
+                        height:
+                            MediaQuery.paddingOf(context).top + kToolbarHeight,
+                        width: double.infinity,
+                        child: pouLeafBackdrop(),
+                      ),
+                    ),
                   ),
                 ),
-              );
-            },
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(bodyRadius),
+                  ),
+                  child: ColoredBox(
+                    color: const Color(0xFFF6F5F7),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _SituationBar(
+                                      status: customer.status,
+                                      onTap: () => _openStatus(customer),
+                                    ),
+                                    Builder(
+                                      builder: (context) {
+                                        final phone = primaryPhone(customer);
+                                        if (phone.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return _WhatsAppPhoneCard(
+                                          phone: phone,
+                                          onTap: () => _openWhatsApp(customer),
+                                        );
+                                      },
+                                    ),
+                                    if (note?.status ==
+                                        NoteStatus.delivered) ...[
+                                      const Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                          16,
+                                          8,
+                                          16,
+                                          0,
+                                        ),
+                                        child: Text(
+                                          'Entrega confirmada. Correções desta nota ficam para a etapa própria.',
+                                          key: Key('delivery_locked'),
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          16,
+                                          12,
+                                          16,
+                                          0,
+                                        ),
+                                        child: OutlinedButton(
+                                          key: const Key('new_purchase'),
+                                          style: noteSecondaryButton(),
+                                          onPressed: () =>
+                                              _newPurchase(customer.id),
+                                          child: const Text('Nova compra'),
+                                        ),
+                                      ),
+                                    ],
+                                    if (_noteError != null)
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          16,
+                                          8,
+                                          16,
+                                          0,
+                                        ),
+                                        child: Text(
+                                          _noteError!,
+                                          key: const Key('note_save_error'),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Color(0xFFC62828),
+                                          ),
+                                        ),
+                                      ),
+                                    if (loadingSales)
+                                      const Padding(
+                                        padding: EdgeInsets.all(32),
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            semanticsLabel: 'Carregando vendas',
+                                          ),
+                                        ),
+                                      )
+                                    else if (ledger == null)
+                                      Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Text(
+                                          sales.message ?? 'Não foi possível carregar as vendas.',
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      )
+                                    else
+                                      _SalesList(
+                                        customer: customer,
+                                        ledger: ledger,
+                                        lines: note?.lines ?? const [],
+                                        ready: note != null,
+                                        paymentMethod: _paymentMethod,
+                                        dueOn: note?.dueOn,
+                                        onPickPayment: _pickPaymentMethod,
+                                        onPickDue:
+                                            note?.status == NoteStatus.delivered
+                                            ? null
+                                            : _openDueDate,
+                                        onWhatsApp: () =>
+                                            _openWhatsApp(customer),
+                                        onAdd:
+                                            note == null ||
+                                                note.status ==
+                                                    NoteStatus.delivered
+                                            ? null
+                                            : _addLine,
+                                        onEdit:
+                                            note?.status == NoteStatus.delivered
+                                            ? null
+                                            : _editLine,
+                                      ),
+                                    CustomerAccountSection(customer: customer),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            NoteSummaryBar(
+                              customer: customer,
+                              note: note,
+                              paymentMethod: _paymentMethod,
+                              onPickPayment: _pickPaymentMethod,
+                              onPickDue: note?.status == NoteStatus.delivered
+                                  ? null
+                                  : _openDueDate,
+                              onCommit: _commitNoteSave,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _pickPaymentMethod() async {
+    final selected = await showModalBottomSheet<PaymentMethod>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD1D1D6),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Forma de pagamento',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: pouInk,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final method in PaymentMethod.values) ...[
+                  ListTile(
+                    key: Key('note_payment_${method.name}'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: _PaymentMethodIcon(method: method),
+                    title: Text(
+                      paymentMethodLabel(method),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: pouInk,
+                      ),
+                    ),
+                    trailing: Icon(
+                      _paymentMethod == method
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      color: _paymentMethod == method
+                          ? pouBrand
+                          : const Color(0xFF9CA3AF),
+                    ),
+                    onTap: () => Navigator.of(context).pop(method),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _paymentMethod = selected;
+      final note = _note;
+      if (note != null && note.status != NoteStatus.delivered) {
+        _note = note.copyWith(paymentMethod: selected);
+      }
+    });
+  }
+
+  Future<bool> _commitNoteSave(SaveNoteChoice choice) async {
+    final note = _note;
+    final method = _paymentMethod;
+    if (note == null || method == null) return false;
+    if (note.status == NoteStatus.delivered) return false;
+
+    if (!di.sl.isRegistered<CustomerNoteRepository>()) {
+      final saved = note.copyWith(
+        paymentMethod: method,
+        updatedAt: DateTime.now(),
+      );
+      setState(() {
+        _note = saved;
+        _paymentMethod = method;
+        _rememberSavedSnapshot(note: saved, paymentMethod: method);
+      });
+    } else {
+      final repo = di.sl<CustomerNoteRepository>();
+      final linesResult = await repo.saveLines(
+        noteId: note.id,
+        lines: [for (final line in note.lines) NoteLineDraft.fromLine(line)],
+      );
+      if (!mounted) return false;
+      if (linesResult.isLeft()) {
+        _rememberFailure(null);
+        return false;
+      }
+      var saved = linesResult.getOrElse(() => note);
+      final dueOn = saved.totalCents <= 0 ? null : note.dueOn;
+      final dueResult = await repo.setDueOn(noteId: saved.id, dueOn: dueOn);
+      if (!mounted) return false;
+      if (dueResult.isLeft()) {
+        _rememberFailure(null);
+        return false;
+      }
+      saved = dueResult.getOrElse(() => saved);
+      final payResult = await repo.setPaymentMethod(
+        noteId: saved.id,
+        paymentMethod: method,
+      );
+      if (!mounted) return false;
+      if (payResult.isLeft()) {
+        _rememberFailure(null);
+        return false;
+      }
+      saved = payResult.getOrElse(() => saved);
+      final payment = saved.paymentMethod ?? method;
+      setState(() {
+        _noteError = null;
+        _note = saved;
+        _paymentMethod = payment;
+        _rememberSavedSnapshot(note: saved, paymentMethod: payment);
+      });
+      await _syncNoteToHome(
+        saved,
+        cleared: saved.totalCents <= 0 || saved.dueOn == null,
+      );
+      if (!mounted) return false;
+    }
+
+    final sent = choice == SaveNoteChoice.sendPdf;
+    await showPouTopSnack(
+      context,
+      message: sent ? 'Nota compartilhada.' : 'Nota salva sem enviar.',
+      icon: sent ? Icons.ios_share_rounded : Icons.check_circle_rounded,
+    );
+    return true;
   }
 
   void _requestNote(String customerId) {
@@ -398,16 +623,20 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
   Future<void> _loadNote(String customerId) async {
     if (!di.sl.isRegistered<CustomerNoteRepository>()) {
       final now = DateTime.now();
+      final note = CustomerNote(
+        id: 'memory-$customerId',
+        customerId: customerId,
+        status: NoteStatus.draft,
+        createdAt: now,
+        updatedAt: now,
+        lines: const [],
+      );
       setState(() {
         _noteError = null;
-        _note = CustomerNote(
-          id: 'memory-$customerId',
-          customerId: customerId,
-          status: NoteStatus.draft,
-          createdAt: now,
-          updatedAt: now,
-          lines: const [],
-        );
+        _note = note;
+        _paymentMethod = null;
+        _allowLeave = false;
+        _rememberSavedSnapshot(note: note, paymentMethod: null);
       });
       return;
     }
@@ -417,6 +646,9 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       setState(() {
         _noteError = null;
         _note = note;
+        _paymentMethod = note.paymentMethod;
+        _allowLeave = false;
+        _rememberSavedSnapshot(note: note, paymentMethod: note.paymentMethod);
       });
     });
   }
@@ -442,21 +674,9 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     );
     if (picked == null || !mounted) return;
     final dueOn = DateTime(picked.year, picked.month, picked.day);
-    if (!di.sl.isRegistered<CustomerNoteRepository>()) {
-      setState(() => _note = note.copyWith(dueOn: dueOn));
-      return;
-    }
-    final result = await di.sl<CustomerNoteRepository>().setDueOn(
-      noteId: note.id,
-      dueOn: dueOn,
-    );
-    if (!mounted) return;
-    result.fold(_rememberFailure, (saved) {
-      setState(() {
-        _noteError = null;
-        _note = saved;
-      });
-      _syncNoteToHome(saved);
+    setState(() {
+      _noteError = null;
+      _note = note.copyWith(dueOn: dueOn, updatedAt: DateTime.now());
     });
   }
 
@@ -513,8 +733,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         context.read<CompanyOperationBloc>().state.operation?.products ??
         const <StockProduct>[];
     final media = MediaQuery.of(context);
-    final sheetHeight =
-        media.size.height - media.padding.top - kToolbarHeight;
+    final sheetHeight = media.size.height - media.padding.top - kToolbarHeight;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -567,8 +786,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final confirmed = await showPouConfirmDialog(
       context,
       title: 'Excluir nota?',
-      message:
-          'A nota atual vai para Notas excluídas e uma nota vazia abre no lugar.',
+      message: 'A nota atual vai para Notas excluídas e uma nota vazia abre no lugar.',
       confirmLabel: 'Excluir',
       confirmKey: const Key('confirm_delete_note'),
     );
@@ -576,20 +794,23 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
 
     if (!di.sl.isRegistered<CustomerNoteRepository>()) {
       final now = DateTime.now();
+      final next = CustomerNote(
+        id: 'memory-draft-${now.microsecondsSinceEpoch}',
+        customerId: note.customerId,
+        status: NoteStatus.draft,
+        createdAt: now,
+        updatedAt: now,
+        lines: const [],
+      );
       setState(() {
         _noteError = null;
         _memoryDeletedNotes.insert(
           0,
           note.copyWith(status: NoteStatus.deleted, updatedAt: now),
         );
-        _note = CustomerNote(
-          id: 'memory-draft-${now.microsecondsSinceEpoch}',
-          customerId: note.customerId,
-          status: NoteStatus.draft,
-          createdAt: now,
-          updatedAt: now,
-          lines: const [],
-        );
+        _note = next;
+        _paymentMethod = null;
+        _rememberSavedSnapshot(note: next, paymentMethod: null);
       });
       await _syncNoteToHome(note, cleared: true);
       return;
@@ -605,6 +826,11 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     setState(() {
       _noteError = null;
       _note = next;
+      _paymentMethod = next.paymentMethod;
+      _rememberSavedSnapshot(
+        note: next,
+        paymentMethod: next.paymentMethod,
+      );
     });
     await _syncNoteToHome(next, cleared: true);
   }
@@ -631,55 +857,28 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     bool clearing = false,
   }) async {
     final note = _note;
-    if (note == null) return;
-    if (!di.sl.isRegistered<CustomerNoteRepository>()) {
-      setState(() {
-        _noteError = null;
-        _note = note.copyWith(
-          updatedAt: DateTime.now(),
-          clearDueOn: clearing,
-          lines: [
-            for (final draft in drafts)
-              NoteLine(
-                id: draft.id ?? 'memory-${_memoryLine++}',
-                productId: draft.productId,
-                name: draft.name.trim(),
-                unit: draft.unit,
-                quantity: draft.quantity,
-                unitPriceCents: draft.unitPriceCents,
-                referencePriceCents: draft.referencePriceCents,
-              ),
-          ],
-        );
-      });
-      return;
-    }
-    final result = await di.sl<CustomerNoteRepository>().saveLines(
-      noteId: note.id,
-      lines: drafts,
-    );
-    if (!mounted) return;
-    if (result.isLeft()) {
-      _rememberFailure(null);
-      return;
-    }
-    var next = result.getOrElse(() => note);
-    if (clearing || next.totalCents <= 0) {
-      final dueCleared = await di.sl<CustomerNoteRepository>().setDueOn(
-        noteId: next.id,
-        dueOn: null,
-      );
-      next = dueCleared.fold(
-        (_) => next.copyWith(clearDueOn: true),
-        (value) => value,
-      );
-    }
-    if (!mounted) return;
+    if (note == null || note.status == NoteStatus.delivered) return;
+    final lines = [
+      for (final draft in drafts)
+        NoteLine(
+          id: draft.id ?? 'local-${_memoryLine++}',
+          productId: draft.productId,
+          name: draft.name.trim(),
+          unit: draft.unit,
+          quantity: draft.quantity,
+          unitPriceCents: draft.unitPriceCents,
+          referencePriceCents: draft.referencePriceCents,
+        ),
+    ];
+    final clearDue = clearing || lines.isEmpty;
     setState(() {
       _noteError = null;
-      _note = next;
+      _note = note.copyWith(
+        updatedAt: DateTime.now(),
+        clearDueOn: clearDue,
+        lines: lines,
+      );
     });
-    await _syncNoteToHome(next, cleared: clearing || next.totalCents <= 0);
   }
 
   Future<void> _syncNoteToHome(
@@ -720,6 +919,36 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     context.read<CustomerDetailsBloc>().add(
       CustomerStatusChangeRequested(next),
     );
+  }
+
+  Future<void> _sendNote(Customer customer) async {
+    final note = _note;
+    if (note == null || note.lines.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adicione um item para enviar a nota.')),
+      );
+      return;
+    }
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      final origin = box == null
+          ? null
+          : box.localToGlobal(Offset.zero) & box.size;
+      await shareCustomerNotePdf(
+        customer: customer,
+        note: note.copyWith(lines: List.of(note.lines)),
+        sharePositionOrigin: origin,
+      );
+    } catch (error, stack) {
+      debugPrint('send note failed: $error\n$stack');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível gerar a nota. Tente novamente.'),
+        ),
+      );
+    }
   }
 
   Future<void> _openWhatsApp(Customer customer) async {
@@ -825,6 +1054,35 @@ class _WhatsAppPhoneCard extends StatelessWidget {
   }
 }
 
+class _PaymentMethodIcon extends StatelessWidget {
+  const _PaymentMethodIcon({required this.method});
+
+  final PaymentMethod method;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: switch (method) {
+        PaymentMethod.cash => Image.asset(
+          'assets/images/payment-cash.png',
+          fit: BoxFit.contain,
+        ),
+        PaymentMethod.card => Image.asset(
+          'assets/images/payment-card.png',
+          fit: BoxFit.contain,
+        ),
+        PaymentMethod.pix => const Icon(
+          Icons.pix,
+          size: 26,
+          color: Color(0xFF32BCAD),
+        ),
+      },
+    );
+  }
+}
+
 class _DueDateCard extends StatelessWidget {
   const _DueDateCard({required this.date, required this.onPick});
 
@@ -851,6 +1109,10 @@ class _SalesList extends StatelessWidget {
     required this.ledger,
     required this.lines,
     required this.ready,
+    required this.paymentMethod,
+    required this.dueOn,
+    required this.onPickPayment,
+    required this.onPickDue,
     required this.onWhatsApp,
     required this.onAdd,
     required this.onEdit,
@@ -860,6 +1122,10 @@ class _SalesList extends StatelessWidget {
   final StreetLedger ledger;
   final List<NoteLine> lines;
   final bool ready;
+  final PaymentMethod? paymentMethod;
+  final DateTime? dueOn;
+  final VoidCallback onPickPayment;
+  final VoidCallback? onPickDue;
   final VoidCallback onWhatsApp;
   final VoidCallback? onAdd;
   final ValueChanged<int>? onEdit;
@@ -870,34 +1136,51 @@ class _SalesList extends StatelessWidget {
       for (final order in ledger.orders)
         if (order.customerId == customer.id && order.recorded) order,
     ]..sort((a, b) => b.code.compareTo(a.code));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _DraftItemsCard(
+    final paymentDescription = paymentMethod == null
+        ? 'Selecione dinheiro, cartão ou Pix'
+        : paymentMethodLabel(paymentMethod!);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: _DraftItemsCard(
             lines: lines,
             ready: ready,
             onAdd: onAdd,
             onEdit: onEdit,
           ),
-          if (orders.isEmpty) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'Nenhuma venda desta cliente.',
-              key: Key('customer_sales_empty'),
-              style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+        ),
+        CustomerActionCard(
+          inkWellKey: const Key('note_payment_method'),
+          labelFirst: false,
+          title: 'Forma de pagamento',
+          label: paymentDescription,
+          onTap: onPickPayment,
+          iconTiled: false,
+          icon: const Icon(
+            Icons.expand_more_rounded,
+            color: Color(0xFF6B7280),
+            size: 28,
+          ),
+        ),
+        _DueDateCard(date: dueOn, onPick: onPickDue),
+        if (orders.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Column(
+              children: [
+                for (final order in orders)
+                  _SaleCard(
+                    customer: customer,
+                    ledger: ledger,
+                    order: order,
+                    onWhatsApp: onWhatsApp,
+                  ),
+              ],
             ),
-          ] else
-            for (final order in orders)
-              _SaleCard(
-                customer: customer,
-                ledger: ledger,
-                order: order,
-                onWhatsApp: onWhatsApp,
-              ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -920,7 +1203,7 @@ class _DraftItemsCard extends StatefulWidget {
 }
 
 class _DraftItemsCardState extends State<_DraftItemsCard> {
-  var _open = true;
+  var _open = false;
 
   @override
   Widget build(BuildContext context) {
@@ -933,7 +1216,7 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
           InkWell(
             onTap: () => setState(() => _open = !_open),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+              padding: const EdgeInsets.fromLTRB(18, 16, 16, 8),
               child: Row(
                 children: [
                   Expanded(
@@ -946,9 +1229,19 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
                       ),
                     ),
                   ),
-                  Icon(
-                    _open ? Icons.expand_less : Icons.expand_more,
-                    color: pouAppBlue,
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: Icon(
+                        _open
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        color: const Color(0xFF6B7280),
+                        size: 28,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1027,10 +1320,7 @@ class _DraftItemsCardState extends State<_DraftItemsCard> {
 }
 
 class _ProductCatalogPage extends StatefulWidget {
-  const _ProductCatalogPage({
-    required this.products,
-    required this.onAdd,
-  });
+  const _ProductCatalogPage({required this.products, required this.onAdd});
 
   final Future<void> Function(_CatalogSelection selection) onAdd;
 
@@ -1057,18 +1347,19 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
   var _scrubbing = false;
 
   List<_CatalogRow> get _rows {
-    final rows = [
-      for (final product in widget.products)
-        _CatalogRow(
-          product: product,
-          sku: _skuFromId(product.id),
-          priceCents: product.salePriceCents,
-        ),
-    ]..sort(
-      (a, b) => a.product.name.toLowerCase().compareTo(
-        b.product.name.toLowerCase(),
-      ),
-    );
+    final rows =
+        [
+          for (final product in widget.products)
+            _CatalogRow(
+              product: product,
+              sku: _skuFromId(product.id),
+              priceCents: product.salePriceCents,
+            ),
+        ]..sort(
+          (a, b) => a.product.name.toLowerCase().compareTo(
+            b.product.name.toLowerCase(),
+          ),
+        );
     return rows;
   }
 
@@ -1159,7 +1450,8 @@ class _ProductCatalogPageState extends State<_ProductCatalogPage> {
                             16 + bottomInset,
                           ),
                           itemCount: visible.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final row = visible[index];
                             return _ProductCard(
@@ -1581,12 +1873,16 @@ class _SaleItemsPageState extends State<_SaleItemsPage> {
     final order = widget.order;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F7),
-      appBar: AppBar(backgroundColor: pouAppBlue, foregroundColor: pouCanvas, titleTextStyle: const TextStyle(
+      appBar: AppBar(
+        backgroundColor: pouAppBlue,
+        foregroundColor: pouCanvas,
+        titleTextStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
-        title: Text('Venda ${order.code}'),),
+        title: Text('Venda ${order.code}'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

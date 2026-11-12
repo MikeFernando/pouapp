@@ -10,6 +10,7 @@ import 'package:pouapp/features/customers/data/repositories/customer_note_reposi
 import 'package:pouapp/features/customers/domain/entities/customer.dart';
 import 'package:pouapp/features/customers/domain/entities/customer_note.dart';
 import 'package:pouapp/features/customers/domain/repositories/customer_note_repository.dart';
+import 'package:pouapp/features/workspace/domain/entities/street_ledger.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -100,6 +101,14 @@ void main() {
     expect(dated.id, anaDraft.id);
     expect(dated.dueOn, DateTime(2026, 11, 15));
 
+    final paid = _take(
+      await notes.setPaymentMethod(
+        noteId: anaDraft.id,
+        paymentMethod: PaymentMethod.cash,
+      ),
+    );
+    expect(paid.paymentMethod, PaymentMethod.cash);
+
     final rejected = await notes.saveLines(
       noteId: anaDraft.id,
       lines: const [
@@ -133,6 +142,7 @@ void main() {
     expect(reopened.lines.first.unitPriceCents, 1000);
     expect(reopened.lines[1].unit, CatalogUnit.box);
     expect(reopened.dueOn, DateTime(2026, 11, 15));
+    expect(reopened.paymentMethod, PaymentMethod.cash);
     expect(reopened.totalCents, 2900);
 
     final edited = _take(

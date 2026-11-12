@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 int? parseBrlToCents(String raw) {
   final text = raw.trim().replaceAll('R\$', '').replaceAll(' ', '');
   if (text.isEmpty) return null;
@@ -7,6 +9,46 @@ int? parseBrlToCents(String raw) {
   final value = double.tryParse(normalized);
   if (value == null || value < 0) return null;
   return (value * 100).round();
+}
+
+/// Digits-as-cents mask for fields that already show `R$` via [prefixText].
+/// Typing `990` becomes `9,90`; `123456` becomes `1.234,56`.
+class BrlCentsInputFormatter extends TextInputFormatter {
+  const BrlCentsInputFormatter({this.maxDigits = 11});
+
+  final int maxDigits;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > maxDigits) {
+      digits = digits.substring(digits.length - maxDigits);
+    }
+    final cents = digits.isEmpty ? 0 : int.parse(digits);
+    final text = formatBrlCentsInput(cents);
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
+/// Amount without the `R$` prefix, for masked money fields.
+String formatBrlCentsInput(int cents) {
+  final value = cents.abs();
+  final whole = value ~/ 100;
+  final fraction = (value % 100).toString().padLeft(2, '0');
+  final digits = whole.toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    final remaining = digits.length - index;
+    if (index > 0 && remaining % 3 == 0) buffer.write('.');
+    buffer.write(digits[index]);
+  }
+  return '$buffer,$fraction';
 }
 
 double? parseDecimalQuantity(String raw) {

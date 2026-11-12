@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../catalog/domain/entities/catalog.dart';
+import '../../../workspace/domain/entities/street_ledger.dart';
 import '../rules/note_rules.dart';
 
 enum NoteStatus { draft, delivered, deleted }
@@ -16,12 +17,14 @@ class CustomerNote extends Equatable {
     required this.updatedAt,
     required this.lines,
     this.dueOn,
+    this.paymentMethod,
   });
 
   final String id;
   final String customerId;
   final NoteStatus status;
   final DateTime? dueOn;
+  final PaymentMethod? paymentMethod;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<NoteLine> lines;
@@ -33,6 +36,8 @@ class CustomerNote extends Equatable {
     NoteStatus? status,
     DateTime? dueOn,
     bool clearDueOn = false,
+    PaymentMethod? paymentMethod,
+    bool clearPaymentMethod = false,
     DateTime? updatedAt,
     List<NoteLine>? lines,
   }) {
@@ -41,6 +46,9 @@ class CustomerNote extends Equatable {
       customerId: customerId,
       status: status ?? this.status,
       dueOn: clearDueOn ? null : dueOn ?? this.dueOn,
+      paymentMethod: clearPaymentMethod
+          ? null
+          : paymentMethod ?? this.paymentMethod,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lines: lines ?? this.lines,
@@ -53,6 +61,7 @@ class CustomerNote extends Equatable {
     customerId,
     status,
     dueOn,
+    paymentMethod,
     createdAt,
     updatedAt,
     lines,

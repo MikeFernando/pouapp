@@ -23,6 +23,7 @@ class CustomerActionCard extends StatelessWidget {
     this.enabled = true,
     this.busy = false,
     this.labelColor,
+    this.iconTiled = true,
   });
 
   /// When true, gray [label] sits above bold [title] (Vencimento).
@@ -39,6 +40,9 @@ class CustomerActionCard extends StatelessWidget {
   final bool enabled;
   final bool busy;
   final Color? labelColor;
+
+  /// When false, [icon] is shown without the light-green tile.
+  final bool iconTiled;
 
   @override
   Widget build(BuildContext context) {
@@ -97,11 +101,29 @@ class CustomerActionCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  CustomerActionIconTile(
-                    key: iconKey,
-                    busy: busy,
-                    child: icon,
-                  ),
+                  if (iconTiled)
+                    CustomerActionIconTile(
+                      key: iconKey,
+                      busy: busy,
+                      child: icon,
+                    )
+                  else
+                    SizedBox(
+                      key: iconKey,
+                      width: 40,
+                      height: 40,
+                      child: busy
+                          ? const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : Center(child: icon),
+                    ),
                 ],
               ),
             ),

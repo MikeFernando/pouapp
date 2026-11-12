@@ -364,11 +364,22 @@ class DeliveryStore {
       whereArgs: [id],
       orderBy: 'position ASC',
     );
+    final paymentRaw = row['payment_method'] as String?;
+    PaymentMethod? paymentMethod;
+    if (paymentRaw != null && paymentRaw.isNotEmpty) {
+      for (final method in PaymentMethod.values) {
+        if (method.name == paymentRaw) {
+          paymentMethod = method;
+          break;
+        }
+      }
+    }
     return CustomerNote(
       id: id,
       customerId: row['customer_id']! as String,
       status: NoteStatus.values.byName(row['status']! as String),
       dueOn: _date(row['due_on'] as String?),
+      paymentMethod: paymentMethod,
       createdAt: DateTime.parse(row['created_at']! as String),
       updatedAt: DateTime.parse(row['updated_at']! as String),
       lines: [

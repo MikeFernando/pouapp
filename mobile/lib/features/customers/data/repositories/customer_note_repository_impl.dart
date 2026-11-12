@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../workspace/domain/entities/street_ledger.dart';
 import '../../domain/entities/customer_note.dart';
 import '../../domain/repositories/customer_note_repository.dart';
 import '../datasources/customer_note_local_data_source.dart';
@@ -59,6 +60,19 @@ class CustomerNoteRepositoryImpl implements CustomerNoteRepository {
     required DateTime? dueOn,
   }) {
     return _guard(() => localDataSource.setDueOn(noteId: noteId, dueOn: dueOn));
+  }
+
+  @override
+  Future<Either<Failure, CustomerNote>> setPaymentMethod({
+    required String noteId,
+    required PaymentMethod? paymentMethod,
+  }) {
+    return _guard(
+      () => localDataSource.setPaymentMethod(
+        noteId: noteId,
+        paymentMethod: paymentMethod,
+      ),
+    );
   }
 
   @override

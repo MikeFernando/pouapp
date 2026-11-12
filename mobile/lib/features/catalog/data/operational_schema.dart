@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
-const catalogDatabaseVersion = 10;
+const catalogDatabaseVersion = 11;
 
 const operationSourceKey = 'operation_source';
 const operationSourceSqlite = 'sqlite';
@@ -15,11 +15,13 @@ Future<void> createOperationalTables(DatabaseExecutor db) async {
       customer_id TEXT NOT NULL,
       status TEXT NOT NULL,
       due_on TEXT,
+      payment_method TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
   ''');
   await ensureOneDraftNotePerCustomer(db);
+  await ensureNotePaymentMethod(db);
   await db.execute('''
     CREATE TABLE IF NOT EXISTS customer_note_lines (
       id TEXT PRIMARY KEY,
@@ -385,6 +387,20 @@ Future<void> upgradeVoiceTables(Database db) async {
     'alias': 'jp',
     'target': 'Jardim Paraíso',
   }, conflictAlgorithm: ConflictAlgorithm.ignore);
+}
+
+/// Preferred payment method chosen on the draft before delivery confirmation.
+Future<void> ensureNotePaymentMethod(DatabaseExecutor db) async {
+  final tables = await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'customer_notes'",
+  );
+  if (tables.isEmpty) return;
+  final columns = await db.rawQuery('PRAGMA table_info(customer_notes)');
+  final hasPayment = columns.any((row) => row['name'] == 'payment_method');
+  if (hasPayment) return;
+  await db.execute(
+    'ALTER TABLE customer_notes ADD COLUMN payment_method TEXT',
+  );
 }
 
 /// One open draft per customer — drop older duplicates, then restore the index.

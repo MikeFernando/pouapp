@@ -80,7 +80,7 @@ abstract class CustomerLocalDataSource {
   Future<Database> database();
 }
 
-const customerDatabaseVersion = 4;
+const customerDatabaseVersion = 5;
 
 /// Local development database.
 ///
@@ -592,6 +592,7 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
         if (oldVersion < 2) await createCustomerNoteTables(db);
         if (oldVersion < 3) await upgradeCustomerNotePrices(db);
         if (oldVersion < 4) await consolidateCustomerDraftNotes(db);
+        if (oldVersion < 5) await ensureCustomerNotePaymentMethod(db);
       },
     );
     if (customerDemoAllowed && _seedDemo) {
@@ -808,6 +809,7 @@ Future<void> createCustomerNoteTables(DatabaseExecutor db) async {
       customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
       status TEXT NOT NULL,
       due_on TEXT,
+      payment_method TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
@@ -904,6 +906,19 @@ Future<void> upgradeCustomerNotePrices(Database db) async {
     SET reference_price_cents = unit_price_cents
     WHERE reference_price_cents IS NULL
     ''');
+}
+
+Future<void> ensureCustomerNotePaymentMethod(DatabaseExecutor db) async {
+  final tables = await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'customer_notes'",
+  );
+  if (tables.isEmpty) return;
+  final columns = await db.rawQuery('PRAGMA table_info(customer_notes)');
+  final hasPayment = columns.any((row) => row['name'] == 'payment_method');
+  if (hasPayment) return;
+  await db.execute(
+    'ALTER TABLE customer_notes ADD COLUMN payment_method TEXT',
+  );
 }
 
 String generateEntityId() {

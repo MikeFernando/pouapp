@@ -26,7 +26,6 @@ import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
 import '../widgets/profile_menu_sheet.dart';
 import '../widgets/street_board_view.dart';
-import 'add_delivery_page.dart';
 import 'business_settings_page.dart';
 import 'finance_page.dart';
 
@@ -65,7 +64,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   var _valuesHidden = false;
   final _built = <int>{0};
   var _tab = 0;
-  var _adding = false;
+  var _checklistReceivedCents = 0;
+  Map<String, int> _checklistProductCents = const {};
 
   void _openTab(int index) {
     setState(() {
@@ -126,63 +126,55 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                   index: _tab,
                   children: [
                     fill(
-                      Stack(
+                      Column(
                         children: [
-                          Column(
-                            children: [
-                              _WorkspaceHeader(
-                                user: user,
-                                message: logoutError,
-                                receivedTodayCents: _receivedTodayCents(
-                                  context,
-                                ),
-                                valuesHidden: _valuesHidden,
-                                onToggleValues: () {
-                                  setState(
-                                    () => _valuesHidden = !_valuesHidden,
-                                  );
-                                },
-                              ),
-                              Expanded(
-                                child: StreetBoardView(
-                                  valuesHidden: _valuesHidden,
-                                  onNewSale: _addDeliveryPerson,
-                                  onOpenCustomer: (customerId) async {
-                                    await Navigator.of(context).pushNamed(
-                                      CustomerRoutes.details(customerId),
-                                    );
-                                    if (!context.mounted) return;
-                                    // Reload hoje/amanhã after editing vencimento.
-                                    if (ApiConfig.useRemoteApi) {
-                                      context.read<HomeBoardBloc>().add(
-                                        const HomeBoardRequested(),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
+                          _WorkspaceHeader(
+                            user: user,
+                            message: logoutError,
+                            receivedTodayCents:
+                                _receivedTodayCents(context) +
+                                _checklistReceivedCents,
+                            valuesHidden: _valuesHidden,
+                            onToggleValues: () {
+                              setState(
+                                () => _valuesHidden = !_valuesHidden,
+                              );
+                            },
                           ),
-                          if (_adding)
-                            Positioned.fill(
-                              child: _AddCover(
-                                onClose: () => setState(() => _adding = false),
-                                child: AddDeliveryPage(
-                                  onOpenCustomer: (customerId) async {
-                                    setState(() => _adding = false);
-                                    await Navigator.of(context).pushNamed(
-                                      CustomerRoutes.details(customerId),
-                                    );
-                                    if (!context.mounted) return;
-                                    if (ApiConfig.useRemoteApi) {
-                                      context.read<HomeBoardBloc>().add(
-                                        const HomeBoardRequested(),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
+                          Expanded(
+                            child: StreetBoardView(
+                              valuesHidden: _valuesHidden,
+                              onChecklistChanged: (snapshot) {
+                                if (_checklistReceivedCents ==
+                                        snapshot.receivedCents &&
+                                    _sameProductCents(
+                                      _checklistProductCents,
+                                      snapshot.productCents,
+                                    )) {
+                                  return;
+                                }
+                                setState(() {
+                                  _checklistReceivedCents =
+                                      snapshot.receivedCents;
+                                  _checklistProductCents = Map.of(
+                                    snapshot.productCents,
+                                  );
+                                });
+                              },
+                              onOpenCustomer: (customerId) async {
+                                await Navigator.of(context).pushNamed(
+                                  CustomerRoutes.details(customerId),
+                                );
+                                if (!context.mounted) return;
+                                // Reload hoje/amanhã after editing vencimento.
+                                if (ApiConfig.useRemoteApi) {
+                                  context.read<HomeBoardBloc>().add(
+                                    const HomeBoardRequested(),
+                                  );
+                                }
+                              },
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -198,7 +190,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     ),
                     fill(
                       _built.contains(3)
-                          ? const FinancePage()
+                          ? FinancePage(
+                              checklistProductCents: _checklistProductCents,
+                              checklistReceivedCents: _checklistReceivedCents,
+                            )
                           : const SizedBox.shrink(),
                     ),
                   ],
@@ -209,10 +204,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         },
       ),
     );
-  }
-
-  void _addDeliveryPerson() {
-    setState(() => _adding = true);
   }
 
   int _receivedTodayCents(BuildContext context) {
@@ -226,6 +217,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       month: DateTime(now.year, now.month),
       today: now,
     ).receivedCents;
+  }
+
+  bool _sameProductCents(Map<String, int> a, Map<String, int> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
   }
 }
 
@@ -502,91 +501,6 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
                   ),
                 )
               : null,
-        ),
-      ),
-    );
-  }
-}
-
-/// Covers the home content, sliding down from the top and stopping above the bar.
-class _AddCover extends StatefulWidget {
-  const _AddCover({required this.onClose, required this.child});
-
-  final VoidCallback onClose;
-  final Widget child;
-
-  @override
-  State<_AddCover> createState() => _AddCoverState();
-}
-
-class _AddCoverState extends State<_AddCover>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 320),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _close() async {
-    await _controller.reverse();
-    if (mounted) widget.onClose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, -1),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic)),
-      child: ColoredBox(
-        color: const Color(0xFFF6F5F7),
-        child: Column(
-          children: [
-            SafeArea(
-              bottom: false,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 0),
-                  child: Tooltip(
-                    message: 'Fechar',
-                    child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        key: const Key('close_add_delivery'),
-                        customBorder: const CircleBorder(),
-                        onTap: _close,
-                        child: const SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: Icon(
-                            Icons.close,
-                            size: 20,
-                            color: pouInk,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(child: widget.child),
-          ],
         ),
       ),
     );

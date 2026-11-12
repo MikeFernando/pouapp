@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
+import '../../../workspace/domain/entities/street_ledger.dart';
 import '../entities/customer_note.dart';
 
 abstract class CustomerNoteRepository {
@@ -31,6 +32,11 @@ abstract class CustomerNoteRepository {
   Future<Either<Failure, CustomerNote>> setDueOn({
     required String noteId,
     required DateTime? dueOn,
+  });
+
+  Future<Either<Failure, CustomerNote>> setPaymentMethod({
+    required String noteId,
+    required PaymentMethod? paymentMethod,
   });
 
   /// Soft-deletes the draft (keeps items) and returns a fresh empty draft.

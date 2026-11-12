@@ -108,6 +108,37 @@ void main() {
     expect(find.byKey(const Key('day_receipts_more')), findsNothing);
   });
 
+  testWidgets('checklist marks served and reports received cents', (
+    tester,
+  ) async {
+    var reported = DayChecklistSnapshot.empty;
+    await tester.pumpWidget(
+      _wrap(
+        DayReceiptsCard(
+          progress: const VisitProgress(done: 0, total: 1),
+          receipts: _receipts(1),
+          valuesHidden: false,
+          onOpenCustomer: (_) {},
+          onChecklistChanged: (snapshot) => reported = snapshot,
+        ),
+      ),
+    );
+
+    expect(find.text('0 de 1'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('day_receipt_check_c0')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('1 de 1'), findsOneWidget);
+    expect(reported.receivedCents, 1770);
+
+    await tester.tap(find.byKey(const Key('day_receipt_check_c0')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('0 de 1'), findsOneWidget);
+    expect(reported.receivedCents, 0);
+  });
+
   testWidgets('collapsed then expands for two receipts', (tester) async {
     final opened = <String>[];
     await tester.pumpWidget(

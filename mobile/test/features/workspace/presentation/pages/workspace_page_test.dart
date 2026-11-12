@@ -48,18 +48,10 @@ void main() {
       expect(find.text('Recebimentos do dia'), findsOneWidget);
       expect(find.text('Próximos vencimentos'), findsOneWidget);
       expect(find.text('WhatsApp'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('action_new_sale')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(
-        find.byKey(const Key('action_new_sale')).hitTestable(),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('action_new_sale')), findsNothing);
       expect(find.byKey(const Key('voice_assistant_button')), findsNothing);
       expect(find.byTooltip('Assistente de voz'), findsNothing);
-      expect(find.text('Edipo Silva'), findsOneWidget);
+      expect(find.byKey(const Key('profile_avatar')), findsOneWidget);
       expect(find.text('Faturado'), findsNothing);
       expect(find.textContaining('Em aberto'), findsNothing);
       expect(find.byKey(const Key('header_month_billed')), findsNothing);
@@ -76,24 +68,6 @@ void main() {
       expect(find.text('Financeiro'), findsOneWidget);
     });
 
-    testWidgets('Nova venda opens the delivery picker', (tester) async {
-      tester.view.physicalSize = const Size(800, 2000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await signIn(tester);
-      await tester.tap(find.byKey(const Key('action_new_sale')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Escolha quem vai receber a entrega.'), findsOneWidget);
-      expect(find.byKey(const Key('add_delivery_list')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('close_add_delivery')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Recebimentos do dia'), findsOneWidget);
-    });
-
     testWidgets('should lay out deliveries on a small screen', (tester) async {
       tester.view.physicalSize = const Size(360, 740);
       tester.view.devicePixelRatio = 1;
@@ -102,8 +76,8 @@ void main() {
 
       await signIn(tester);
       expect(tester.takeException(), isNull);
-      expect(find.text('Edipo Silva'), findsOneWidget);
-      expect(find.byKey(const Key('action_new_sale')), findsOneWidget);
+      expect(find.byKey(const Key('profile_avatar')), findsOneWidget);
+      expect(find.byKey(const Key('action_new_sale')), findsNothing);
     });
   });
 

@@ -187,6 +187,7 @@ Future<void> _replaceNotes(
       'customer_id': note['customer_id'],
       'status': note['status'],
       'due_on': note['due_on'],
+      'payment_method': note['payment_method'],
       'created_at': note['created_at'],
       'updated_at': note['updated_at'],
     });

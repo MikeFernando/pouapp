@@ -4,6 +4,7 @@ import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
 import '../../../../injection_container.dart';
+import '../../../workspace/presentation/street_input.dart';
 import '../../domain/entities/catalog.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../domain/rules/stock_rules.dart';
@@ -19,6 +20,7 @@ class ProductsPage extends StatefulWidget {
 
 class _ProductsPageState extends State<ProductsPage> {
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   var _loading = true;
   String? _error;
   CatalogSnapshot? _snapshot;
@@ -28,13 +30,36 @@ class _ProductsPageState extends State<ProductsPage> {
   @override
   void initState() {
     super.initState();
+    _searchFocus.addListener(_onSearchFocusChanged);
     _load();
   }
 
   @override
   void dispose() {
+    _searchFocus
+      ..removeListener(_onSearchFocusChanged)
+      ..dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchFocusChanged() {
+    if (!_searchFocus.hasFocus) {
+      setState(() {});
+      return;
+    }
+    setState(() {
+      _filterLetter = null;
+      _scrubbing = false;
+    });
+  }
+
+  void _clearAlphabetFilter() {
+    if (_filterLetter == null && !_scrubbing) return;
+    setState(() {
+      _filterLetter = null;
+      _scrubbing = false;
+    });
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -193,6 +218,7 @@ class _ProductsPageState extends State<ProductsPage> {
   @override
   Widget build(BuildContext context) {
     final products = _filteredProducts();
+    final searching = _searchFocus.hasFocus;
     return ColoredBox(
       color: pouCanvas,
       child: SafeArea(
@@ -206,7 +232,12 @@ class _ProductsPageState extends State<ProductsPage> {
                   child: TextField(
                     key: const Key('products_search'),
                     controller: _search,
-                    onChanged: (_) => setState(() {}),
+                    focusNode: _searchFocus,
+                    onTap: _clearAlphabetFilter,
+                    onChanged: (_) {
+                      _clearAlphabetFilter();
+                      setState(() {});
+                    },
                     decoration: InputDecoration(
                       hintText: 'Buscar produto',
                       prefixIcon: const Icon(
@@ -224,7 +255,7 @@ class _ProductsPageState extends State<ProductsPage> {
                     ),
                   ),
                 ),
-                Expanded(child: _body(products)),
+                Expanded(child: _body(products, searching: searching)),
               ],
             ),
             Positioned(
@@ -246,7 +277,7 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  Widget _body(List<ProductStock> products) {
+  Widget _body(List<ProductStock> products, {required bool searching}) {
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -315,20 +346,21 @@ class _ProductsPageState extends State<ProductsPage> {
               ),
             ),
           ),
-        Positioned(
-          key: const Key('products_alphabet'),
-          right: 0,
-          top: 0,
-          bottom: 72,
-          child: PouAlphabetIndex(
-            keyPrefix: 'products',
-            activeLetter: _filterLetter,
-            scrubbing: _scrubbing,
-            onDragLetter: _setLetter,
-            onTapLetter: _tapLetter,
-            onDragEnd: _endScrub,
+        if (!searching)
+          Positioned(
+            key: const Key('products_alphabet'),
+            right: 0,
+            top: 0,
+            bottom: 72,
+            child: PouAlphabetIndex(
+              keyPrefix: 'products',
+              activeLetter: _filterLetter,
+              scrubbing: _scrubbing,
+              onDragLetter: _setLetter,
+              onTapLetter: _tapLetter,
+              onDragEnd: _endScrub,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -642,7 +674,7 @@ class _NewProductSheet extends StatefulWidget {
 
 class _NewProductSheetState extends State<_NewProductSheet> {
   final _name = TextEditingController();
-  final _price = TextEditingController();
+  final _price = TextEditingController(text: formatBrlCentsInput(0));
   var _unit = CatalogUnit.kilogram;
   var _saving = false;
   String? _error;
@@ -754,9 +786,8 @@ class _NewProductSheetState extends State<_NewProductSheet> {
               TextField(
                 key: const Key('new_product_price'),
                 controller: _price,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [BrlCentsInputFormatter()],
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _saving ? null : _save(),
                 decoration: _fieldDecoration('Preço').copyWith(

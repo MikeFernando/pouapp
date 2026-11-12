@@ -2,8 +2,9 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../catalog/domain/entities/catalog.dart';
-import '../../domain/entities/customer_note.dart';
 import '../../../catalog/data/operational_schema.dart';
+import '../../../workspace/domain/entities/street_ledger.dart';
+import '../../domain/entities/customer_note.dart';
 import '../exceptions/note_exceptions.dart';
 import 'customer_local_data_source.dart';
 
@@ -32,6 +33,11 @@ abstract class CustomerNoteLocalDataSource {
   Future<CustomerNote> setDueOn({
     required String noteId,
     required DateTime? dueOn,
+  });
+
+  Future<CustomerNote> setPaymentMethod({
+    required String noteId,
+    required PaymentMethod? paymentMethod,
   });
 
   /// Marks the draft as deleted and returns a new empty draft for the customer.
@@ -74,6 +80,7 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
           'customer_id': customerId,
           'status': NoteStatus.draft.name,
           'due_on': null,
+          'payment_method': null,
           'created_at': now,
           'updated_at': now,
         });
@@ -283,6 +290,36 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
   }
 
   @override
+  Future<CustomerNote> setPaymentMethod({
+    required String noteId,
+    required PaymentMethod? paymentMethod,
+  }) async {
+    final db = await openDatabase();
+    try {
+      return await db.transaction((txn) async {
+        final current = await _read(txn, noteId);
+        await _purgeExtraDrafts(
+          txn,
+          customerId: current.customerId,
+          keepId: noteId,
+        );
+        await _touchDraft(
+          txn,
+          noteId,
+          paymentMethod: paymentMethod,
+          replacePaymentMethod: true,
+        );
+        await _queueNote(txn, noteId);
+        return _read(txn, noteId);
+      });
+    } on NoteNotFoundException {
+      rethrow;
+    } on DatabaseException {
+      throw CacheException();
+    }
+  }
+
+  @override
   Future<CustomerNote> deleteNote(String noteId) async {
     final db = await openDatabase();
     try {
@@ -310,6 +347,7 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
           'customer_id': current.customerId,
           'status': NoteStatus.draft.name,
           'due_on': null,
+          'payment_method': null,
           'created_at': now,
           'updated_at': now,
         });
@@ -369,11 +407,16 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     String noteId, {
     DateTime? dueOn,
     bool replaceDueOn = false,
+    PaymentMethod? paymentMethod,
+    bool replacePaymentMethod = false,
   }) async {
     final values = <String, Object?>{
       'updated_at': _clock().toUtc().toIso8601String(),
     };
     if (replaceDueOn) values['due_on'] = _dateText(dueOn);
+    if (replacePaymentMethod) {
+      values['payment_method'] = paymentMethod?.name;
+    }
     final updated = await txn.update(
       'customer_notes',
       values,
@@ -428,6 +471,7 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
       customerId: row['customer_id']! as String,
       status: NoteStatus.values.byName(row['status']! as String),
       dueOn: _date(row['due_on']),
+      paymentMethod: _paymentMethod(row['payment_method']),
       createdAt: DateTime.parse(row['created_at']! as String),
       updatedAt: DateTime.parse(row['updated_at']! as String),
       lines: [
@@ -444,6 +488,14 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
       ],
     );
   }
+}
+
+PaymentMethod? _paymentMethod(Object? value) {
+  if (value is! String || value.isEmpty) return null;
+  for (final method in PaymentMethod.values) {
+    if (method.name == value) return method;
+  }
+  return null;
 }
 
 String? _dateText(DateTime? date) {

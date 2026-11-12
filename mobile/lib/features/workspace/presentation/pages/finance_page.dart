@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_app_colors.dart';
 import '../../../catalog/presentation/produce_assets.dart';
-import '../../../customers/presentation/customer_routes.dart';
 import '../../domain/entities/posted_sale.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
@@ -29,50 +28,93 @@ enum _HueFamily {
   brown,
   pink,
   blue,
+  white,
   other,
 }
 
-/// Product → hue family (same family gets distinct shades on the chart).
+/// Product → hue family from the produce's main color.
+/// Longer keys first so "batata doce" / "repolho roxo" win over shorter ones.
 const _merchandiseFamilies = <String, _HueFamily>{
+  // Compound names
+  'batata doce': _HueFamily.orange,
+  'repolho roxo': _HueFamily.purple,
+  'couve flor': _HueFamily.white,
+  'couve-flor': _HueFamily.white,
+  'tomate cereja': _HueFamily.red,
+  // Yellow
   'banana': _HueFamily.yellow,
-  'batata': _HueFamily.yellow,
   'abacaxi': _HueFamily.yellow,
   'carambola': _HueFamily.yellow,
   'limao': _HueFamily.yellow,
-  'limão': _HueFamily.yellow,
-  'ovo': _HueFamily.yellow,
   'milho': _HueFamily.yellow,
+  'maracuja': _HueFamily.yellow,
+  'melao': _HueFamily.yellow,
+  'mandioquinha': _HueFamily.yellow,
+  // White / cream
+  'ovo': _HueFamily.white,
+  'nabo': _HueFamily.white,
+  'alho': _HueFamily.purple,
+  'coco': _HueFamily.brown,
+  // Green
   'alface': _HueFamily.green,
   'abacate': _HueFamily.green,
-  'melancia': _HueFamily.green,
   'pepino': _HueFamily.green,
   'couve': _HueFamily.green,
   'brocolis': _HueFamily.green,
-  'brócolis': _HueFamily.green,
   'chuchu': _HueFamily.green,
+  'kiwi': _HueFamily.green,
+  'agriao': _HueFamily.green,
+  'acelga': _HueFamily.green,
+  'chicoria': _HueFamily.green,
+  'espinafre': _HueFamily.green,
+  'rucula': _HueFamily.green,
+  'repolho': _HueFamily.green,
+  'salsa': _HueFamily.green,
+  'coentro': _HueFamily.green,
+  'manjericao': _HueFamily.green,
+  'hortela': _HueFamily.green,
+  'cebolinha': _HueFamily.green,
+  'abobrinha': _HueFamily.green,
+  'quiabo': _HueFamily.green,
+  'vagem': _HueFamily.green,
+  'maxixe': _HueFamily.green,
+  'pera': _HueFamily.green,
+  // Red
+  'acerola': _HueFamily.red,
   'tomate': _HueFamily.red,
   'morango': _HueFamily.red,
+  'pimentao': _HueFamily.red,
   'pimenta': _HueFamily.red,
-  'roma': _HueFamily.red,
-  'alho': _HueFamily.purple,
+  'maca': _HueFamily.red,
+  'rabanete': _HueFamily.red,
+  'melancia': _HueFamily.red,
+  // Purple
   'uva': _HueFamily.purple,
-  'repolho': _HueFamily.purple,
   'berinjela': _HueFamily.purple,
   'ameixa': _HueFamily.purple,
+  'amora': _HueFamily.purple,
+  'figo': _HueFamily.purple,
+  'jabuticaba': _HueFamily.purple,
+  'jilo': _HueFamily.purple,
+  // Orange
   'laranja': _HueFamily.orange,
   'cenoura': _HueFamily.orange,
   'mamao': _HueFamily.orange,
-  'mamão': _HueFamily.orange,
   'manga': _HueFamily.orange,
   'caqui': _HueFamily.orange,
   'tangerina': _HueFamily.orange,
+  'caju': _HueFamily.orange,
+  'abobora': _HueFamily.orange,
+  'pessego': _HueFamily.orange,
+  // Brown / earthy
   'cebola': _HueFamily.brown,
   'inhame': _HueFamily.brown,
   'mandioca': _HueFamily.brown,
-  'coco': _HueFamily.brown,
+  'batata': _HueFamily.brown,
+  // Pink
   'beterraba': _HueFamily.pink,
   'pitaya': _HueFamily.pink,
-  'kiwi': _HueFamily.green,
+  'goiaba': _HueFamily.pink,
 };
 
 /// Base HSL for each family (hue, saturation). Lightness is varied per sibling.
@@ -85,11 +127,26 @@ const _familyHsl = <_HueFamily, (double, double)>{
   _HueFamily.brown: (32, 0.42),
   _HueFamily.pink: (330, 0.62),
   _HueFamily.blue: (214, 0.72),
-  _HueFamily.other: (210, 0.35),
+  _HueFamily.white: (40, 0.08),
+  // Unmapped products: soft gray, never a misleading fruit color.
+  _HueFamily.other: (220, 0.06),
 };
 
+String _normalizeProduceKey(String name) {
+  final lower = name.trim().toLowerCase();
+  const from = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
+  const to = 'aaaaaeeeeiiiiooooouuuucn';
+  final buffer = StringBuffer();
+  for (final code in lower.runes) {
+    final char = String.fromCharCode(code);
+    final index = from.indexOf(char);
+    buffer.write(index >= 0 ? to[index] : char);
+  }
+  return buffer.toString();
+}
+
 _HueFamily _familyFor(String name) {
-  final key = name.trim().toLowerCase();
+  final key = _normalizeProduceKey(name);
   for (final entry in _merchandiseFamilies.entries) {
     if (key.contains(entry.key)) return entry.value;
   }
@@ -100,6 +157,12 @@ Color _shadeInFamily(_HueFamily family, int indexInFamily, int familyCount) {
   final base = _familyHsl[family] ?? (210.0, 0.35);
   // One product: mid tone. Several: light → deep so slices stay readable.
   final t = familyCount <= 1 ? 0.5 : indexInFamily / (familyCount - 1);
+  if (family == _HueFamily.white) {
+    // Eggshell off-white so the ring stays visible on the page.
+    final lightness = 0.90 - (t * 0.10);
+    final saturation = (base.$2 + (0.05 * t)).clamp(0.05, 0.16);
+    return HSLColor.fromAHSL(1, base.$1, saturation, lightness).toColor();
+  }
   final lightness = 0.72 - (t * 0.34);
   final saturation = (base.$2 + (0.08 * (0.5 - t))).clamp(0.25, 1.0);
   return HSLColor.fromAHSL(1, base.$1, saturation, lightness).toColor();
@@ -128,14 +191,22 @@ Map<String, Color> _merchandiseColors(List<_ProductRank> ranked) {
 }
 
 /// Measured clockwise from the upper-left of the reference ring.
-const _structuralWeights = <double>[67, 26, 41, 82, 131];
-const _gapDegrees = 11.0;
+const _gapDegrees = 16.0;
+const _chartSlots = 8;
 const _startDegrees = -138.0;
 
 enum _Span { week, month, year }
 
 class FinancePage extends StatefulWidget {
-  const FinancePage({super.key});
+  const FinancePage({
+    super.key,
+    this.checklistProductCents = const {},
+    this.checklistReceivedCents = 0,
+  });
+
+  /// Products from home day-checklist marks (notes marked as received).
+  final Map<String, int> checklistProductCents;
+  final int checklistReceivedCents;
 
   @override
   State<FinancePage> createState() => _FinancePageState();
@@ -154,28 +225,28 @@ class _FinancePageState extends State<FinancePage> {
               in state.operation?.postedSales ?? const <PostedSale>[])
             if (_inside(sale, _span, now)) sale,
         ];
-        var ranked = _rankedMerchandise(
-          state.operation?.street.orders ?? const <SaleOrder>[],
-          _span,
-          now,
+        final ranked = _mergeProductRanks(
+          _rankedMerchandise(
+            state.operation?.street.orders ?? const <SaleOrder>[],
+            _span,
+            now,
+          ),
+          widget.checklistProductCents,
         );
-        // Empty board: show feira-style demo so chart/colors can be reviewed.
-        if (ranked.isEmpty && sales.isEmpty) {
-          ranked = _demoMerchandise(_span);
-        }
-        final figures = sales.isEmpty
-            ? _Figures(
-                billed: ranked.fold<int>(0, (sum, row) => sum + row.cents),
-                received: 0,
-                open: 0,
-              )
-            : _figures(sales);
+        final baseFigures = _figures(sales);
+        final checklistCents = widget.checklistReceivedCents > 0
+            ? widget.checklistReceivedCents
+            : widget.checklistProductCents.values.fold<int>(
+                0,
+                (sum, cents) => sum + cents,
+              );
+        final figures = _Figures(
+          billed: baseFigures.billed + checklistCents,
+          received: baseFigures.received + checklistCents,
+          open: baseFigures.open,
+        );
         final arcs = _arcs(_merchandiseSlices(ranked));
         final categories = _categories(ranked);
-        final buckets = _paymentBuckets(
-          state.operation?.postedSales ?? const <PostedSale>[],
-          now,
-        );
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle.dark.copyWith(
             statusBarColor: Colors.transparent,
@@ -242,9 +313,6 @@ class _FinancePageState extends State<FinancePage> {
                         return _Sheet(
                           scrollController: scrollController,
                           categories: categories,
-                          overdue: buckets.overdue,
-                          onTime: buckets.onTime,
-                          receivable: buckets.receivable,
                         );
                       },
                     ),
@@ -358,24 +426,26 @@ int? _share(int part, int whole) {
   return percent;
 }
 
-/// Demo mix for an empty finance board (feira-style merchandise).
-List<_ProductRank> _demoMerchandise(_Span span) {
-  const base = <_ProductRank>[
-    _ProductRank(name: 'Alho', cents: 284000),
-    _ProductRank(name: 'Batata', cents: 196500),
-    _ProductRank(name: 'Alface americana', cents: 142000),
-    _ProductRank(name: 'Cebola', cents: 87500),
-    _ProductRank(name: 'Alface crespa', cents: 72400),
-    _ProductRank(name: 'Abacate', cents: 51200),
-  ];
-  final factor = switch (span) {
-    _Span.week => 0.28,
-    _Span.month => 1.0,
-    _Span.year => 9.2,
+List<_ProductRank> _mergeProductRanks(
+  List<_ProductRank> base,
+  Map<String, int> extra,
+) {
+  if (extra.isEmpty) return base;
+  final totals = <String, int>{
+    for (final row in base) row.name: row.cents,
   };
+  for (final entry in extra.entries) {
+    final name = entry.key.trim();
+    if (name.isEmpty || entry.value <= 0) continue;
+    totals[name] = (totals[name] ?? 0) + entry.value;
+  }
+  final ranked = totals.entries.toList()
+    ..sort((a, b) {
+      final byValue = b.value.compareTo(a.value);
+      return byValue != 0 ? byValue : a.key.compareTo(b.key);
+    });
   return [
-    for (final row in base)
-      _ProductRank(name: row.name, cents: (row.cents * factor).round()),
+    for (final row in ranked) _ProductRank(name: row.key, cents: row.value),
   ];
 }
 
@@ -417,20 +487,8 @@ List<_ProductRank> _rankedMerchandise(
 
 List<_Category> _categories(List<_ProductRank> ranked) {
   final total = ranked.fold<int>(0, (sum, product) => sum + product.cents);
-  final top = ranked.take(4).toList();
-  if (top.isEmpty) {
-    return [
-      for (var index = 0; index < 4; index++)
-        _Category(
-          name: '—',
-          cents: 0,
-          percent: null,
-          color: _neutral,
-          asset: null,
-          placeholder: true,
-        ),
-    ];
-  }
+  final top = ranked.take(_chartSlots).toList();
+  if (top.isEmpty) return const [];
   final colors = _merchandiseColors(ranked);
   return [
     for (final product in top)
@@ -450,20 +508,18 @@ class _Slice {
     required this.cents,
     required this.color,
     this.asset,
-    this.neutral = false,
   });
 
   final int cents;
   final Color color;
   final String? asset;
-  final bool neutral;
 }
 
 List<_Slice> _merchandiseSlices(List<_ProductRank> ranked) {
   if (ranked.isEmpty) return const [];
-  final top = ranked.take(4).toList();
+  final top = ranked.take(_chartSlots).toList();
   final colors = _merchandiseColors(ranked);
-  final slices = <_Slice>[
+  return [
     for (final product in top)
       _Slice(
         cents: product.cents,
@@ -471,11 +527,6 @@ List<_Slice> _merchandiseSlices(List<_ProductRank> ranked) {
         asset: produceAsset(product.name),
       ),
   ];
-  final rest = ranked.skip(4).fold<int>(0, (sum, product) => sum + product.cents);
-  if (rest > 0) {
-    slices.add(_Slice(cents: rest, color: _neutral, neutral: true));
-  }
-  return slices;
 }
 
 class _Arc {
@@ -494,49 +545,35 @@ class _Arc {
   final String? asset;
 }
 
-List<double> _structuralSweeps() {
-  final weight = _structuralWeights.fold<double>(0, (sum, value) => sum + value);
-  final available = 360 - _gapDegrees * _structuralWeights.length;
+List<_Arc> _emptyArcs() {
+  const count = _chartSlots;
+  final sweep = (360 - _gapDegrees * count) / count;
   return [
-    for (final value in _structuralWeights) available * value / weight,
+    for (var index = 0; index < count; index++)
+      _Arc(
+        sweepDegrees: sweep,
+        color: _neutral,
+        label: '',
+        neutral: true,
+      ),
   ];
 }
 
 List<_Arc> _arcs(List<_Slice> slices) {
-  final structural = _structuralSweeps();
-  if (slices.isEmpty) {
-    return [
-      for (final sweep in structural)
-        const _Arc(
-          sweepDegrees: 0,
-          color: _neutral,
-          label: '—',
-          neutral: true,
-        ).copyWithSweep(sweep),
-    ];
-  }
-  const stub = 8.0;
-  final missing = 5 - slices.length;
-  final available = 360 - _gapDegrees * 5 - stub * missing;
+  if (slices.isEmpty) return _emptyArcs();
   final total = slices.fold<int>(0, (sum, slice) => sum + slice.cents);
-  final arcs = <_Arc>[
+  if (total <= 0) return _emptyArcs();
+  final available = 360 - _gapDegrees * slices.length;
+  return [
     for (final slice in slices)
       _Arc(
-        sweepDegrees: total == 0 ? 0 : available * slice.cents / total,
+        sweepDegrees: available * slice.cents / total,
         color: slice.color,
-        label: total == 0 ? '—' : '${_share(slice.cents, total) ?? 0}%',
-        neutral: slice.neutral,
+        label: '${_share(slice.cents, total) ?? 0}%',
+        neutral: false,
         asset: slice.asset,
       ),
-    for (var index = 0; index < missing; index++)
-      const _Arc(
-        sweepDegrees: stub,
-        color: _neutral,
-        label: '—',
-        neutral: true,
-      ),
   ];
-  return arcs;
 }
 
 class _Ring extends StatelessWidget {
@@ -605,19 +642,20 @@ class _Ring extends StatelessWidget {
               ),
             ),
             for (final draw in geometry.draws)
-              Positioned(
-                left: draw.label.dx,
-                top: draw.label.dy,
-                child: FractionalTranslation(
-                  translation: const Offset(-0.5, -0.5),
-                  child: _PercentPill(
-                    label: draw.arc.label,
-                    asset: draw.arc.asset,
-                    tint: draw.arc.color,
-                    neutral: draw.arc.neutral,
+              if (draw.arc.label.isNotEmpty)
+                Positioned(
+                  left: draw.label.dx,
+                  top: draw.label.dy,
+                  child: FractionalTranslation(
+                    translation: const Offset(-0.5, -0.5),
+                    child: _PercentPill(
+                      label: draw.arc.label,
+                      asset: draw.arc.asset,
+                      tint: draw.arc.color,
+                      neutral: draw.arc.neutral,
+                    ),
                   ),
                 ),
-              ),
           ],
         );
       },
@@ -825,151 +863,14 @@ class _Filters extends StatelessWidget {
   }
 }
 
-class _ClientPayment {
-  const _ClientPayment({
-    required this.customerId,
-    required this.customerName,
-    required this.cents,
-    required this.detail,
-  });
-
-  final String customerId;
-  final String customerName;
-  final int cents;
-  final String detail;
-}
-
-class _PaymentBuckets {
-  const _PaymentBuckets({
-    required this.overdue,
-    required this.onTime,
-    required this.receivable,
-  });
-
-  final List<_ClientPayment> overdue;
-  final List<_ClientPayment> onTime;
-  final List<_ClientPayment> receivable;
-}
-
-_PaymentBuckets _paymentBuckets(List<PostedSale> sales, DateTime now) {
-  final today = DateTime(now.year, now.month, now.day);
-  final overdue = <_ClientPayment>[];
-  final onTime = <_ClientPayment>[];
-  final receivable = <_ClientPayment>[];
-  for (final sale in sales) {
-    if (!sale.sale || sale.openCents <= 0) continue;
-    final due = sale.dueOn == null ? null : _day(sale.dueOn!);
-    final item = _ClientPayment(
-      customerId: sale.customerId,
-      customerName: sale.customerName,
-      cents: sale.openCents,
-      detail: due == null
-          ? 'Sem vencimento'
-          : due.isBefore(today)
-          ? 'Venceu ${formatDay(due)}'
-          : 'Vence ${formatDay(due)}',
-    );
-    receivable.add(item);
-    if (due != null && due.isBefore(today)) {
-      overdue.add(item);
-    } else {
-      onTime.add(item);
-    }
-  }
-  // Empty board: feira-style examples so the payment sections can be reviewed.
-  if (overdue.isEmpty && onTime.isEmpty && receivable.isEmpty) {
-    return _demoPaymentBuckets(today);
-  }
-  overdue.sort((a, b) => b.cents.compareTo(a.cents));
-  onTime.sort((a, b) => b.cents.compareTo(a.cents));
-  receivable.sort((a, b) => b.cents.compareTo(a.cents));
-  return _PaymentBuckets(
-    overdue: overdue,
-    onTime: onTime,
-    receivable: receivable,
-  );
-}
-
-_PaymentBuckets _demoPaymentBuckets(DateTime today) {
-  String day(int offset) => formatDay(today.add(Duration(days: offset)));
-  return _PaymentBuckets(
-    overdue: [
-      _ClientPayment(
-        customerId: 'demo-customer-padaria',
-        customerName: 'Beatriz Nunes',
-        cents: 18640,
-        detail: 'Venceu ${day(-5)}',
-      ),
-      _ClientPayment(
-        customerId: 'demo-customer-primavera',
-        customerName: 'Marina Costa',
-        cents: 12400,
-        detail: 'Venceu ${day(-2)}',
-      ),
-    ],
-    onTime: [
-      _ClientPayment(
-        customerId: 'demo-customer-mercado',
-        customerName: 'Ricardo Alves',
-        cents: 8900,
-        detail: 'Vence ${day(3)}',
-      ),
-      _ClientPayment(
-        customerId: 'demo-customer-joao',
-        customerName: 'João Oliveira',
-        cents: 5600,
-        detail: 'Vence ${day(8)}',
-      ),
-      _ClientPayment(
-        customerId: 'demo-customer-hortifruti',
-        customerName: 'Pedro Almeida',
-        cents: 0,
-        detail: 'Sem pendência',
-      ),
-    ],
-    receivable: [
-      _ClientPayment(
-        customerId: 'demo-customer-padaria',
-        customerName: 'Beatriz Nunes',
-        cents: 18640,
-        detail: 'Venceu ${day(-5)}',
-      ),
-      _ClientPayment(
-        customerId: 'demo-customer-primavera',
-        customerName: 'Marina Costa',
-        cents: 12400,
-        detail: 'Venceu ${day(-2)}',
-      ),
-      _ClientPayment(
-        customerId: 'demo-customer-mercado',
-        customerName: 'Ricardo Alves',
-        cents: 8900,
-        detail: 'Vence ${day(3)}',
-      ),
-      _ClientPayment(
-        customerId: 'demo-customer-joao',
-        customerName: 'João Oliveira',
-        cents: 5600,
-        detail: 'Vence ${day(8)}',
-      ),
-    ],
-  );
-}
-
 class _Sheet extends StatelessWidget {
   const _Sheet({
     required this.scrollController,
     required this.categories,
-    required this.overdue,
-    required this.onTime,
-    required this.receivable,
   });
 
   final ScrollController scrollController;
   final List<_Category> categories;
-  final List<_ClientPayment> overdue;
-  final List<_ClientPayment> onTime;
-  final List<_ClientPayment> receivable;
 
   @override
   Widget build(BuildContext context) {
@@ -1003,32 +904,17 @@ class _Sheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _CategoryGrid(categories: categories),
-          const SizedBox(height: 28),
-          _ClientPaymentSection(
-            title: 'Em atraso',
-            subtitle: 'Passou do dia combinado para pagar',
-            accent: const Color(0xFFC62828),
-            items: overdue,
-            emptyLabel: 'Nenhum cliente em atraso.',
-          ),
-          const SizedBox(height: 22),
-          _ClientPaymentSection(
-            title: 'Pagamentos em dia',
-            subtitle: 'No prazo ou sem pendência',
-            accent: const Color(0xFF2E7D32),
-            items: onTime,
-            emptyLabel: 'Nenhum pagamento em dia no período.',
-          ),
-          const SizedBox(height: 22),
-          _ClientPaymentSection(
-            title: 'Pagamentos a receber',
-            subtitle: 'Saldo em aberto das notas',
-            accent: pouBrand,
-            amountColor: pouInk,
-            items: receivable,
-            emptyLabel: 'Nada a receber no momento.',
-          ),
+          if (categories.isEmpty)
+            const Text(
+              'Nenhuma venda no período.',
+              style: TextStyle(
+                color: _muted,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          else
+            _CategoryGrid(categories: categories),
         ],
       ),
     );
@@ -1060,176 +946,6 @@ class _CategoryGrid extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _ClientPaymentSection extends StatelessWidget {
-  const _ClientPaymentSection({
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-    required this.items,
-    required this.emptyLabel,
-    this.amountColor,
-    this.showTotal = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final Color accent;
-  final Color? amountColor;
-  final List<_ClientPayment> items;
-  final String emptyLabel;
-  final bool showTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = items.fold<int>(0, (sum, item) => sum + item.cents);
-    final amounts = amountColor ?? accent;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: pouInk,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: _muted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (showTotal && items.isNotEmpty)
-              Text(
-                formatBrl(total),
-                style: TextStyle(
-                  color: amounts,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (items.isEmpty)
-          Text(
-            emptyLabel,
-            style: const TextStyle(
-              color: _muted,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          )
-        else
-          for (var index = 0; index < items.length; index++) ...[
-            if (index > 0) const SizedBox(height: 8),
-            _ClientPaymentTile(
-              item: items[index],
-              accent: accent,
-              amountColor: amounts,
-            ),
-          ],
-      ],
-    );
-  }
-}
-
-class _ClientPaymentTile extends StatelessWidget {
-  const _ClientPaymentTile({
-    required this.item,
-    required this.accent,
-    required this.amountColor,
-  });
-
-  final _ClientPayment item;
-  final Color accent;
-  final Color amountColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: _cardFill,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        key: Key('finance_customer_${item.customerId}'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.of(
-            context,
-          ).pushNamed(CustomerRoutes.details(item.customerId));
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.customerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: pouInk,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _muted,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                item.cents <= 0 ? '—' : formatBrl(item.cents),
-                style: TextStyle(
-                  color: amountColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1369,18 +1085,6 @@ class _CategoryPhoto extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-extension on _Arc {
-  _Arc copyWithSweep(double sweepDegrees) {
-    return _Arc(
-      sweepDegrees: sweepDegrees,
-      color: color,
-      label: label,
-      neutral: neutral,
-      asset: asset,
     );
   }
 }

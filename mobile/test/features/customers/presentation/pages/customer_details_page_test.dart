@@ -227,27 +227,31 @@ void main() {
     expect(find.text('João Oliveira'), findsWidgets);
     expect(
       tester.widget<Text>(find.byKey(const Key('customer_open_balance'))).data,
-      'R\$ 0,00',
+      'Salvar',
     );
     expect(find.text('Total desta nota'), findsNothing);
-    expect(find.text('Saldo em aberto'), findsOneWidget);
+    expect(find.text('Saldo em aberto'), findsNothing);
+    expect(find.text('VENCIMENTO'), findsOneWidget);
+    expect(find.text('Forma de pagamento'), findsOneWidget);
+    expect(find.text('Vencimento'), findsOneWidget);
+    expect(find.text('R\$ 0,00'), findsOneWidget);
     expect(find.text('R\$ 186,40'), findsNothing);
     final situationTop = tester.getTopLeft(find.text('Situação')).dy;
-    final dueTop = tester.getTopLeft(find.text('Vencimento')).dy;
     final itemsTop = tester.getTopLeft(find.text('Itens (0)')).dy;
-    final balanceTop = tester
-        .getTopLeft(find.byKey(const Key('customer_open_balance')))
-        .dy;
-    expect(situationTop, lessThan(dueTop));
-    expect(dueTop, lessThan(itemsTop));
-    expect(itemsTop, lessThan(balanceTop));
+    final dueTop = tester.getTopLeft(find.text('Vencimento')).dy;
+    expect(situationTop, lessThan(itemsTop));
+    expect(itemsTop, lessThan(dueTop));
+    expect(find.byKey(const Key('customer_open_balance')), findsOneWidget);
+    expect(find.byKey(const Key('note_summary_bar')), findsOneWidget);
     expect(find.text('Situação'), findsOneWidget);
     expect(find.text('Ativo'), findsOneWidget);
     expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
-    expect(find.text('Nenhum item nesta nota.'), findsOneWidget);
+    expect(find.text('Nenhum item nesta nota.'), findsNothing);
     expect(find.text('Laranja PACOTE 2KG'), findsNothing);
 
+    await tester.ensureVisible(find.byKey(const Key('due_calendar')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('due_calendar')));
     await tester.pumpAndSettle();
     expect(find.text('Escolha a data de vencimento'), findsOneWidget);
@@ -266,6 +270,9 @@ void main() {
     expect(find.text('Editar'), findsNothing);
     expect(find.text('Produto'), findsNothing);
 
+    await tester.tap(find.text('Itens (0)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhum item nesta nota.'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('add_item')));
     await tester.tap(find.byKey(const Key('add_item')));
     await tester.pumpAndSettle();
@@ -339,16 +346,19 @@ void main() {
       findsOneWidget,
     );
     final price = tester.widget<TextField>(find.byKey(const Key('item_price')));
-    expect(
-      price.keyboardType,
-      const TextInputType.numberWithOptions(decimal: true),
-    );
+    expect(price.keyboardType, TextInputType.number);
     expect(price.focusNode!.hasFocus, isTrue);
     await tester.enterText(find.byKey(const Key('item_price')), '5,00');
     await tester.pump();
     expect(find.text('Adicionar por R\$ 5,00'), findsOneWidget);
     await tester.tap(find.byKey(const Key('item_save')));
     await tester.pumpAndSettle();
+    // Nested catalog sheet can remain after the item form pops.
+    for (var i = 0; i < 2; i++) {
+      if (find.byType(BottomSheet).evaluate().isEmpty) break;
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Mamão formosa'), findsOneWidget);
     expect(find.text('Itens (1)'), findsOneWidget);
     expect(
@@ -365,7 +375,7 @@ void main() {
     await tester.tap(find.byKey(const Key('edit_Mamão formosa')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('remove_note_item')), findsOneWidget);
-    expect(find.text('Salvar'), findsOneWidget);
+    expect(find.text('Salvar'), findsWidgets);
     await tester.tap(find.byKey(const Key('item_quantity_plus')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('item_quantity_plus')));
@@ -441,11 +451,12 @@ void main() {
     expect(find.text('Cancelado'), findsNothing);
   });
 
-  testWidgets('should say when this customer has no sales', (tester) async {
+  testWidgets('should hide sales from other customers', (tester) async {
     await pumpDetails(tester, orders: const [someoneElse]);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('customer_sales_empty')), findsOneWidget);
+    expect(find.byKey(const Key('customer_sales_empty')), findsNothing);
+    expect(find.text('Nenhuma venda desta cliente.'), findsNothing);
     expect(find.text('mandar mensagem'), findsNothing);
     expect(find.text('Tomate italiano'), findsNothing);
   });

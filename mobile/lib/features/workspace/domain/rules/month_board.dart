@@ -252,6 +252,24 @@ class DayReceiptCustomer {
   final bool done;
 }
 
+/// Home checklist marks that also feed Financeiro (valor + produtos).
+class DayChecklistSnapshot {
+  const DayChecklistSnapshot({
+    required this.receivedCents,
+    required this.productCents,
+  });
+
+  static const empty = DayChecklistSnapshot(
+    receivedCents: 0,
+    productCents: {},
+  );
+
+  final int receivedCents;
+
+  /// Product display name → cents from notes marked as received today.
+  final Map<String, int> productCents;
+}
+
 /// Customers whose note or open balance is due on [today].
 ///
 /// Fully paid items for the same day stay listed as [DayReceiptCustomer.done].

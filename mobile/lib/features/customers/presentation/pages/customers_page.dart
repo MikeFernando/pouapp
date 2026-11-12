@@ -65,6 +65,7 @@ class PeopleCustomersView extends StatefulWidget {
 
 class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   String? _filterLetter;
   var _scrubbing = false;
   var _mode = _CustomerListMode.all;
@@ -75,13 +76,36 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   @override
   void initState() {
     super.initState();
+    _searchFocus.addListener(_onSearchFocusChanged);
     _loadRanks();
   }
 
   @override
   void dispose() {
+    _searchFocus
+      ..removeListener(_onSearchFocusChanged)
+      ..dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchFocusChanged() {
+    if (!_searchFocus.hasFocus) {
+      setState(() {});
+      return;
+    }
+    setState(() {
+      _filterLetter = null;
+      _scrubbing = false;
+    });
+  }
+
+  void _clearAlphabetFilter() {
+    if (_filterLetter == null && !_scrubbing) return;
+    setState(() {
+      _filterLetter = null;
+      _scrubbing = false;
+    });
   }
 
   Future<void> _loadRanks() async {
@@ -196,9 +220,12 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
 
   @override
   Widget build(BuildContext context) {
+    final searching = _searchFocus.hasFocus;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F7),
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             Column(
@@ -208,6 +235,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                   child: TextField(
                     key: const Key('customer_search'),
                     controller: _search,
+                    focusNode: _searchFocus,
                     textInputAction: TextInputAction.search,
                     style: const TextStyle(
                       fontSize: 16,
@@ -241,7 +269,9 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                         borderSide: BorderSide.none,
                       ),
                     ),
+                    onTap: _clearAlphabetFilter,
                     onChanged: (value) {
+                      _clearAlphabetFilter();
                       context.read<CustomersBloc>().add(
                         CustomersSearchChanged(value),
                       );
@@ -345,7 +375,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                             )
                           else if (visible.isNotEmpty)
                             ListView(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 28, 88),
+                              padding: const EdgeInsets.fromLTRB(16, 8, 28, 8),
                               children: [
                                 Material(
                                   color: Colors.white,
@@ -406,20 +436,21 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                 ),
                               ),
                             ),
-                          Positioned(
-                            key: const Key('customers_alphabet'),
-                            right: 0,
-                            top: 8,
-                            bottom: 8,
-                            child: PouAlphabetIndex(
-                              keyPrefix: 'customers',
-                              activeLetter: _filterLetter,
-                              scrubbing: _scrubbing,
-                              onDragLetter: _setLetter,
-                              onTapLetter: _tapLetter,
-                              onDragEnd: _endScrub,
+                          if (!searching)
+                            Positioned(
+                              key: const Key('customers_alphabet'),
+                              right: 0,
+                              top: 8,
+                              bottom: 8,
+                              child: PouAlphabetIndex(
+                                keyPrefix: 'customers',
+                                activeLetter: _filterLetter,
+                                scrubbing: _scrubbing,
+                                onDragLetter: _setLetter,
+                                onTapLetter: _tapLetter,
+                                onDragEnd: _endScrub,
+                              ),
                             ),
-                          ),
                         ],
                       );
                     },
@@ -429,7 +460,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
             ),
             Positioned(
               right: 20,
-              bottom: 0,
+              bottom: 16,
               child: FloatingActionButton(
                 key: const Key('customer_add'),
                 heroTag: 'customer_add',

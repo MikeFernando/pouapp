@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
+import '../../../customers/domain/entities/customer_note.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
 import '../../domain/entities/street_ledger.dart';
@@ -20,13 +21,13 @@ class StreetBoardView extends StatefulWidget {
   const StreetBoardView({
     super.key,
     required this.valuesHidden,
-    required this.onNewSale,
     required this.onOpenCustomer,
+    this.onChecklistChanged,
   });
 
   final bool valuesHidden;
-  final VoidCallback onNewSale;
   final ValueChanged<String> onOpenCustomer;
+  final ValueChanged<DayChecklistSnapshot>? onChecklistChanged;
 
   @override
   State<StreetBoardView> createState() => StreetBoardViewState();
@@ -38,6 +39,7 @@ class StreetBoardViewState extends State<StreetBoardView>
   late final AnimationController _entrance;
   late final ScrollController _scroll;
   List<UpcomingDueCustomer> _noteDues = const [];
+  Map<String, List<NoteLine>> _noteLinesByCustomer = const {};
   Set<String> _clearedNoteCustomers = const {};
   var _notesReady = false;
 
@@ -75,6 +77,7 @@ class StreetBoardViewState extends State<StreetBoardView>
     final items = result.getOrElse(() => const []);
     final cleared = clearedResult.getOrElse(() => const <String>{});
     final mapped = <UpcomingDueCustomer>[];
+    final linesByCustomer = <String, List<NoteLine>>{};
     for (final note in items) {
       if (note.dueOn == null || note.totalCents <= 0) continue;
       // Orphan / seed drafts without a real customer must not appear on home.
@@ -95,10 +98,12 @@ class StreetBoardViewState extends State<StreetBoardView>
           amountCents: note.totalCents,
         ),
       );
+      linesByCustomer[note.customerId] = List.of(note.lines);
     }
     if (!mounted) return;
     setState(() {
       _noteDues = mapped;
+      _noteLinesByCustomer = linesByCustomer;
       _clearedNoteCustomers = cleared;
       _notesReady = true;
     });
@@ -304,12 +309,10 @@ class StreetBoardViewState extends State<StreetBoardView>
                           progress: progress,
                           receipts: receipts,
                           valuesHidden: valuesHidden,
+                          noteLinesByCustomer: _noteLinesByCustomer,
                           onOpenCustomer: widget.onOpenCustomer,
+                          onChecklistChanged: widget.onChecklistChanged,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      rise(
-                        _NovaVendaButton(onPressed: widget.onNewSale),
                       ),
                       const SizedBox(height: 16),
                       rise(
@@ -345,76 +348,6 @@ class StreetBoardViewState extends State<StreetBoardView>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NovaVendaButton extends StatelessWidget {
-  const _NovaVendaButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  static const _radius = 14.0;
-  static const _forest = Color(0xFF062E0C);
-  static const _height = 52.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Nova Venda',
-      child: Material(
-        color: _forest,
-        borderRadius: BorderRadius.circular(_radius),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const Key('action_new_sale'),
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(_radius),
-          child: SizedBox(
-            width: double.infinity,
-            height: _height,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  'assets/images/nova-venda-fundo-botanico.png',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.centerRight,
-                  excludeFromSemantics: true,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const ColoredBox(color: _forest);
-                  },
-                ),
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset(
-                        'assets/images/carrinho-botanico.png',
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.contain,
-                        excludeFromSemantics: true,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Nova Venda',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

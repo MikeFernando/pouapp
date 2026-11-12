@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/catalog/presentation/produce_assets.dart';
+import '../features/workspace/presentation/street_input.dart';
 import 'pou_app_colors.dart';
 import 'pou_confirm_dialog.dart';
 
@@ -100,7 +101,7 @@ class _PouItemEditSheetState extends State<PouItemEditSheet> {
   late var _unavailable = !widget.available;
   late final _priceFocus = FocusNode();
   late final _priceController = TextEditingController(
-    text: _priceText(widget.unitPriceCents),
+    text: formatBrlCentsInput(widget.unitPriceCents),
   );
   var _error = false;
 
@@ -258,9 +259,8 @@ class _PouItemEditSheetState extends State<PouItemEditSheet> {
                     controller: _priceController,
                     focusNode: _priceFocus,
                     autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: const [BrlCentsInputFormatter()],
                     textInputAction: TextInputAction.done,
                     style: const TextStyle(
                       fontSize: 16,
@@ -420,22 +420,7 @@ class _Photo extends StatelessWidget {
   }
 }
 
-String _priceText(int cents) {
-  final whole = cents ~/ 100;
-  final fraction = (cents % 100).toString().padLeft(2, '0');
-  return '$whole,$fraction';
-}
-
-int? _parsePriceCents(String raw) {
-  final cleaned = raw.trim().replaceAll('R\$', '').replaceAll(' ', '');
-  if (cleaned.isEmpty) return null;
-  final normalized = cleaned.contains(',')
-      ? cleaned.replaceAll('.', '').replaceAll(',', '.')
-      : cleaned;
-  final value = double.tryParse(normalized);
-  if (value == null || value < 0) return null;
-  return (value * 100).round();
-}
+int? _parsePriceCents(String raw) => parseBrlToCents(raw);
 
 String _formatBrl(int cents) {
   final negative = cents < 0;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/pou_app_colors.dart';
+import '../../../customers/domain/entities/customer_note.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
 import '../operation_labels.dart';
@@ -15,6 +16,8 @@ class DayReceiptsCard extends StatefulWidget {
     required this.receipts,
     required this.valuesHidden,
     required this.onOpenCustomer,
+    this.noteLinesByCustomer = const {},
+    this.onChecklistChanged,
   });
 
   final Key? titleKey;
@@ -22,6 +25,12 @@ class DayReceiptsCard extends StatefulWidget {
   final List<DayReceiptCustomer> receipts;
   final bool valuesHidden;
   final ValueChanged<String> onOpenCustomer;
+
+  /// Draft note lines keyed by customer — used when marking received.
+  final Map<String, List<NoteLine>> noteLinesByCustomer;
+
+  /// Open amounts + products marked attended in the checklist (not yet paid).
+  final ValueChanged<DayChecklistSnapshot>? onChecklistChanged;
 
   @override
   State<DayReceiptsCard> createState() => _DayReceiptsCardState();
@@ -33,22 +42,75 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
   static const _muted = Color(0xFF6B7280);
   static const _divider = Color(0xFFE9E8EB);
   static const _pillBg = Color(0xFFF0F0F2);
+  /// Served row: green-gray, not blue-gray.
+  static const _servedInk = Color(0xFF7E9086);
+  static const _servedCheckBg = Color(0xFFE4F5EA);
 
   /// Stack surfaces: pure white → cool grey → slightly deeper grey.
   static const _layerMid = Color(0xFFFCFCFD);
   static const _layerBack = Color(0xFFF7F8FA);
 
   var _expanded = false;
+  final _servedIds = <String>{};
 
   bool get _canExpand => widget.receipts.length >= 2;
 
   bool get _showStack => _canExpand && !_expanded;
+
+  bool _isServed(DayReceiptCustomer receipt) {
+    return receipt.done || _servedIds.contains(receipt.customerId);
+  }
+
+  int get _doneCount {
+    var count = 0;
+    for (final receipt in widget.receipts) {
+      if (_isServed(receipt)) count++;
+    }
+    return count;
+  }
+
+  DayChecklistSnapshot get _checklistSnapshot {
+    var cents = 0;
+    final products = <String, int>{};
+    for (final receipt in widget.receipts) {
+      if (receipt.done) continue;
+      if (!_servedIds.contains(receipt.customerId)) continue;
+      cents += receipt.amountCents;
+      final lines = widget.noteLinesByCustomer[receipt.customerId] ?? const [];
+      for (final line in lines) {
+        final name = line.name.trim();
+        if (name.isEmpty || line.totalCents <= 0) continue;
+        products[name] = (products[name] ?? 0) + line.totalCents;
+      }
+    }
+    return DayChecklistSnapshot(
+      receivedCents: cents,
+      productCents: products,
+    );
+  }
+
+  void _emitChecklistReceived() {
+    final snapshot = _checklistSnapshot;
+    final notify = widget.onChecklistChanged;
+    if (notify == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      notify(snapshot);
+    });
+  }
 
   @override
   void didUpdateWidget(covariant DayReceiptsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_canExpand && _expanded) {
       _expanded = false;
+    }
+    final ids = {for (final receipt in widget.receipts) receipt.customerId};
+    final before = _servedIds.length;
+    _servedIds.removeWhere((id) => !ids.contains(id));
+    if (_servedIds.length != before ||
+        oldWidget.receipts != widget.receipts) {
+      _emitChecklistReceived();
     }
   }
 
@@ -57,12 +119,21 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
     setState(() => _expanded = !_expanded);
   }
 
+  void _toggleServed(String customerId) {
+    setState(() {
+      if (!_servedIds.add(customerId)) {
+        _servedIds.remove(customerId);
+      }
+    });
+    _emitChecklistReceived();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = workspaceColorsOf(context);
-    final fraction = widget.progress.total == 0
-        ? 0.0
-        : widget.progress.done / widget.progress.total;
+    final total = widget.receipts.length;
+    final done = _doneCount;
+    final fraction = total == 0 ? 0.0 : done / total;
     final showStack = _showStack;
 
     final cardBody = Material(
@@ -79,8 +150,7 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
           children: [
             _Header(
               titleKey: widget.titleKey,
-              progressLabel:
-                  '${widget.progress.done} de ${widget.progress.total}',
+              progressLabel: '$done de $total',
               accent: colors.accent,
               canExpand: _canExpand,
               expanded: _expanded,
@@ -92,6 +162,8 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
               valuesHidden: widget.valuesHidden,
               expanded: _expanded,
               canExpand: _canExpand,
+              isServed: _isServed,
+              onToggleServed: _toggleServed,
               onOpenCustomer: widget.onOpenCustomer,
               onExpand: _toggleExpanded,
             ),
@@ -300,6 +372,8 @@ class _Body extends StatelessWidget {
     required this.valuesHidden,
     required this.expanded,
     required this.canExpand,
+    required this.isServed,
+    required this.onToggleServed,
     required this.onOpenCustomer,
     required this.onExpand,
   });
@@ -308,6 +382,8 @@ class _Body extends StatelessWidget {
   final bool valuesHidden;
   final bool expanded;
   final bool canExpand;
+  final bool Function(DayReceiptCustomer receipt) isServed;
+  final ValueChanged<String> onToggleServed;
   final ValueChanged<String> onOpenCustomer;
   final VoidCallback onExpand;
 
@@ -347,6 +423,8 @@ class _Body extends StatelessWidget {
           _DayReceiptTile(
             receipt: visible[index],
             valuesHidden: valuesHidden,
+            served: isServed(visible[index]),
+            onToggleServed: () => onToggleServed(visible[index].customerId),
             onOpenCustomer: () => onOpenCustomer(visible[index].customerId),
           ),
         ],
@@ -380,23 +458,31 @@ class _DayReceiptTile extends StatelessWidget {
   const _DayReceiptTile({
     required this.receipt,
     required this.valuesHidden,
+    required this.served,
+    required this.onToggleServed,
     required this.onOpenCustomer,
   });
 
   final DayReceiptCustomer receipt;
   final bool valuesHidden;
+  final bool served;
+  final VoidCallback onToggleServed;
   final VoidCallback onOpenCustomer;
 
   @override
   Widget build(BuildContext context) {
-    final done = receipt.done;
     return Material(
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            _VisitCheck(done: done, onTap: done ? null : onOpenCustomer),
+            _VisitCheck(
+              key: Key('day_receipt_check_${receipt.customerId}'),
+              done: served,
+              locked: receipt.done,
+              onTap: receipt.done ? null : onToggleServed,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -409,13 +495,13 @@ class _DayReceiptTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: workspaceFontPrimary,
                     fontWeight: FontWeight.w700,
-                    color: done
-                        ? const Color(0xFF8B97C2)
+                    color: served
+                        ? _DayReceiptsCardState._servedInk
                         : _DayReceiptsCardState._ink,
-                    decoration: done
+                    decoration: served
                         ? TextDecoration.lineThrough
                         : TextDecoration.none,
-                    decorationColor: const Color(0xFF8B97C2),
+                    decorationColor: _DayReceiptsCardState._servedInk,
                   ),
                 ),
               ),
@@ -427,8 +513,8 @@ class _DayReceiptTile extends StatelessWidget {
               style: TextStyle(
                 fontSize: workspaceFontPrimary,
                 fontWeight: FontWeight.w700,
-                color: done
-                    ? const Color(0xFF8B97C2)
+                color: served
+                    ? _DayReceiptsCardState._servedInk
                     : _DayReceiptsCardState._ink,
               ),
             ),
@@ -440,9 +526,15 @@ class _DayReceiptTile extends StatelessWidget {
 }
 
 class _VisitCheck extends StatelessWidget {
-  const _VisitCheck({required this.done, this.onTap});
+  const _VisitCheck({
+    super.key,
+    required this.done,
+    this.locked = false,
+    this.onTap,
+  });
 
   final bool done;
+  final bool locked;
   final VoidCallback? onTap;
 
   @override
@@ -450,26 +542,32 @@ class _VisitCheck extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: done
-          ? const DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFFE7EDFF),
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(
+      child: Semantics(
+        button: onTap != null,
+        checked: done,
+        enabled: !locked,
+        label: done ? 'Atendida' : 'Marcar como atendida',
+        child: done
+            ? const DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _DayReceiptsCardState._servedCheckBg,
+                  shape: BoxShape.circle,
+                ),
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Icon(Icons.check, size: 15, color: pouAccent),
+                ),
+              )
+            : Container(
                 width: 22,
                 height: 22,
-                child: Icon(Icons.check, size: 15, color: pouAccent),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: pouAccent, width: 1.6),
+                ),
               ),
-            )
-          : Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: pouAccent, width: 1.6),
-              ),
-            ),
+      ),
     );
   }
 }

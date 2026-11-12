@@ -9,6 +9,7 @@ import 'package:pouapp/features/customers/domain/entities/customer_note.dart';
 import 'package:pouapp/features/customers/domain/repositories/customer_note_repository.dart';
 import 'package:pouapp/features/customers/domain/repositories/customer_repository.dart';
 import 'package:pouapp/features/customers/presentation/pages/customer_details_page.dart';
+import 'package:pouapp/features/workspace/domain/entities/street_ledger.dart';
 import 'package:pouapp/features/workspace/presentation/bloc/company_operation_bloc.dart';
 import 'package:pouapp/injection_container.dart' as di;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,10 +39,11 @@ void main() {
     expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
     expect(find.text('Total desta nota'), findsNothing);
-    expect(find.text('Saldo em aberto'), findsOneWidget);
+    expect(find.text('Saldo em aberto'), findsNothing);
+    expect(find.text('VENCIMENTO'), findsOneWidget);
     expect(find.text('Itens (0)'), findsOneWidget);
-    expect(find.text('Nenhum item nesta nota.'), findsOneWidget);
-    expect(_openBalance(tester), 'R\$ 0,00');
+    expect(find.text('Nenhum item nesta nota.'), findsNothing);
+    expect(find.text('Salvar'), findsOneWidget);
     final operation = di.sl<CompanyOperationBloc>().state.operation!;
     final sold = operation.summary.soldCents;
     final received = operation.summary.receivedCents;
@@ -51,7 +53,6 @@ void main() {
     expect(find.text('Itens (1)'), findsOneWidget);
     expect(find.text('1.0 x R\$ 10,00'), findsOneWidget);
     expect(_noteTotal(tester), 'R\$ 10,00');
-    expect(_openBalance(tester), 'R\$ 10,00');
 
     await tester.ensureVisible(find.byKey(const Key('edit_Banana nanica')));
     await tester.tap(find.byKey(const Key('edit_Banana nanica')));
@@ -65,7 +66,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
     expect(_noteTotal(tester), 'R\$ 36,00');
-    expect(_openBalance(tester), 'R\$ 36,00');
 
     await tester.ensureVisible(find.byKey(const Key('due_calendar')));
     await tester.tap(find.byKey(const Key('due_calendar')));
@@ -76,12 +76,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(_due(tester), startsWith('15/'));
 
+    final pending = await _real(tester, () => _draft(ana.id));
+    expect(pending.lines, isEmpty);
+    expect(pending.dueOn, isNull);
+
+    await _commitSave(tester);
+
     final saved = await _real(tester, () => _draft(ana.id));
     expect(saved.lines.single.productId, 'product-banana');
     expect(saved.lines.single.quantity, 3);
     expect(saved.lines.single.unitPriceCents, 1200);
     expect(saved.dueOn?.day, 15);
     expect(saved.totalCents, 3600);
+    expect(saved.paymentMethod, PaymentMethod.cash);
 
     await tester.runAsync(() async {
       await di.sl<CustomerLocalDataSource>().close();
@@ -96,7 +103,7 @@ void main() {
 
     expect(find.text('3.0 x R\$ 12,00'), findsOneWidget);
     expect(_noteTotal(tester), 'R\$ 36,00');
-    expect(_openBalance(tester), 'R\$ 36,00');
+    expect(find.text('Salvar'), findsOneWidget);
     expect(_due(tester), startsWith('15/'));
     expect(find.text('Ativo'), findsOneWidget);
     final reopened = await _real(tester, () => _draft(ana.id));
@@ -114,7 +121,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Itens (0)'), findsOneWidget);
     expect(find.text('Banana nanica'), findsNothing);
-    expect(_openBalance(tester), 'R\$ 0,00');
+    expect(find.text('Salvar'), findsOneWidget);
     expect(find.byKey(const Key('customer_note_total')), findsNothing);
     expect((await _real(tester, () => _draft(bia.id))).id, isNot(saved.id));
 
@@ -138,13 +145,20 @@ void main() {
     );
     await tester.pumpAndSettle();
     await _saveItem(tester, price: '10,00');
+    expect(find.text('Banana nanica'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('due_calendar')));
+    await tester.tap(find.byKey(const Key('due_calendar')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('due_day_15')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('due_confirm')));
+    await tester.pumpAndSettle();
+    await _commitSave(tester);
 
     expect(find.text('Não foi possível gravar a nota.'), findsOneWidget);
-    expect(find.text('Itens (0)'), findsOneWidget);
-    expect(find.text('Banana nanica'), findsNothing);
     expect(find.textContaining('salvo'), findsNothing);
-    expect(_openBalance(tester), 'R\$ 0,00');
-    expect(find.byKey(const Key('customer_note_total')), findsNothing);
+    expect(find.text('Salvar'), findsOneWidget);
   });
 }
 
@@ -179,12 +193,6 @@ Future<int> _bananaGrams() async {
   );
 }
 
-String _openBalance(WidgetTester tester) {
-  return tester
-      .widget<Text>(find.byKey(const Key('customer_open_balance')))
-      .data!;
-}
-
 String _noteTotal(WidgetTester tester) {
   return tester
       .widget<Text>(find.byKey(const Key('customer_note_total')))
@@ -196,6 +204,10 @@ String _due(WidgetTester tester) {
 }
 
 Future<void> _saveItem(WidgetTester tester, {required String price}) async {
+  if (find.byKey(const Key('add_item')).evaluate().isEmpty) {
+    await tester.tap(find.textContaining('Itens ('));
+    await tester.pumpAndSettle();
+  }
   await tester.ensureVisible(find.byKey(const Key('add_item')));
   await tester.tap(find.byKey(const Key('add_item')));
   await tester.pumpAndSettle();
@@ -209,6 +221,18 @@ Future<void> _saveItem(WidgetTester tester, {required String price}) async {
   await tester.pumpAndSettle();
   await tester.enterText(find.byKey(const Key('item_price')), price);
   await tester.tap(find.byKey(const Key('item_save')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _commitSave(WidgetTester tester) async {
+  await tester.ensureVisible(find.byKey(const Key('note_payment_method')));
+  await tester.tap(find.byKey(const Key('note_payment_method')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('note_payment_cash')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('receive_payment')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('save_note_without_sending')));
   await tester.pumpAndSettle();
 }
 
@@ -267,6 +291,14 @@ class _FailingNotes implements CustomerNoteRepository {
   Future<Either<Failure, CustomerNote>> setDueOn({
     required String noteId,
     required DateTime? dueOn,
+  }) async {
+    return const Left(CacheFailure());
+  }
+
+  @override
+  Future<Either<Failure, CustomerNote>> setPaymentMethod({
+    required String noteId,
+    required PaymentMethod? paymentMethod,
   }) async {
     return const Left(CacheFailure());
   }
