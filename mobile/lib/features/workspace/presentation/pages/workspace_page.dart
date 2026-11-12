@@ -13,8 +13,8 @@ import '../../../../injection_container.dart' as di;
 import '../../../auth/data/datasources/profile_avatar_store.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../auth/presentation/widgets/edit_user_name_sheet.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
 import '../../../customers/presentation/customer_routes.dart';
 import '../../../customers/presentation/pages/customers_page.dart';
@@ -24,6 +24,7 @@ import '../bloc/home_board_bloc.dart';
 import '../loaded_operation.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
+import '../widgets/profile_menu_sheet.dart';
 import '../widgets/street_board_view.dart';
 import 'add_delivery_page.dart';
 import 'business_settings_page.dart';
@@ -244,10 +245,14 @@ class _WorkspaceHeader extends StatelessWidget {
   final VoidCallback onToggleValues;
 
   static const _ink = pouInk;
-  static const _muted = Color(0xFF9A9AA2);
+  static const _muted = Color(0xFF7A858A);
+  static const _radius = 28.0;
+  static const _glass = Color(0xFFEEF5F6);
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
@@ -260,159 +265,128 @@ class _WorkspaceHeader extends StatelessWidget {
       child: ClipRRect(
         key: const Key('workspace_header'),
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          bottomLeft: Radius.circular(_radius),
+          bottomRight: Radius.circular(_radius),
         ),
-        child: ColoredBox(
-          color: Colors.white,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: ColoredBox(color: Colors.white),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _glass.withValues(alpha: 0.95),
+                      Colors.white.withValues(alpha: 0.92),
+                      _glass.withValues(alpha: 0.78),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(_radius),
+                      bottomRight: Radius.circular(_radius),
+                    ),
+                    border: Border.all(
+                      color: const Color(0xFFE6EBEF),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, topInset + 8, 20, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                Row(
-                  children: [
-                    _HeaderAvatar(userId: user.id),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: InkWell(
-                        key: const Key('workspace_edit_user_name'),
-                        onTap: () => showEditUserNameSheet(
-                          context,
-                          user: user,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              user.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: _ink,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              user.email,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                            const Text(
+                              'Recebido hoje',
+                              style: TextStyle(
                                 color: _muted,
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      formatBrl(
+                                        receivedTodayCents,
+                                        hidden: valuesHidden,
+                                      ),
+                                      style: const TextStyle(
+                                        color: _ink,
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -1.0,
+                                        height: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                IconButton(
+                                  key: const Key('workspace_hide_values'),
+                                  tooltip: valuesHidden
+                                      ? 'Mostrar valores'
+                                      : 'Esconder valores',
+                                  onPressed: onToggleValues,
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  icon: Icon(
+                                    valuesHidden
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: _ink,
+                                    size: 24,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    _HeaderRoundIcon(
-                      icon: Icons.settings_outlined,
-                      onTap: () => showBusinessSettingsSheet(context),
-                    ),
-                    const SizedBox(width: 10),
-                    const _HeaderRoundIcon(icon: Icons.notifications_none),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                const Text(
-                  'Recebido hoje',
-                  style: TextStyle(
-                    color: _muted,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                      const SizedBox(width: 12),
+                      _HeaderAvatar(userId: user.id),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          formatBrl(
-                            receivedTodayCents,
-                            hidden: valuesHidden,
-                          ),
-                          style: const TextStyle(
-                            color: _ink,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      key: const Key('workspace_hide_values'),
-                      tooltip: valuesHidden ? 'Mostrar valores' : 'Esconder valores',
-                      onPressed: onToggleValues,
-                      icon: Icon(
-                        valuesHidden
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: _ink,
-                        size: 26,
-                      ),
-                    ),
+                  if (message != null) ...[
+                    const SizedBox(height: 8),
+                    Text(message!, style: const TextStyle(color: _ink)),
                   ],
-                ),
-                if (message != null) ...[
-                  const SizedBox(height: 8),
-                  Text(message!, style: const TextStyle(color: _ink)),
                 ],
-              ],
+              ),
             ),
-          ),
-        ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HeaderRoundIcon extends StatelessWidget {
-  const _HeaderRoundIcon({required this.icon, this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: pouInk.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 42,
-            height: 42,
-            child: Icon(icon, color: pouInk, size: 22),
-          ),
+          ],
         ),
       ),
     );
@@ -451,6 +425,20 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
     final path = await di.sl<ProfileAvatarStore>().pathForUser(widget.userId);
     if (!mounted) return;
     setState(() => _path = path);
+  }
+
+  Future<void> _openMenu() async {
+    if (_loading) return;
+    final action = await showProfileMenuSheet(context);
+    if (!mounted || action == null) return;
+    switch (action) {
+      case ProfileMenuAction.changePhoto:
+        await _pick();
+      case ProfileMenuAction.settings:
+        await showBusinessSettingsSheet(context);
+      case ProfileMenuAction.logout:
+        context.read<AuthBloc>().add(const AuthLogoutRequested());
+    }
   }
 
   Future<void> _pick() async {
@@ -492,12 +480,12 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: const Key('profile_avatar'),
-        onTap: _loading ? null : _pick,
+        onTap: _loading ? null : _openMenu,
         customBorder: const CircleBorder(),
         child: Ink.image(
           image: image,
-          width: 44,
-          height: 44,
+          width: 46,
+          height: 46,
           fit: BoxFit.cover,
           child: _loading
               ? const ColoredBox(
@@ -513,21 +501,7 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
                     ),
                   ),
                 )
-              : Align(
-                  alignment: Alignment.bottomCenter,
-                  child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    child: const SizedBox(
-                      width: 44,
-                      height: 14,
-                      child: Icon(
-                        Icons.photo_camera_outlined,
-                        size: 11,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
+              : null,
         ),
       ),
     );
