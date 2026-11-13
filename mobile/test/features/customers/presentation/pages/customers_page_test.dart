@@ -67,7 +67,7 @@ void main() {
     expect(find.text('Restaurante Primavera'), findsOneWidget);
     expect(find.textContaining('Primavera'), findsWidgets);
     expect(find.textContaining('Pessoa jurídica'), findsOneWidget);
-    expect(find.text('Ativo'), findsWidgets);
+    expect(find.text('Regular'), findsWidgets);
     expect(find.byKey(const Key('customer_empty')), findsNothing);
   });
 

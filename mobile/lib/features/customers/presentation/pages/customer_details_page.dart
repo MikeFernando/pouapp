@@ -913,7 +913,8 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     }
   }
 
-  void _rememberFailure(Object? _) {
+  void _rememberFailure(Object? error) {
+    debugPrint('note save failed: $error');
     setState(() => _noteError = 'Não foi possível gravar a nota.');
   }
 

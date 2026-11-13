@@ -242,8 +242,10 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
         );
         for (var index = 0; index < prepared.length; index++) {
           final line = prepared[index];
+          // Always allocate a fresh id: ephemeral UI ids like `local-0` collide
+          // across notes because line id is the global primary key.
           await txn.insert('customer_note_lines', {
-            'id': line.id ?? _newId(),
+            'id': _newId(),
             'note_id': noteId,
             'position': index,
             'product_id': line.productId,

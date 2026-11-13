@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -88,13 +89,17 @@ class CustomerNoteRepositoryImpl implements CustomerNoteRepository {
   Future<Either<Failure, T>> _guard<T>(Future<T> Function() action) async {
     try {
       return Right(await action());
-    } on NoteRuleException {
+    } on NoteRuleException catch (error, stack) {
+      debugPrint('note rule: $error\n$stack');
       return const Left(CacheFailure());
-    } on NoteNotFoundException {
+    } on NoteNotFoundException catch (error, stack) {
+      debugPrint('note missing: $error\n$stack');
       return const Left(CacheFailure());
-    } on CacheException {
+    } on CacheException catch (error, stack) {
+      debugPrint('note cache: $error\n$stack');
       return const Left(CacheFailure());
-    } on DatabaseException {
+    } on DatabaseException catch (error, stack) {
+      debugPrint('note db: $error\n$stack');
       return const Left(CacheFailure());
     }
   }

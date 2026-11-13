@@ -67,7 +67,7 @@ class _CustomerStatusSheetState extends State<_CustomerStatusSheet> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Escolha se esta cliente fica ativa ou desativada.',
+                'Escolha se esta cliente fica regular ou desativada.',
                 style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
               ),
               const SizedBox(height: 16),

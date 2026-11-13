@@ -244,7 +244,7 @@ void main() {
     expect(find.byKey(const Key('customer_open_balance')), findsOneWidget);
     expect(find.byKey(const Key('note_summary_bar')), findsOneWidget);
     expect(find.text('Situação'), findsOneWidget);
-    expect(find.text('Ativo'), findsOneWidget);
+    expect(find.text('Regular'), findsOneWidget);
     expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
     expect(find.text('Nenhum item nesta nota.'), findsNothing);
@@ -445,7 +445,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Desativado'), findsOneWidget);
-    expect(find.text('Ativo'), findsNothing);
+    expect(find.text('Regular'), findsNothing);
     expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
     expect(find.text('Cancelado'), findsNothing);

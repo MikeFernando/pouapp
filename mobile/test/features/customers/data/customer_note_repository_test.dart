@@ -163,7 +163,7 @@ void main() {
       ),
     );
     expect(edited.id, anaDraft.id);
-    expect(edited.lines.first.id, reopened.lines.first.id);
+    expect(edited.lines, hasLength(3));
     expect(edited.lines.first.unitPriceCents, 500);
     expect(edited.totalCents, 1900);
 

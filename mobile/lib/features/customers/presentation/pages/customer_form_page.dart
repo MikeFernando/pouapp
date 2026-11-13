@@ -247,7 +247,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
                 children: [
                   ChoiceChip(
                     key: const Key('customer_status_active'),
-                    label: const Text('Ativo'),
+                    label: const Text('Regular'),
                     selected: _status == CustomerStatus.active,
                     onSelected: saving
                         ? null

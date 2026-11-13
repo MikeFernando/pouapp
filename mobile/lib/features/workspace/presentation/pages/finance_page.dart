@@ -261,9 +261,13 @@ class _FinancePageState extends State<FinancePage> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final diameter = constraints.maxWidth * 0.68;
-                final ringHeight = diameter + 52;
+                // Extra room below so percent pills clear Semana/Mês/Ano.
+                final ringHeight = diameter + 76;
+                const ringToFilter = 10.0;
+                const filterToSheet = 18.0;
                 final topInset = MediaQuery.paddingOf(context).top;
-                final headerExtent = topInset + ringHeight + 18;
+                final headerExtent =
+                    topInset + ringHeight + ringToFilter + 28 + filterToSheet;
                 final minSheet =
                     ((constraints.maxHeight - headerExtent) /
                             constraints.maxHeight)
@@ -293,6 +297,7 @@ class _FinancePageState extends State<FinancePage> {
                                 diameter: diameter,
                               ),
                             ),
+                            const SizedBox(height: ringToFilter),
                             _Filters(
                               span: _span,
                               onChanged: (span) =>
@@ -697,18 +702,28 @@ _Layout _layout(Size size, double diameter, List<_Arc> arcs) {
   final gap = _gapDegrees * math.pi / 180;
   final draws = <_Draw>[];
   var angle = _startDegrees * math.pi / 180;
+  // Half of a percent pill; keep labels inside the ring box.
+  const pillHalf = 16.0;
+  final minX = 40.0;
+  final maxX = size.width - 40.0;
+  final minY = pillHalf;
+  final maxY = size.height - pillHalf;
   for (final arc in arcs) {
     final sweep = arc.sweepDegrees * math.pi / 180;
     final mid = angle + sweep / 2;
     final reach = radius + stroke / 2 + 22;
+    final raw = Offset(
+      center.dx + reach * math.cos(mid),
+      center.dy + reach * math.sin(mid),
+    );
     draws.add(
       _Draw(
         start: angle,
         sweep: sweep,
         arc: arc,
         label: Offset(
-          center.dx + reach * math.cos(mid),
-          center.dy + reach * math.sin(mid),
+          raw.dx.clamp(minX, maxX),
+          raw.dy.clamp(minY, maxY),
         ),
       ),
     );
@@ -901,7 +916,7 @@ class _Sheet extends StatelessWidget {
             color: Colors.white,
             child: ListView(
               controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(24, 10, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
               children: [
                 const Center(
                   child: DecoratedBox(
@@ -910,16 +925,6 @@ class _Sheet extends StatelessWidget {
                       borderRadius: BorderRadius.all(Radius.circular(4)),
                     ),
                     child: SizedBox(width: 40, height: 5),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Categorias',
-                  style: TextStyle(
-                    color: pouInk,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 12),

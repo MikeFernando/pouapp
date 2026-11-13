@@ -35,7 +35,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Ativo'), findsOneWidget);
+    expect(find.text('Regular'), findsOneWidget);
     expect(find.text('Rascunho'), findsNothing);
     expect(find.text('Aprovado'), findsNothing);
     expect(find.text('Total desta nota'), findsNothing);
@@ -105,7 +105,7 @@ void main() {
     expect(_noteTotal(tester), 'R\$ 36,00');
     expect(find.text('Salvar'), findsOneWidget);
     expect(_due(tester), startsWith('15/'));
-    expect(find.text('Ativo'), findsOneWidget);
+    expect(find.text('Regular'), findsOneWidget);
     final reopened = await _real(tester, () => _draft(ana.id));
     expect(reopened.id, saved.id);
     expect(reopened.lines.single.id, saved.lines.single.id);
