@@ -41,6 +41,8 @@ abstract class CustomerLocalDataSource {
   /// Drops all local customers (and cascaded addresses/contacts).
   Future<void> clearAllCustomers();
 
+  Future<void> deleteCustomer(String id);
+
   Future<List<CustomerAddress>> getAddresses(String customerId);
 
   Future<CustomerAddress> addAddress(AddressInput input);
@@ -310,6 +312,16 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
     final db = await _databaseOrOpen();
     try {
       await db.delete('customers');
+    } on DatabaseException {
+      throw CacheException();
+    }
+  }
+
+  @override
+  Future<void> deleteCustomer(String id) async {
+    final db = await _databaseOrOpen();
+    try {
+      await db.delete('customers', where: 'id = ?', whereArgs: [id]);
     } on DatabaseException {
       throw CacheException();
     }

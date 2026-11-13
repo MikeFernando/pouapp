@@ -103,6 +103,25 @@ class CustomerRepositoryImpl implements CustomerRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> deleteCustomer(String id) {
+    return _guard(() async {
+      if (_hasRemote) {
+        try {
+          await remoteDataSource!.deleteCustomer(id);
+        } on CustomerNotFoundException {
+          // Already gone remotely — still drop the local row.
+        } on NetworkException {
+          // Offline — remove locally so the list cleans up.
+        } on ServerException {
+          // Keep going locally; home list must not stay duplicated.
+        }
+      }
+      await localDataSource.deleteCustomer(id);
+      return unit;
+    });
+  }
+
+  @override
   Future<Either<Failure, List<CustomerAddress>>> getAddresses(
     String customerId,
   ) {

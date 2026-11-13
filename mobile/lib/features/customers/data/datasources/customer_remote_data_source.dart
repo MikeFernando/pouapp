@@ -20,6 +20,8 @@ abstract class CustomerRemoteDataSource {
     required String id,
     required CustomerStatus status,
   });
+
+  Future<void> deleteCustomer(String id);
 }
 
 class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
@@ -104,6 +106,18 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
       final customer = response.data?['customer'];
       if (customer is! Map) throw CustomerNotFoundException();
       return CustomerModel.fromApi(Map<String, dynamic>.from(customer));
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        throw CustomerNotFoundException();
+      }
+      mapDioException(error);
+    }
+  }
+
+  @override
+  Future<void> deleteCustomer(String id) async {
+    try {
+      await _dio.delete<void>('/customers/$id');
     } on DioException catch (error) {
       if (error.response?.statusCode == 404) {
         throw CustomerNotFoundException();

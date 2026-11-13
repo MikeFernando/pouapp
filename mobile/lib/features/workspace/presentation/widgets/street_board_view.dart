@@ -85,6 +85,7 @@ class StreetBoardViewState extends State<StreetBoardView>
       notes: sl(),
       prefs: sl(),
       createHomeNote: sl.isRegistered<CreateHomeNote>() ? sl() : null,
+      clearHomeNote: sl.isRegistered<ClearHomeNote>() ? sl() : null,
     );
     if (seeded &&
         ApiConfig.useRemoteApi &&

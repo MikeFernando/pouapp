@@ -11,9 +11,13 @@ import '../domain/entities/street_ledger.dart';
 import '../domain/usecases/home_use_cases.dart';
 
 const homeBoardDuesSeedKey = 'home_board_dues_seeded_v1';
+const homeBoardDuesDedupedKey = 'home_board_dues_deduped_v1';
 
 const _overdueCount = 20;
 const _upcomingCount = 50;
+
+/// Prevents parallel home opens from seeding the same batch multiple times.
+Future<bool>? _homeSeedGate;
 
 const _firstNames = <String>[
   'Ana',
@@ -139,24 +143,54 @@ const _lastNames = <String>[
 
 /// One-time seed: 20 overdue + 50 upcoming clients with full draft notes.
 ///
-/// Runs on TestFlight/release too so the downloaded build shows Em atrasos
-/// and Próximos vencimentos with products, due dates and payment methods.
-/// Returns `true` when this call created the seed batch.
+/// Also collapses duplicate seed rows from earlier parallel runs.
+/// Returns `true` when the home board should reload.
 Future<bool> seedHomeBoardDuesIfNeeded({
   required CustomerRepository customers,
   required CustomerNoteRepository notes,
   required SharedPreferences prefs,
   CreateHomeNote? createHomeNote,
+  ClearHomeNote? clearHomeNote,
+  DateTime Function()? clock,
+}) {
+  final running = _homeSeedGate;
+  if (running != null) return running;
+  final run = _runHomeBoardSeed(
+    customers: customers,
+    notes: notes,
+    prefs: prefs,
+    createHomeNote: createHomeNote,
+    clearHomeNote: clearHomeNote,
+    clock: clock,
+  );
+  _homeSeedGate = run;
+  return run.whenComplete(() {
+    if (identical(_homeSeedGate, run)) _homeSeedGate = null;
+  });
+}
+
+Future<bool> _runHomeBoardSeed({
+  required CustomerRepository customers,
+  required CustomerNoteRepository notes,
+  required SharedPreferences prefs,
+  CreateHomeNote? createHomeNote,
+  ClearHomeNote? clearHomeNote,
   DateTime Function()? clock,
 }) async {
-  if (prefs.getBool(homeBoardDuesSeedKey) == true) return false;
+  final deduped = await _dedupeSeedCustomers(
+    customers: customers,
+    notes: notes,
+    prefs: prefs,
+    clearHomeNote: clearHomeNote,
+  );
+  if (prefs.getBool(homeBoardDuesSeedKey) == true) return deduped;
 
   final now = clock?.call() ?? DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final products = demoCatalogProducts
       .where((product) => product.salePriceCents > 0)
       .toList(growable: false);
-  if (products.isEmpty) return false;
+  if (products.isEmpty) return deduped;
 
   final payments = PaymentMethod.values;
   var created = 0;
@@ -205,7 +239,77 @@ Future<bool> seedHomeBoardDuesIfNeeded({
     return true;
   }
   debugPrint('home seed: incomplete ($created); will retry next launch');
-  return false;
+  return deduped;
+}
+
+Set<String> _seedNames() => {
+  for (var index = 0; index < _overdueCount + _upcomingCount; index++)
+    _nameAt(index),
+};
+
+/// Keeps the oldest customer per seeded name; deletes the rest.
+Future<bool> _dedupeSeedCustomers({
+  required CustomerRepository customers,
+  required CustomerNoteRepository notes,
+  required SharedPreferences prefs,
+  ClearHomeNote? clearHomeNote,
+}) async {
+  if (prefs.getBool(homeBoardDuesDedupedKey) == true) return false;
+
+  final items = await _loadAllCustomers(customers);
+  if (items.isEmpty) {
+    await prefs.setBool(homeBoardDuesDedupedKey, true);
+    return false;
+  }
+
+  final seedNames = _seedNames();
+  final byName = <String, List<Customer>>{};
+  for (final customer in items) {
+    if (!seedNames.contains(customer.name)) continue;
+    byName.putIfAbsent(customer.name, () => <Customer>[]).add(customer);
+  }
+
+  var removed = 0;
+  for (final group in byName.values) {
+    if (group.length <= 1) continue;
+    group.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final extra in group.skip(1)) {
+      if (clearHomeNote != null) {
+        await clearHomeNote(customerId: extra.id);
+      }
+      final draft = await notes.currentNote(extra.id);
+      final note = draft.fold<CustomerNote?>((_) => null, (value) => value);
+      if (note != null && note.status == NoteStatus.draft) {
+        await notes.deleteNote(note.id);
+      }
+      final deleted = await customers.deleteCustomer(extra.id);
+      if (deleted.isRight()) removed++;
+    }
+  }
+
+  await prefs.setBool(homeBoardDuesDedupedKey, true);
+  debugPrint('home seed: removed $removed duplicate customers');
+  return removed > 0;
+}
+
+Future<List<Customer>> _loadAllCustomers(CustomerRepository customers) async {
+  const pageSize = 100;
+  final all = <Customer>[];
+  var page = 0;
+  while (true) {
+    final result = await customers.getCustomers(
+      CustomerQuery(page: page, pageSize: pageSize),
+    );
+    final batch = result.fold<CustomerPage?>(
+      (_) => null,
+      (value) => value,
+    );
+    if (batch == null) break;
+    all.addAll(batch.items);
+    if (!batch.hasMore || batch.items.isEmpty) break;
+    page++;
+  }
+  return all;
 }
 
 String _nameAt(int index) {

@@ -25,6 +25,8 @@ abstract class CustomerRepository {
     required CustomerStatus status,
   });
 
+  Future<Either<Failure, Unit>> deleteCustomer(String id);
+
   Future<Either<Failure, List<CustomerAddress>>> getAddresses(
     String customerId,
   );
