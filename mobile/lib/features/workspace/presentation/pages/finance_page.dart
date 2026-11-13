@@ -192,7 +192,7 @@ Map<String, Color> _merchandiseColors(List<_ProductRank> ranked) {
 
 /// Measured clockwise from the upper-left of the reference ring.
 const _gapDegrees = 16.0;
-const _chartSlots = 8;
+const _chartSlots = 10;
 const _startDegrees = -138.0;
 
 enum _Span { week, month, year }

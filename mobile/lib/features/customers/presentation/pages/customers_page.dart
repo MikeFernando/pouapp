@@ -31,7 +31,7 @@ extension on _CustomerListMode {
     _CustomerListMode.buyMore => '#CompramMais',
     _CustomerListMode.buyLess => '#CompramMenos',
     _CustomerListMode.lateHistory => '#Atrasos',
-    _CustomerListMode.active => '#Ativos',
+    _CustomerListMode.active => '#Regulares',
     _CustomerListMode.inactive => '#Desativados',
   };
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
@@ -8,9 +9,11 @@ import '../../../customers/domain/entities/customer_note.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
 import '../../data/day_checklist_store.dart';
+import '../../data/home_board_seed.dart';
 import '../../data/receivable_store.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
+import '../../domain/usecases/home_use_cases.dart';
 import '../bloc/company_operation_bloc.dart';
 import '../bloc/home_board_bloc.dart';
 import '../home_board_mapping.dart';
@@ -69,6 +72,26 @@ class StreetBoardViewState extends State<StreetBoardView>
     _servedCustomerIds
       ..clear()
       ..addAll(stored);
+  }
+
+  Future<void> _seedHomeDuesIfNeeded() async {
+    if (!sl.isRegistered<CustomerRepository>() ||
+        !sl.isRegistered<CustomerNoteRepository>() ||
+        !sl.isRegistered<SharedPreferences>()) {
+      return;
+    }
+    final seeded = await seedHomeBoardDuesIfNeeded(
+      customers: sl(),
+      notes: sl(),
+      prefs: sl(),
+      createHomeNote: sl.isRegistered<CreateHomeNote>() ? sl() : null,
+    );
+    if (seeded &&
+        ApiConfig.useRemoteApi &&
+        mounted &&
+        sl.isRegistered<HomeBoardBloc>()) {
+      sl<HomeBoardBloc>().add(const HomeBoardRequested());
+    }
   }
 
   Future<void> _persistServedChecklist() async {
@@ -168,6 +191,7 @@ class StreetBoardViewState extends State<StreetBoardView>
       if (mounted) setState(() => _notesReady = true);
       return;
     }
+    await _seedHomeDuesIfNeeded();
     final notesRepo = sl<CustomerNoteRepository>();
     final result = await notesRepo.draftNotesWithDue();
     final clearedResult = await notesRepo.clearedDraftCustomerIds();
