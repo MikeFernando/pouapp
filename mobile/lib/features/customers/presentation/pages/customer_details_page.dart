@@ -23,6 +23,7 @@ import '../../../workspace/presentation/operation_labels.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/customer_note.dart';
 import '../../domain/repositories/customer_note_repository.dart';
+import '../../domain/rules/note_due_style.dart';
 import '../../domain/rules/note_rules.dart';
 import '../bloc/customer_details_bloc.dart';
 import '../customer_messages.dart';
@@ -334,6 +335,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                                   children: [
                                     _SituationBar(
                                       status: customer.status,
+                                      overdue: noteDueIsOverdue(note?.dueOn),
                                       onTap: () => _openStatus(customer),
                                     ),
                                     Builder(
@@ -666,11 +668,16 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     if (note == null || note.status == NoteStatus.delivered) return;
     final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
+    final currentDue = note.dueOn;
+    final firstDate =
+        currentDue != null && noteDueIsOverdue(currentDue, today)
+        ? DateTime(currentDue.year, currentDue.month, currentDue.day)
+        : todayStart;
     final picked = await showPouDateSheet(
       context,
-      initial: note.dueOn ?? todayStart,
+      initial: currentDue ?? todayStart,
       title: 'Escolha a data de vencimento',
-      firstDate: todayStart,
+      firstDate: firstDate,
     );
     if (picked == null || !mounted) return;
     final dueOn = DateTime(picked.year, picked.month, picked.day);
@@ -971,9 +978,14 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
 }
 
 class _SituationBar extends StatelessWidget {
-  const _SituationBar({required this.status, required this.onTap});
+  const _SituationBar({
+    required this.status,
+    required this.onTap,
+    this.overdue = false,
+  });
 
   final CustomerStatus status;
+  final bool overdue;
   final VoidCallback onTap;
 
   @override
@@ -1001,7 +1013,7 @@ class _SituationBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                CustomerStatusBadge(status: status),
+                CustomerStatusBadge(status: status, overdue: overdue),
               ],
             ),
           ),
@@ -1089,8 +1101,12 @@ class _DueDateCard extends StatelessWidget {
   final DateTime? date;
   final VoidCallback? onPick;
 
+  static const _overdue = Color(0xFF9B1C1C);
+  static const _overdueTile = Color(0xFFF8E8E8);
+
   @override
   Widget build(BuildContext context) {
+    final overdue = noteDueIsOverdue(date);
     return CustomerActionCard(
       labelFirst: true,
       label: 'Vencimento',
@@ -1098,7 +1114,9 @@ class _DueDateCard extends StatelessWidget {
       titleKey: const Key('customer_due_date'),
       iconKey: const Key('due_calendar'),
       onTap: onPick,
-      icon: const DueCalendarIcon(),
+      titleColor: overdue ? _overdue : null,
+      iconTileColor: overdue ? _overdueTile : null,
+      icon: DueCalendarIcon(color: overdue ? _overdue : pouBrand),
     );
   }
 }

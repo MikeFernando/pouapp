@@ -3,11 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
-
+import '../../../../app/pou_top_snack.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../workspace/data/receivable_store.dart';
 import '../../../workspace/domain/entities/street_ledger.dart';
+import '../../../workspace/presentation/loaded_operation.dart';
 import '../../domain/entities/customer.dart';
+import '../../domain/repositories/customer_note_repository.dart';
 import '../bloc/customers_bloc.dart';
 import '../customer_messages.dart';
 import '../customer_routes.dart';
@@ -109,25 +111,67 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   }
 
   Future<void> _loadRanks() async {
-    if (!di.sl.isRegistered<ReceivableStore>()) return;
-    final sales = await di.sl<ReceivableStore>().postedSales();
     final today = isoDate(DateTime.now());
     final purchase = <String, int>{};
     final lateCount = <String, int>{};
     final lateCents = <String, int>{};
-    for (final sale in sales) {
-      if (sale.sale) {
-        purchase[sale.customerId] =
-            (purchase[sale.customerId] ?? 0) + sale.totalCents;
-      }
-      final due = sale.dueOn;
-      if (due == null || due.compareTo(today) >= 0) continue;
-      lateCount[sale.customerId] = (lateCount[sale.customerId] ?? 0) + 1;
-      if (sale.openCents > 0) {
-        lateCents[sale.customerId] =
-            (lateCents[sale.customerId] ?? 0) + sale.openCents;
+
+    if (di.sl.isRegistered<ReceivableStore>()) {
+      final sales = await di.sl<ReceivableStore>().postedSales();
+      for (final sale in sales) {
+        if (sale.sale) {
+          purchase[sale.customerId] =
+              (purchase[sale.customerId] ?? 0) + sale.totalCents;
+        }
+        final due = sale.dueOn;
+        if (due == null || due.compareTo(today) >= 0) continue;
+        lateCount[sale.customerId] = (lateCount[sale.customerId] ?? 0) + 1;
+        if (sale.openCents > 0) {
+          lateCents[sale.customerId] =
+              (lateCents[sale.customerId] ?? 0) + sale.openCents;
+        }
       }
     }
+
+    // Draft notes with past due also mark the customer as Em atraso.
+    if (di.sl.isRegistered<CustomerNoteRepository>()) {
+      final notesResult = await di.sl<CustomerNoteRepository>()
+          .draftNotesWithDue();
+      notesResult.fold((_) {}, (notes) {
+        for (final note in notes) {
+          final due = note.dueOn;
+          if (due == null) continue;
+          final dueIso = isoDate(DateTime(due.year, due.month, due.day));
+          if (dueIso.compareTo(today) >= 0) continue;
+          if (note.totalCents <= 0) continue;
+          lateCount[note.customerId] = (lateCount[note.customerId] ?? 0) + 1;
+          lateCents[note.customerId] =
+              (lateCents[note.customerId] ?? 0) + note.totalCents;
+        }
+      });
+    }
+
+    // Remote home board overdue rows (open balance without local sale yet).
+    final home = loadedHomeBoard()?.state.board;
+    if (home != null) {
+      void markHomeDue(String customerId, String dueOn, int openCents) {
+        if (openCents <= 0) return;
+        if (dueOn.compareTo(today) >= 0) return;
+        lateCount[customerId] = (lateCount[customerId] ?? 0) + 1;
+        lateCents[customerId] = (lateCents[customerId] ?? 0) + openCents;
+      }
+
+      for (final item in home.receiptsDueToday) {
+        markHomeDue(item.customerId, item.dueOn, item.openCents);
+      }
+      for (final item in home.duesTomorrow) {
+        markHomeDue(item.customerId, item.dueOn, item.openCents);
+      }
+      for (final item in home.upcomingDues) {
+        markHomeDue(item.customerId, item.dueOn, item.openCents);
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _purchaseCents = purchase;
@@ -409,6 +453,15 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                           trailing: CustomerStatusBadge(
                                             status: visible[index].status,
                                             compact: true,
+                                            overdue:
+                                                (_lateCents[visible[index]
+                                                            .id] ??
+                                                        0) >
+                                                    0 ||
+                                                (_lateCount[visible[index]
+                                                            .id] ??
+                                                        0) >
+                                                    0,
                                           ),
                                           onTap: () => _openDetails(
                                             context,
@@ -487,10 +540,17 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
 
   Future<void> _openForm(BuildContext context) async {
     final savedId = await showNewCustomerSheet(context);
-    if (savedId != null && context.mounted) {
-      _notifySaved(context);
-      await _loadRanks();
-    }
+    if (savedId == null || !context.mounted) return;
+    context.read<CustomersBloc>().add(const CustomersRefreshRequested());
+    await _loadRanks();
+    if (!context.mounted) return;
+    await showPouTopSnack(
+      context,
+      message: 'Cliente salvo.',
+      icon: Icons.check_circle_rounded,
+    );
+    if (!context.mounted) return;
+    await _openDetails(context, savedId);
   }
 }
 
@@ -679,8 +739,17 @@ class _CustomersViewState extends State<CustomersView> {
 
   Future<void> _openForm(BuildContext context) async {
     final savedId = await showNewCustomerSheet(context);
-    if (savedId != null && context.mounted) {
-      _notifySaved(context);
+    if (savedId == null || !context.mounted) return;
+    context.read<CustomersBloc>().add(const CustomersRefreshRequested());
+    await showPouTopSnack(
+      context,
+      message: 'Cliente salvo.',
+      icon: Icons.check_circle_rounded,
+    );
+    if (!context.mounted) return;
+    await Navigator.of(context).pushNamed(CustomerRoutes.details(savedId));
+    if (context.mounted) {
+      context.read<CustomersBloc>().add(const CustomersRefreshRequested());
     }
   }
 }
@@ -751,8 +820,3 @@ class _CustomersMessage extends StatelessWidget {
   }
 }
 
-void _notifySaved(BuildContext context) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(const SnackBar(content: Text('Cliente salvo.')));
-  context.read<CustomersBloc>().add(const CustomersRefreshRequested());
-}

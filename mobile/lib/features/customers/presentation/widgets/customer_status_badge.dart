@@ -8,17 +8,37 @@ class CustomerStatusBadge extends StatelessWidget {
     super.key,
     required this.status,
     this.compact = false,
+    this.overdue = false,
   });
 
   final CustomerStatus status;
   final bool compact;
 
+  /// Active customer with a past note due — shown as red "Em atraso".
+  final bool overdue;
+
   @override
   Widget build(BuildContext context) {
-    final active = status == CustomerStatus.active;
+    final showOverdue = overdue && status == CustomerStatus.active;
+    final Color background;
+    final Color foreground;
+    final String label;
+    if (showOverdue) {
+      background = const Color(0xFFF8E8E8);
+      foreground = const Color(0xFF9B1C1C);
+      label = 'Em atraso';
+    } else if (status == CustomerStatus.active) {
+      background = const Color(0xFFD8F5E4);
+      foreground = const Color(0xFF146C43);
+      label = 'Regular';
+    } else {
+      background = const Color(0xFFF0F0F2);
+      foreground = const Color(0xFF6B7280);
+      label = customerStatusLabel(status);
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFD8F5E4) : const Color(0xFFF0F0F2),
+        color: background,
         borderRadius: BorderRadius.circular(compact ? 8 : 10),
       ),
       child: Padding(
@@ -27,11 +47,11 @@ class CustomerStatusBadge extends StatelessWidget {
           vertical: compact ? 4 : 8,
         ),
         child: Text(
-          customerStatusLabel(status),
+          label,
           style: TextStyle(
             fontSize: compact ? 13 : 14,
             fontWeight: FontWeight.w700,
-            color: active ? const Color(0xFF146C43) : const Color(0xFF6B7280),
+            color: foreground,
           ),
         ),
       ),

@@ -3,10 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
+import '../../../catalog/domain/entities/catalog.dart';
 import '../../../customers/domain/entities/customer_note.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
 import '../../data/day_checklist_store.dart';
+import '../../data/receivable_store.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
@@ -84,6 +86,74 @@ class StreetBoardViewState extends State<StreetBoardView>
       }
     });
     _persistServedChecklist();
+  }
+
+  Future<void> _openCustomer(
+    String customerId, {
+    UpcomingDueCustomer? overdueSeed,
+  }) async {
+    if (overdueSeed != null) {
+      await _hydrateOverdueDraft(overdueSeed);
+    }
+    if (!mounted) return;
+    widget.onOpenCustomer(customerId);
+  }
+
+  /// Fills an empty draft with the overdue due date and open balance lines.
+  Future<void> _hydrateOverdueDraft(UpcomingDueCustomer seed) async {
+    if (!sl.isRegistered<CustomerNoteRepository>()) return;
+    if (seed.amountCents <= 0 || seed.dueOn.trim().isEmpty) return;
+    final repo = sl<CustomerNoteRepository>();
+    final opened = await repo.openNote(seed.customerId);
+    final note = opened.fold<CustomerNote?>((_) => null, (value) => value);
+    if (note == null || note.status != NoteStatus.draft) return;
+
+    var working = note;
+    if (working.dueOn == null) {
+      final due = DateTime.tryParse(seed.dueOn);
+      if (due != null) {
+        final saved = await repo.setDueOn(
+          noteId: working.id,
+          dueOn: DateTime(due.year, due.month, due.day),
+        );
+        working = saved.fold((_) => working, (value) => value);
+      }
+    }
+
+    if (working.lines.isNotEmpty || working.totalCents > 0) return;
+
+    final drafts = <NoteLineDraft>[];
+    if (sl.isRegistered<ReceivableStore>()) {
+      final today = isoDate(DateTime.now());
+      final account = await sl<ReceivableStore>().account(seed.customerId);
+      for (final item in account.openReceivables) {
+        if (item.openCents <= 0) continue;
+        final dueOn = item.dueOn;
+        if (dueOn == null || dueOn.compareTo(today) >= 0) continue;
+        final name = item.description.trim().isEmpty
+            ? 'Saldo em atraso'
+            : item.description.trim();
+        drafts.add(
+          NoteLineDraft(
+            name: name,
+            unit: CatalogUnit.piece,
+            quantity: 1,
+            unitPriceCents: item.openCents,
+          ),
+        );
+      }
+    }
+    if (drafts.isEmpty) {
+      drafts.add(
+        NoteLineDraft(
+          name: 'Saldo em atraso',
+          unit: CatalogUnit.piece,
+          quantity: 1,
+          unitPriceCents: seed.amountCents,
+        ),
+      );
+    }
+    await repo.saveLines(noteId: working.id, lines: drafts);
   }
 
   @override
@@ -350,7 +420,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                             setState(() => _dayReceiptsExpanded = value);
                           },
                           noteLinesByCustomer: _noteLinesByCustomer,
-                          onOpenCustomer: widget.onOpenCustomer,
+                          onOpenCustomer: (id) => _openCustomer(id),
                           onChecklistChanged: widget.onChecklistChanged,
                         ),
                       ),
@@ -359,7 +429,16 @@ class StreetBoardViewState extends State<StreetBoardView>
                         OverdueReceiptsCard(
                           dues: overdueDues,
                           valuesHidden: valuesHidden,
-                          onOpenCustomer: widget.onOpenCustomer,
+                          onOpenCustomer: (id) {
+                            UpcomingDueCustomer? seed;
+                            for (final due in overdueDues) {
+                              if (due.customerId == id) {
+                                seed = due;
+                                break;
+                              }
+                            }
+                            _openCustomer(id, overdueSeed: seed);
+                          },
                           expanded: _overdueExpanded,
                           onExpandedChanged: (value) {
                             setState(() => _overdueExpanded = value);
@@ -371,7 +450,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                         UpcomingMonthDuesCard(
                           dues: upcomingMonthDues,
                           valuesHidden: valuesHidden,
-                          onOpenCustomer: widget.onOpenCustomer,
+                          onOpenCustomer: (id) => _openCustomer(id),
                           expanded: _upcomingExpanded,
                           onExpandedChanged: (value) {
                             setState(() => _upcomingExpanded = value);
@@ -385,7 +464,7 @@ class StreetBoardViewState extends State<StreetBoardView>
                             today: todayStart,
                             dues: beyondMonthDues,
                             valuesHidden: valuesHidden,
-                            onOpenCustomer: widget.onOpenCustomer,
+                            onOpenCustomer: (id) => _openCustomer(id),
                           ),
                         ),
                       ],

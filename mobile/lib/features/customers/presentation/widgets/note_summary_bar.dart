@@ -5,6 +5,7 @@ import '../../../workspace/domain/entities/street_ledger.dart';
 import '../../../workspace/presentation/operation_labels.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/customer_note.dart';
+import '../../domain/rules/note_due_style.dart';
 import 'save_note_sheet.dart';
 
 class _NoteSaveBaseline {
@@ -62,6 +63,8 @@ class _NoteSummaryBarState extends State<NoteSummaryBar> {
   static const _ink = Color(0xFF121417);
   static const _muted = Color(0xFF808793);
   static const _green = Color(0xFF305536);
+  static const _danger = Color(0xFF9B1C1C);
+  static const _dangerDisabled = Color(0xFFD4A8A8);
   static const _border = Color(0xFFD9DBDE);
   static const _radius = 30.0;
 
@@ -112,6 +115,13 @@ class _NoteSummaryBarState extends State<NoteSummaryBar> {
   }
 
   bool get _readyToSave => _canSave && _hasUnsavedChanges;
+
+  bool get _isOverdue => noteDueIsOverdue(_dueOn);
+
+  Color get _accent => _isOverdue ? _danger : _green;
+
+  Color get _accentDisabled =>
+      _isOverdue ? _dangerDisabled : const Color(0xFFB7C4B9);
 
   String? get _missingHint {
     final noItems = _itemCount <= 0;
@@ -240,10 +250,10 @@ class _NoteSummaryBarState extends State<NoteSummaryBar> {
                                   key: const Key('note_summary_items'),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: _ink,
+                                    color: _isOverdue ? _danger : _ink,
                                     height: 1.15,
                                   ),
                                 ),
@@ -284,12 +294,12 @@ class _NoteSummaryBarState extends State<NoteSummaryBar> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
+                            Text(
                               'VENCIMENTO',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: _green,
+                                color: _accent,
                                 letterSpacing: 0.4,
                                 height: 1.2,
                               ),
@@ -300,10 +310,10 @@ class _NoteSummaryBarState extends State<NoteSummaryBar> {
                               key: const Key('note_summary_due_date'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: _ink,
+                                color: _isOverdue ? _danger : _ink,
                                 height: 1.2,
                               ),
                             ),
@@ -322,8 +332,7 @@ class _NoteSummaryBarState extends State<NoteSummaryBar> {
                 key: const Key('receive_payment'),
                 onPressed: _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor:
-                      ready ? _green : const Color(0xFFB7C4B9),
+                  backgroundColor: ready ? _accent : _accentDisabled,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(

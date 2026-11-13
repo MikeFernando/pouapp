@@ -23,6 +23,8 @@ class CustomerActionCard extends StatelessWidget {
     this.enabled = true,
     this.busy = false,
     this.labelColor,
+    this.titleColor,
+    this.iconTileColor,
     this.iconTiled = true,
   });
 
@@ -40,6 +42,8 @@ class CustomerActionCard extends StatelessWidget {
   final bool enabled;
   final bool busy;
   final Color? labelColor;
+  final Color? titleColor;
+  final Color? iconTileColor;
 
   /// When false, [icon] is shown without the light-green tile.
   final bool iconTiled;
@@ -48,7 +52,7 @@ class CustomerActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = enabled && !busy;
     final gray = labelColor ?? (enabled ? _labelColor : _muted);
-    final bold = enabled ? _titleColor : _muted;
+    final bold = enabled ? (titleColor ?? _titleColor) : _muted;
 
     final topStyle = labelFirst
         ? TextStyle(fontSize: 15, color: gray, fontWeight: FontWeight.w500)
@@ -105,6 +109,7 @@ class CustomerActionCard extends StatelessWidget {
                     CustomerActionIconTile(
                       key: iconKey,
                       busy: busy,
+                      backgroundColor: iconTileColor,
                       child: icon,
                     )
                   else
@@ -139,10 +144,12 @@ class CustomerActionIconTile extends StatelessWidget {
     super.key,
     required this.child,
     this.busy = false,
+    this.backgroundColor,
   });
 
   final Widget child;
   final bool busy;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +157,7 @@ class CustomerActionIconTile extends StatelessWidget {
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: _iconTileBg,
+        color: backgroundColor ?? _iconTileBg,
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,

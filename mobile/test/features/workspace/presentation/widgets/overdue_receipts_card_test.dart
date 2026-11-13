@@ -56,7 +56,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Vencidos'), findsOneWidget);
+    expect(find.text('Em atrasos'), findsOneWidget);
     expect(find.text('0 clientes'), findsOneWidget);
     expect(find.text('Nenhum cliente em atraso.'), findsOneWidget);
     expect(find.byKey(const Key('overdue_chevron')), findsNothing);

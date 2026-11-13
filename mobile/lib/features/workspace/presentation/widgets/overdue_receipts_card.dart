@@ -232,7 +232,7 @@ class _Header extends StatelessWidget {
       children: [
         const Expanded(
           child: Text(
-            'Vencidos',
+            'Em atrasos',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
