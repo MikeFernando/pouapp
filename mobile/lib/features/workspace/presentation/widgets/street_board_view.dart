@@ -6,6 +6,7 @@ import '../../../../injection_container.dart';
 import '../../../customers/domain/entities/customer_note.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
+import '../../data/day_checklist_store.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
@@ -42,6 +43,10 @@ class StreetBoardViewState extends State<StreetBoardView>
   Map<String, List<NoteLine>> _noteLinesByCustomer = const {};
   Set<String> _clearedNoteCustomers = const {};
   var _notesReady = false;
+  final _servedCustomerIds = <String>{};
+  var _dayReceiptsExpanded = false;
+  var _overdueExpanded = false;
+  var _upcomingExpanded = false;
 
   @override
   void initState() {
@@ -51,7 +56,34 @@ class StreetBoardViewState extends State<StreetBoardView>
       duration: const Duration(milliseconds: 900),
     )..forward();
     _scroll = ScrollController();
+    _restoreServedChecklist();
     _loadNoteDues();
+  }
+
+  void _restoreServedChecklist() {
+    if (!sl.isRegistered<DayChecklistStore>()) return;
+    final stored = sl<DayChecklistStore>().loadServed(DateTime.now());
+    if (stored.isEmpty) return;
+    _servedCustomerIds
+      ..clear()
+      ..addAll(stored);
+  }
+
+  Future<void> _persistServedChecklist() async {
+    if (!sl.isRegistered<DayChecklistStore>()) return;
+    await sl<DayChecklistStore>().saveServed(
+      DateTime.now(),
+      _servedCustomerIds,
+    );
+  }
+
+  void _toggleServedCustomer(String customerId) {
+    setState(() {
+      if (!_servedCustomerIds.add(customerId)) {
+        _servedCustomerIds.remove(customerId);
+      }
+    });
+    _persistServedChecklist();
   }
 
   @override
@@ -309,6 +341,14 @@ class StreetBoardViewState extends State<StreetBoardView>
                           progress: progress,
                           receipts: receipts,
                           valuesHidden: valuesHidden,
+                          servedCustomerIds: Set.unmodifiable(
+                            _servedCustomerIds,
+                          ),
+                          onToggleServed: _toggleServedCustomer,
+                          expanded: _dayReceiptsExpanded,
+                          onExpandedChanged: (value) {
+                            setState(() => _dayReceiptsExpanded = value);
+                          },
                           noteLinesByCustomer: _noteLinesByCustomer,
                           onOpenCustomer: widget.onOpenCustomer,
                           onChecklistChanged: widget.onChecklistChanged,
@@ -320,6 +360,10 @@ class StreetBoardViewState extends State<StreetBoardView>
                           dues: overdueDues,
                           valuesHidden: valuesHidden,
                           onOpenCustomer: widget.onOpenCustomer,
+                          expanded: _overdueExpanded,
+                          onExpandedChanged: (value) {
+                            setState(() => _overdueExpanded = value);
+                          },
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -328,6 +372,10 @@ class StreetBoardViewState extends State<StreetBoardView>
                           dues: upcomingMonthDues,
                           valuesHidden: valuesHidden,
                           onOpenCustomer: widget.onOpenCustomer,
+                          expanded: _upcomingExpanded,
+                          onExpandedChanged: (value) {
+                            setState(() => _upcomingExpanded = value);
+                          },
                         ),
                       ),
                       if (beyondMonthDues.isNotEmpty) ...[

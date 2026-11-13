@@ -45,6 +45,7 @@ import 'features/customers/domain/usecases/customer_use_cases.dart';
 import 'features/customers/presentation/bloc/customer_details_bloc.dart';
 import 'features/customers/presentation/bloc/customer_form_bloc.dart';
 import 'features/customers/presentation/bloc/customers_bloc.dart';
+import 'features/workspace/data/day_checklist_store.dart';
 import 'features/workspace/data/operation_store.dart';
 import 'features/workspace/data/sync_worker.dart';
 import 'features/workspace/data/delivery_store.dart';
@@ -70,6 +71,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ApiClient(tokenStore: sl()));
   sl.registerLazySingleton(
     () => ProfileAvatarStore(sharedPreferences: sl()),
+  );
+  sl.registerLazySingleton(
+    () => DayChecklistStore(sharedPreferences: sl()),
   );
 
   //! Features - Auth

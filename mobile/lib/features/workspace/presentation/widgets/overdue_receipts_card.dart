@@ -11,11 +11,15 @@ class OverdueReceiptsCard extends StatefulWidget {
     required this.dues,
     required this.valuesHidden,
     required this.onOpenCustomer,
+    this.expanded,
+    this.onExpandedChanged,
   });
 
   final List<UpcomingDueCustomer> dues;
   final bool valuesHidden;
   final ValueChanged<String> onOpenCustomer;
+  final bool? expanded;
+  final ValueChanged<bool>? onExpandedChanged;
 
   @override
   State<OverdueReceiptsCard> createState() => _OverdueReceiptsCardState();
@@ -31,7 +35,12 @@ class _OverdueReceiptsCardState extends State<OverdueReceiptsCard> {
   static const _layerMid = Color(0xFFFCFCFD);
   static const _layerBack = Color(0xFFF7F8FA);
 
-  var _expanded = false;
+  var _localExpanded = false;
+
+  bool get _ownsExpanded => widget.onExpandedChanged == null;
+
+  bool get _expanded =>
+      _ownsExpanded ? _localExpanded : (widget.expanded ?? false);
 
   bool get _canExpand => widget.dues.length >= 2;
 
@@ -41,13 +50,26 @@ class _OverdueReceiptsCardState extends State<OverdueReceiptsCard> {
   void didUpdateWidget(covariant OverdueReceiptsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_canExpand && _expanded) {
-      _expanded = false;
+      if (_ownsExpanded) {
+        _localExpanded = false;
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          widget.onExpandedChanged?.call(false);
+        });
+      }
     }
   }
 
   void _toggleExpanded() {
     if (!_canExpand) return;
-    setState(() => _expanded = !_expanded);
+    final next = !_expanded;
+    final notify = widget.onExpandedChanged;
+    if (notify != null) {
+      notify(next);
+      return;
+    }
+    setState(() => _localExpanded = next);
   }
 
   @override

@@ -123,6 +123,7 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
 
     expect(find.text('0 de 1'), findsOneWidget);
     await tester.tap(find.byKey(const Key('day_receipt_check_c0')));
@@ -137,6 +138,64 @@ void main() {
     await tester.pump();
     expect(find.text('0 de 1'), findsOneWidget);
     expect(reported.receivedCents, 0);
+  });
+
+  testWidgets('parent-owned marks survive remount', (tester) async {
+    final served = <String>{'c0'};
+    var reported = DayChecklistSnapshot.empty;
+
+    Widget card() {
+      return DayReceiptsCard(
+        progress: VisitProgress(done: served.length, total: 1),
+        receipts: _receipts(1),
+        valuesHidden: false,
+        onOpenCustomer: (_) {},
+        servedCustomerIds: Set.unmodifiable(served),
+        onToggleServed: (id) {
+          if (!served.add(id)) served.remove(id);
+        },
+        onChecklistChanged: (snapshot) => reported = snapshot,
+      );
+    }
+
+    await tester.pumpWidget(_wrap(card()));
+    await tester.pump();
+    expect(find.text('1 de 1'), findsOneWidget);
+    expect(reported.receivedCents, 1770);
+
+    // Simulate home reload disposing and recreating the card.
+    await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+    await tester.pumpWidget(_wrap(card()));
+    await tester.pump();
+
+    expect(find.text('1 de 1'), findsOneWidget);
+    expect(reported.receivedCents, 1770);
+  });
+
+  testWidgets('parent-owned expanded survives remount', (tester) async {
+    var expanded = true;
+
+    Widget card() {
+      return DayReceiptsCard(
+        progress: const VisitProgress(done: 0, total: 2),
+        receipts: _receipts(2),
+        valuesHidden: false,
+        onOpenCustomer: (_) {},
+        expanded: expanded,
+        onExpandedChanged: (value) => expanded = value,
+      );
+    }
+
+    await tester.pumpWidget(_wrap(card()));
+    await tester.pumpAndSettle();
+    expect(find.text('Mike Fernando'), findsOneWidget);
+
+    await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+    await tester.pumpWidget(_wrap(card()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mike Fernando'), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_up), findsOneWidget);
   });
 
   testWidgets('collapsed then expands for two receipts', (tester) async {

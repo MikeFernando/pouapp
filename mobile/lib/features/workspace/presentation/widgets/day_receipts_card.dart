@@ -16,6 +16,10 @@ class DayReceiptsCard extends StatefulWidget {
     required this.receipts,
     required this.valuesHidden,
     required this.onOpenCustomer,
+    this.servedCustomerIds = const {},
+    this.onToggleServed,
+    this.expanded,
+    this.onExpandedChanged,
     this.noteLinesByCustomer = const {},
     this.onChecklistChanged,
   });
@@ -25,6 +29,14 @@ class DayReceiptsCard extends StatefulWidget {
   final List<DayReceiptCustomer> receipts;
   final bool valuesHidden;
   final ValueChanged<String> onOpenCustomer;
+
+  /// Checklist marks owned by the parent (survive home reload / navigation).
+  final Set<String> servedCustomerIds;
+  final ValueChanged<String>? onToggleServed;
+
+  /// Expand state owned by the parent (survive home reload / navigation).
+  final bool? expanded;
+  final ValueChanged<bool>? onExpandedChanged;
 
   /// Draft note lines keyed by customer — used when marking received.
   final Map<String, List<NoteLine>> noteLinesByCustomer;
@@ -50,8 +62,25 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
   static const _layerMid = Color(0xFFFCFCFD);
   static const _layerBack = Color(0xFFF7F8FA);
 
-  var _expanded = false;
-  final _servedIds = <String>{};
+  var _localExpanded = false;
+  /// Local fallback when parent does not own the checklist (tests).
+  final _localServedIds = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _emitChecklistReceived();
+  }
+
+  bool get _ownsServed => widget.onToggleServed == null;
+
+  bool get _ownsExpanded => widget.onExpandedChanged == null;
+
+  Set<String> get _servedIds =>
+      _ownsServed ? _localServedIds : widget.servedCustomerIds;
+
+  bool get _expanded =>
+      _ownsExpanded ? _localExpanded : (widget.expanded ?? false);
 
   bool get _canExpand => widget.receipts.length >= 2;
 
@@ -103,26 +132,49 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
   void didUpdateWidget(covariant DayReceiptsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_canExpand && _expanded) {
-      _expanded = false;
+      if (_ownsExpanded) {
+        _localExpanded = false;
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          widget.onExpandedChanged?.call(false);
+        });
+      }
     }
-    final ids = {for (final receipt in widget.receipts) receipt.customerId};
-    final before = _servedIds.length;
-    _servedIds.removeWhere((id) => !ids.contains(id));
-    if (_servedIds.length != before ||
-        oldWidget.receipts != widget.receipts) {
+    if (_ownsServed) {
+      final ids = {for (final receipt in widget.receipts) receipt.customerId};
+      // Keep marks while the list is empty (reload flash).
+      if (ids.isNotEmpty) {
+        _localServedIds.removeWhere((id) => !ids.contains(id));
+      }
+    }
+    if (oldWidget.receipts != widget.receipts ||
+        oldWidget.servedCustomerIds != widget.servedCustomerIds ||
+        oldWidget.noteLinesByCustomer != widget.noteLinesByCustomer) {
       _emitChecklistReceived();
     }
   }
 
   void _toggleExpanded() {
     if (!_canExpand) return;
-    setState(() => _expanded = !_expanded);
+    final next = !_expanded;
+    final notify = widget.onExpandedChanged;
+    if (notify != null) {
+      notify(next);
+      return;
+    }
+    setState(() => _localExpanded = next);
   }
 
   void _toggleServed(String customerId) {
+    final owned = widget.onToggleServed;
+    if (owned != null) {
+      owned(customerId);
+      return;
+    }
     setState(() {
-      if (!_servedIds.add(customerId)) {
-        _servedIds.remove(customerId);
+      if (!_localServedIds.add(customerId)) {
+        _localServedIds.remove(customerId);
       }
     });
     _emitChecklistReceived();

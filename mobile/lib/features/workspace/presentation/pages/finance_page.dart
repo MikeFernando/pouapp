@@ -261,9 +261,9 @@ class _FinancePageState extends State<FinancePage> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final diameter = constraints.maxWidth * 0.68;
-                final ringHeight = diameter + 72;
+                final ringHeight = diameter + 52;
                 final topInset = MediaQuery.paddingOf(context).top;
-                final headerExtent = topInset + ringHeight + 28;
+                final headerExtent = topInset + ringHeight + 18;
                 final minSheet =
                     ((constraints.maxHeight - headerExtent) /
                             constraints.maxHeight)
@@ -293,7 +293,6 @@ class _FinancePageState extends State<FinancePage> {
                                 diameter: diameter,
                               ),
                             ),
-                            const SizedBox(height: 2),
                             _Filters(
                               span: _span,
                               onChanged: (span) =>
@@ -874,48 +873,71 @@ class _Sheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 8,
-      shadowColor: const Color(0x330E0D0F),
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      clipBehavior: Clip.antiAlias,
-      child: ListView(
-        controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 40),
-        children: [
-          const Center(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFFE4E4E8),
-                borderRadius: BorderRadius.all(Radius.circular(4)),
-              ),
-              child: SizedBox(width: 40, height: 5),
+    const radius = BorderRadius.vertical(top: Radius.circular(32));
+    // Top padding keeps the upward shadow inside the clipped sheet bounds.
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x1A0E0D0F),
+              blurRadius: 14,
+              offset: Offset(0, -5),
+              spreadRadius: -1,
+            ),
+            BoxShadow(
+              color: Color(0x0F0E0D0F),
+              blurRadius: 4,
+              offset: Offset(0, -1),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Material(
+            color: Colors.white,
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 40),
+              children: [
+                const Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(0xFFE4E4E8),
+                      borderRadius: BorderRadius.all(Radius.circular(4)),
+                    ),
+                    child: SizedBox(width: 40, height: 5),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Categorias',
+                  style: TextStyle(
+                    color: pouInk,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (categories.isEmpty)
+                  const Text(
+                    'Nenhuma venda no período.',
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                else
+                  _CategoryGrid(categories: categories),
+              ],
             ),
           ),
-          const SizedBox(height: 14),
-          const Text(
-            'Categorias',
-            style: TextStyle(
-              color: pouInk,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (categories.isEmpty)
-            const Text(
-              'Nenhuma venda no período.',
-              style: TextStyle(
-                color: _muted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            )
-          else
-            _CategoryGrid(categories: categories),
-        ],
+        ),
       ),
     );
   }
