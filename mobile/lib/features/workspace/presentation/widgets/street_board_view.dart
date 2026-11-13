@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,10 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
 import '../../../catalog/domain/entities/catalog.dart';
+import '../../../customers/data/datasources/customer_local_data_source.dart';
 import '../../../customers/domain/entities/customer_note.dart';
 import '../../../customers/domain/repositories/customer_note_repository.dart';
 import '../../../customers/domain/repositories/customer_repository.dart';
 import '../../data/day_checklist_store.dart';
+import '../../data/home_board_cache.dart';
 import '../../data/home_board_seed.dart';
 import '../../data/receivable_store.dart';
 import '../../domain/entities/street_ledger.dart';
@@ -17,9 +21,9 @@ import '../../domain/usecases/home_use_cases.dart';
 import '../bloc/company_operation_bloc.dart';
 import '../bloc/home_board_bloc.dart';
 import '../home_board_mapping.dart';
-import '../operation_labels.dart';
-import '../theme/workspace_colors.dart';
+import '../top_billed_products.dart';
 import 'day_receipts_card.dart';
+import 'home_top_products.dart';
 import 'overdue_receipts_card.dart';
 import 'upcoming_month_dues_card.dart';
 
@@ -28,12 +32,16 @@ class StreetBoardView extends StatefulWidget {
     super.key,
     required this.valuesHidden,
     required this.onOpenCustomer,
+    required this.onNewSale,
     this.onChecklistChanged,
+    this.checklistProductCents = const {},
   });
 
   final bool valuesHidden;
   final ValueChanged<String> onOpenCustomer;
+  final VoidCallback onNewSale;
   final ValueChanged<DayChecklistSnapshot>? onChecklistChanged;
+  final Map<String, int> checklistProductCents;
 
   @override
   State<StreetBoardView> createState() => StreetBoardViewState();
@@ -49,6 +57,7 @@ class StreetBoardViewState extends State<StreetBoardView>
   Set<String> _clearedNoteCustomers = const {};
   var _notesReady = false;
   final _servedCustomerIds = <String>{};
+  final _frozenByCustomer = <String, DayChecklistFrozen>{};
   var _dayReceiptsExpanded = false;
   var _overdueExpanded = false;
   var _upcomingExpanded = false;
@@ -67,21 +76,28 @@ class StreetBoardViewState extends State<StreetBoardView>
 
   void _restoreServedChecklist() {
     if (!sl.isRegistered<DayChecklistStore>()) return;
-    final stored = sl<DayChecklistStore>().loadServed(DateTime.now());
-    if (stored.isEmpty) return;
+    final store = sl<DayChecklistStore>();
+    final now = DateTime.now();
+    final stored = store.loadServed(now);
+    final frozen = store.loadFrozen(now);
     _servedCustomerIds
       ..clear()
       ..addAll(stored);
+    _frozenByCustomer
+      ..clear()
+      ..addAll(frozen);
   }
 
   Future<void> _seedHomeDuesIfNeeded() async {
     if (!sl.isRegistered<CustomerRepository>() ||
+        !sl.isRegistered<CustomerLocalDataSource>() ||
         !sl.isRegistered<CustomerNoteRepository>() ||
         !sl.isRegistered<SharedPreferences>()) {
       return;
     }
     final seeded = await seedHomeBoardDuesIfNeeded(
       customers: sl(),
+      localCustomers: sl(),
       notes: sl(),
       prefs: sl(),
       createHomeNote: sl.isRegistered<CreateHomeNote>() ? sl() : null,
@@ -97,16 +113,22 @@ class StreetBoardViewState extends State<StreetBoardView>
 
   Future<void> _persistServedChecklist() async {
     if (!sl.isRegistered<DayChecklistStore>()) return;
-    await sl<DayChecklistStore>().saveServed(
-      DateTime.now(),
-      _servedCustomerIds,
-    );
+    final store = sl<DayChecklistStore>();
+    final now = DateTime.now();
+    await store.saveServed(now, _servedCustomerIds);
+    await store.saveFrozen(now, _frozenByCustomer);
   }
 
-  void _toggleServedCustomer(String customerId) {
+  void _toggleServedCustomer(String customerId, DayChecklistFrozen? entry) {
     setState(() {
-      if (!_servedCustomerIds.add(customerId)) {
+      if (_servedCustomerIds.contains(customerId)) {
         _servedCustomerIds.remove(customerId);
+        _frozenByCustomer.remove(customerId);
+      } else {
+        _servedCustomerIds.add(customerId);
+        if (entry != null) {
+          _frozenByCustomer[customerId] = entry;
+        }
       }
     });
     _persistServedChecklist();
@@ -192,30 +214,46 @@ class StreetBoardViewState extends State<StreetBoardView>
       if (mounted) setState(() => _notesReady = true);
       return;
     }
-    await _seedHomeDuesIfNeeded();
+    // Paint from SQLite first — seed/API never block the home spinner.
     final notesRepo = sl<CustomerNoteRepository>();
     final result = await notesRepo.draftNotesWithDue();
     final clearedResult = await notesRepo.clearedDraftCustomerIds();
     if (!mounted) return;
     if (result.isLeft()) {
       setState(() => _notesReady = true);
+      unawaited(_seedHomeDuesIfNeeded());
       return;
     }
     final items = result.getOrElse(() => const []);
     final cleared = clearedResult.getOrElse(() => const <String>{});
     final mapped = <UpcomingDueCustomer>[];
     final linesByCustomer = <String, List<NoteLine>>{};
+    final localCustomers = sl.isRegistered<CustomerLocalDataSource>()
+        ? sl<CustomerLocalDataSource>()
+        : null;
     for (final note in items) {
       if (note.dueOn == null || note.totalCents <= 0) continue;
-      // Orphan / seed drafts without a real customer must not appear on home.
-      if (!sl.isRegistered<CustomerRepository>()) continue;
-      final found = await sl<CustomerRepository>().getCustomerById(
-        note.customerId,
-      );
-      final name = found.fold<String?>(
-        (_) => null,
-        (customer) => customer.name.trim().isEmpty ? null : customer.name,
-      );
+      // Local lookup only — never wait on the network to open home.
+      String? name;
+      if (localCustomers != null) {
+        try {
+          final customer = await localCustomers.getCustomerById(
+            note.customerId,
+          );
+          final trimmed = customer.name.trim();
+          if (trimmed.isNotEmpty) name = trimmed;
+        } catch (_) {
+          name = null;
+        }
+      } else if (sl.isRegistered<CustomerRepository>()) {
+        final found = await sl<CustomerRepository>().getCustomerById(
+          note.customerId,
+        );
+        name = found.fold<String?>(
+          (_) => null,
+          (customer) => customer.name.trim().isEmpty ? null : customer.name,
+        );
+      }
       if (name == null) continue;
       mapped.add(
         UpcomingDueCustomer(
@@ -234,6 +272,7 @@ class StreetBoardViewState extends State<StreetBoardView>
       _clearedNoteCustomers = cleared;
       _notesReady = true;
     });
+    unawaited(_seedHomeDuesIfNeeded());
   }
 
   double _span(double begin, double end) {
@@ -279,29 +318,20 @@ class StreetBoardViewState extends State<StreetBoardView>
             previous.status != current.status,
         listener: (context, state) {
           if (state.status == HomeBoardStatus.ready) {
-            setState(() => _notesReady = false);
+            // Refresh local dues in place — don't blank the home with a spinner.
             _loadNoteDues();
           }
         },
         builder: (context, state) {
-          if (state.status == HomeBoardStatus.initial ||
-              state.status == HomeBoardStatus.loading ||
-              !_notesReady) {
+          // Wait only for local SQLite notes — never for API / seed.
+          if (!_notesReady) {
             return const Center(
               child: CircularProgressIndicator(
                 semanticsLabel: 'Carregando a home',
               ),
             );
           }
-          if (state.status == HomeBoardStatus.failure || state.board == null) {
-            return _Message(
-              message: state.message ?? 'Não foi possível carregar a home.',
-              onRetry: () => context.read<HomeBoardBloc>().add(
-                const HomeBoardRequested(),
-              ),
-            );
-          }
-          final board = state.board!;
+          final board = state.board ?? emptyHomeBoard();
           final sections = homeSectionsForLocalDay(
             board: board,
             localNotes: _noteDues,
@@ -393,28 +423,31 @@ class StreetBoardViewState extends State<StreetBoardView>
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final progress = dayReceiptProgress(receipts);
+    final operation = context.watch<CompanyOperationBloc>().state.operation;
+    final topProducts = topBilledProducts(
+      orders: operation?.street.orders ?? const [],
+      checklistProductCents: widget.checklistProductCents,
+      now: now,
+    );
     final monthPrefix =
         '${todayStart.year}-${todayStart.month.toString().padLeft(2, '0')}';
-    final upcomingMonthDues = [
-      ...tomorrowDues,
-      for (final due in laterDues)
-        if (due.dueOn.startsWith(monthPrefix)) due,
-    ]..sort((a, b) {
-        final byDate = a.dueOn.compareTo(b.dueOn);
-        if (byDate != 0) return byDate;
-        return a.customerName.compareTo(b.customerName);
-      });
-    final beyondMonthDues = [
-      for (final due in laterDues)
-        if (!due.dueOn.startsWith(monthPrefix)) due,
-    ];
+    final upcomingMonthDues =
+        [
+          ...tomorrowDues,
+          for (final due in laterDues)
+            if (due.dueOn.startsWith(monthPrefix)) due,
+        ]..sort((a, b) {
+          final byDate = a.dueOn.compareTo(b.dueOn);
+          if (byDate != 0) return byDate;
+          return a.customerName.compareTo(b.customerName);
+        });
     return ClipRect(
       child: Stack(
         children: [
           Positioned(
             top: 16,
-            left: 20,
-            right: 20,
+            left: 0,
+            right: 0,
             bottom: 0,
             child: SingleChildScrollView(
               key: const Key('street_board_scroll'),
@@ -430,69 +463,86 @@ class StreetBoardViewState extends State<StreetBoardView>
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      rise(
-                        DayReceiptsCard(
-                          titleKey: _routeKey,
-                          progress: progress,
-                          receipts: receipts,
-                          valuesHidden: valuesHidden,
-                          servedCustomerIds: Set.unmodifiable(
-                            _servedCustomerIds,
-                          ),
-                          onToggleServed: _toggleServedCustomer,
-                          expanded: _dayReceiptsExpanded,
-                          onExpandedChanged: (value) {
-                            setState(() => _dayReceiptsExpanded = value);
-                          },
-                          noteLinesByCustomer: _noteLinesByCustomer,
-                          onOpenCustomer: (id) => _openCustomer(id),
-                          onChecklistChanged: widget.onChecklistChanged,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      rise(
-                        OverdueReceiptsCard(
-                          dues: overdueDues,
-                          valuesHidden: valuesHidden,
-                          onOpenCustomer: (id) {
-                            UpcomingDueCustomer? seed;
-                            for (final due in overdueDues) {
-                              if (due.customerId == id) {
-                                seed = due;
-                                break;
-                              }
-                            }
-                            _openCustomer(id, overdueSeed: seed);
-                          },
-                          expanded: _overdueExpanded,
-                          onExpandedChanged: (value) {
-                            setState(() => _overdueExpanded = value);
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      rise(
-                        UpcomingMonthDuesCard(
-                          dues: upcomingMonthDues,
-                          valuesHidden: valuesHidden,
-                          onOpenCustomer: (id) => _openCustomer(id),
-                          expanded: _upcomingExpanded,
-                          onExpandedChanged: (value) {
-                            setState(() => _upcomingExpanded = value);
-                          },
-                        ),
-                      ),
-                      if (beyondMonthDues.isNotEmpty) ...[
-                        const SizedBox(height: 20),
+                      if (topProducts.isNotEmpty) ...[
                         rise(
-                          _LaterDuesSection(
-                            today: todayStart,
-                            dues: beyondMonthDues,
+                          HomeTopProducts(
+                            products: topProducts,
+                            valuesHidden: valuesHidden,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      rise(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: DayReceiptsCard(
+                            titleKey: _routeKey,
+                            progress: progress,
+                            receipts: receipts,
+                            valuesHidden: valuesHidden,
+                            servedCustomerIds: Set.unmodifiable(
+                              _servedCustomerIds,
+                            ),
+                            frozenByCustomer: Map.unmodifiable(
+                              _frozenByCustomer,
+                            ),
+                            onToggleServed: _toggleServedCustomer,
+                            expanded: _dayReceiptsExpanded,
+                            onExpandedChanged: (value) {
+                              setState(() => _dayReceiptsExpanded = value);
+                            },
+                            noteLinesByCustomer: _noteLinesByCustomer,
+                            onOpenCustomer: (id) => _openCustomer(id),
+                            onChecklistChanged: widget.onChecklistChanged,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      rise(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _NovaVendaButton(onPressed: widget.onNewSale),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      rise(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: OverdueReceiptsCard(
+                            dues: overdueDues,
+                            valuesHidden: valuesHidden,
+                            onOpenCustomer: (id) {
+                              UpcomingDueCustomer? seed;
+                              for (final due in overdueDues) {
+                                if (due.customerId == id) {
+                                  seed = due;
+                                  break;
+                                }
+                              }
+                              _openCustomer(id, overdueSeed: seed);
+                            },
+                            expanded: _overdueExpanded,
+                            onExpandedChanged: (value) {
+                              setState(() => _overdueExpanded = value);
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      rise(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: UpcomingMonthDuesCard(
+                            dues: upcomingMonthDues,
                             valuesHidden: valuesHidden,
                             onOpenCustomer: (id) => _openCustomer(id),
+                            expanded: _upcomingExpanded,
+                            onExpandedChanged: (value) {
+                              setState(() => _upcomingExpanded = value);
+                            },
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   );
                 },
@@ -505,280 +555,81 @@ class StreetBoardViewState extends State<StreetBoardView>
   }
 }
 
-const _duesMuted = Color(0xFF8E8E93);
-const _duesBadge = Color(0xFFF0F0F2);
+class _NovaVendaButton extends StatelessWidget {
+  const _NovaVendaButton({required this.onPressed});
 
-DateTime? _parseDueDay(String iso) {
-  final parts = iso.split('-');
-  if (parts.length != 3) return null;
-  final year = int.tryParse(parts[0]);
-  final month = int.tryParse(parts[1]);
-  final day = int.tryParse(parts[2]);
-  if (year == null || month == null || day == null) return null;
-  return DateTime(year, month, day);
-}
+  final VoidCallback onPressed;
 
-String _monthDayLabel(DateTime date) {
-  final month = monthNames[date.month - 1].toLowerCase();
-  return '${date.day} de $month';
-}
-
-String _relativeDaysLabel(DateTime due, DateTime today) {
-  final days = due.difference(today).inDays;
-  if (days == 0) return 'Hoje';
-  if (days == 1) return 'Amanhã';
-  if (days == -1) return 'Ontem';
-  if (days < -1) return 'Há ${-days} dias';
-  return 'Em $days dias';
-}
-
-class _LaterDuesSection extends StatelessWidget {
-  const _LaterDuesSection({
-    required this.today,
-    required this.dues,
-    required this.valuesHidden,
-    required this.onOpenCustomer,
-  });
-
-  final DateTime today;
-  final List<UpcomingDueCustomer> dues;
-  final bool valuesHidden;
-  final ValueChanged<String> onOpenCustomer;
+  static const _radius = 14.0;
+  static const _forest = Color(0xFF062E0C);
+  static const _height = 52.0;
 
   @override
   Widget build(BuildContext context) {
-    final groups = <String, List<UpcomingDueCustomer>>{};
-    for (final due in dues) {
-      groups.putIfAbsent(due.dueOn, () => []).add(due);
-    }
-    final orderedDays = groups.keys.toList()..sort();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Depois deste mês',
-          style: TextStyle(
-            color: Color(0xFF0E0D0F),
-            fontSize: workspaceFontPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 14),
-        for (var dayIndex = 0; dayIndex < orderedDays.length; dayIndex++) ...[
-          if (dayIndex > 0) const SizedBox(height: 14),
-          _LaterDueDayCard(
-            dueOn: orderedDays[dayIndex],
-            today: today,
-            dues: groups[orderedDays[dayIndex]]!,
-            valuesHidden: valuesHidden,
-            onOpenCustomer: onOpenCustomer,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _LaterDueDayCard extends StatelessWidget {
-  const _LaterDueDayCard({
-    required this.dueOn,
-    required this.today,
-    required this.dues,
-    required this.valuesHidden,
-    required this.onOpenCustomer,
-  });
-
-  final String dueOn;
-  final DateTime today;
-  final List<UpcomingDueCustomer> dues;
-  final bool valuesHidden;
-  final ValueChanged<String> onOpenCustomer;
-
-  @override
-  Widget build(BuildContext context) {
-    final day = _parseDueDay(dueOn) ?? today;
-    final total = dues.fold<int>(0, (sum, item) => sum + item.amountCents);
-    return _DuesWhiteCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    return Semantics(
+      button: true,
+      label: 'Nova Venda',
+      child: Material(
+        color: _forest,
+        borderRadius: BorderRadius.circular(_radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const Key('action_new_sale'),
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(_radius),
+          child: SizedBox(
+            width: double.infinity,
+            height: _height,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Expanded(
-                  child: Text(
-                    _monthDayLabel(day),
-                    style: const TextStyle(
-                      color: _duesMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
+                Image.asset(
+                  'assets/images/nova-venda-fundo-botanico.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  excludeFromSemantics: true,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const ColoredBox(color: _forest);
+                  },
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _duesBadge,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _relativeDaysLabel(day, today),
-                    style: const TextStyle(
-                      color: Color(0xFF5C5C62),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+                const Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _NovaVendaCart(),
+                      SizedBox(width: 8),
+                      Text(
+                        'Nova Venda',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            for (var index = 0; index < dues.length; index++) ...[
-              if (index > 0) ...[
-                const SizedBox(height: 16),
-                const Divider(height: 1, color: Color(0xFFE9E8EB)),
-                const SizedBox(height: 16),
-              ],
-              _DueCustomerRow(
-                due: dues[index],
-                hidden: valuesHidden,
-                noteLabel: '1 nota em aberto',
-                onTap: () => onOpenCustomer(dues[index].customerId),
-              ),
-            ],
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: Color(0xFFE9E8EB)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Total previsto',
-                    style: TextStyle(
-                      color: _duesMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-                Text(
-                  formatBrl(total, hidden: valuesHidden),
-                  style: const TextStyle(
-                    color: Color(0xFF0E0D0F),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _DueCustomerRow extends StatelessWidget {
-  const _DueCustomerRow({
-    required this.due,
-    required this.hidden,
-    required this.noteLabel,
-    required this.onTap,
-  });
-
-  final UpcomingDueCustomer due;
-  final bool hidden;
-  final String noteLabel;
-  final VoidCallback onTap;
+class _NovaVendaCart extends StatelessWidget {
+  const _NovaVendaCart();
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      key: Key('upcoming_due_${due.customerId}_${due.dueOn}'),
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  due.customerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF0E0D0F),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  noteLabel,
-                  style: const TextStyle(
-                    color: _duesMuted,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                formatBrl(due.amountCents, hidden: hidden),
-                style: const TextStyle(
-                  color: Color(0xFF0E0D0F),
-                  fontSize: workspaceFontPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'A receber',
-                style: TextStyle(
-                  color: _duesMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFFC7C7CC),
-            size: 22,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DuesWhiteCard extends StatelessWidget {
-  const _DuesWhiteCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      child: child,
+    return Image.asset(
+      'assets/images/carrinho-botanico.png',
+      width: 24,
+      height: 24,
+      fit: BoxFit.contain,
+      excludeFromSemantics: true,
     );
   }
 }

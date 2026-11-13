@@ -21,8 +21,9 @@ class ApiClient {
            Dio(
              BaseOptions(
                baseUrl: baseUrl ?? ApiConfig.baseUrl,
-               connectTimeout: const Duration(seconds: 12),
-               receiveTimeout: const Duration(seconds: 20),
+               // Fail fast offline — neighborhoods without signal must not hang.
+               connectTimeout: const Duration(seconds: 5),
+               receiveTimeout: const Duration(seconds: 8),
                headers: const {
                  'content-type': 'application/json',
                  'accept': 'application/json',

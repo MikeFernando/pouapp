@@ -270,6 +270,39 @@ class DayChecklistSnapshot {
   final Map<String, int> productCents;
 }
 
+/// Frozen contribution captured when the user marks a day receipt as done.
+///
+/// Survives note deletion so Financeiro / Recebido hoje do not shrink.
+class DayChecklistFrozen {
+  const DayChecklistFrozen({
+    required this.receivedCents,
+    required this.productCents,
+  });
+
+  final int receivedCents;
+  final Map<String, int> productCents;
+
+  factory DayChecklistFrozen.fromJson(Map<String, dynamic> json) {
+    final rawProducts = json['productCents'];
+    final products = <String, int>{};
+    if (rawProducts is Map) {
+      for (final entry in rawProducts.entries) {
+        final cents = entry.value;
+        if (cents is num) products[entry.key.toString()] = cents.toInt();
+      }
+    }
+    return DayChecklistFrozen(
+      receivedCents: (json['receivedCents'] as num?)?.toInt() ?? 0,
+      productCents: products,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'receivedCents': receivedCents,
+    'productCents': productCents,
+  };
+}
+
 /// Customers whose note or open balance is due on [today].
 ///
 /// Fully paid items for the same day stay listed as [DayReceiptCustomer.done].

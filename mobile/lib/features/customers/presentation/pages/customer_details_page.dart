@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,7 +16,9 @@ import '../../../assistant/presentation/voice_attendance.dart';
 import '../../../catalog/domain/entities/catalog.dart';
 import '../../../catalog/presentation/produce_assets.dart';
 import '../../../workspace/domain/entities/stock_board.dart';
+import '../../../workspace/data/day_checklist_store.dart';
 import '../../../workspace/domain/entities/street_ledger.dart';
+import '../../../workspace/domain/rules/month_board.dart';
 import '../../../workspace/domain/usecases/home_use_cases.dart';
 import '../../../workspace/presentation/bloc/company_operation_bloc.dart';
 import '../../../workspace/presentation/bloc/home_board_bloc.dart';
@@ -598,9 +602,11 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         _paymentMethod = payment;
         _rememberSavedSnapshot(note: saved, paymentMethod: payment);
       });
-      await _syncNoteToHome(
-        saved,
-        cleared: saved.totalCents <= 0 || saved.dueOn == null,
+      unawaited(
+        _syncNoteToHome(
+          saved,
+          cleared: saved.totalCents <= 0 || saved.dueOn == null,
+        ),
       );
       if (!mounted) return false;
     }
@@ -681,10 +687,51 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     );
     if (picked == null || !mounted) return;
     final dueOn = DateTime(picked.year, picked.month, picked.day);
+
+    // Always persist vencimento to SQLite so offline home updates immediately.
+    if (!di.sl.isRegistered<CustomerNoteRepository>()) {
+      setState(() {
+        _noteError = null;
+        _note = note.copyWith(dueOn: dueOn, updatedAt: DateTime.now());
+        final saved = _savedNote;
+        if (saved != null) {
+          _savedNote = saved.copyWith(dueOn: dueOn, updatedAt: DateTime.now());
+        }
+      });
+      return;
+    }
+
+    final result = await di.sl<CustomerNoteRepository>().setDueOn(
+      noteId: note.id,
+      dueOn: dueOn,
+    );
+    if (!mounted) return;
+    if (result.isLeft()) {
+      _rememberFailure(null);
+      return;
+    }
+    final saved = result.getOrElse(() => note);
     setState(() {
       _noteError = null;
-      _note = note.copyWith(dueOn: dueOn, updatedAt: DateTime.now());
+      _note = note.copyWith(
+        dueOn: saved.dueOn,
+        updatedAt: saved.updatedAt,
+      );
+      final snapshot = _savedNote;
+      if (snapshot != null) {
+        _savedNote = snapshot.copyWith(
+          dueOn: saved.dueOn,
+          updatedAt: saved.updatedAt,
+        );
+      }
     });
+    // API + home refresh run in the background — UI never waits on network.
+    unawaited(
+      _syncNoteToHome(
+        saved,
+        cleared: saved.totalCents <= 0 || saved.dueOn == null,
+      ),
+    );
   }
 
   Future<void> _editLine(int index) async {
@@ -798,6 +845,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       confirmKey: const Key('confirm_delete_note'),
     );
     if (!confirmed || !mounted) return;
+    await _commitReceivedNote(note);
 
     if (!di.sl.isRegistered<CustomerNoteRepository>()) {
       final now = DateTime.now();
@@ -819,7 +867,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         _paymentMethod = null;
         _rememberSavedSnapshot(note: next, paymentMethod: null);
       });
-      await _syncNoteToHome(note, cleared: true);
+      unawaited(_syncNoteToHome(note, cleared: true));
       return;
     }
 
@@ -839,7 +887,35 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         paymentMethod: next.paymentMethod,
       );
     });
-    await _syncNoteToHome(next, cleared: true);
+    unawaited(_syncNoteToHome(next, cleared: true));
+  }
+
+  /// A marked receipt becomes permanent in Financeiro only when the note is
+  /// deleted. Unmarking before that removes it again.
+  Future<void> _commitReceivedNote(CustomerNote note) async {
+    if (!di.sl.isRegistered<DayChecklistStore>()) return;
+    if (note.totalCents <= 0) return;
+    final store = di.sl<DayChecklistStore>();
+    final today = DateTime.now();
+    final served = store.loadServed(today);
+    if (!served.contains(note.customerId)) return;
+    final products = <String, int>{};
+    for (final line in note.lines) {
+      final name = line.name.trim();
+      if (name.isEmpty || line.totalCents <= 0) continue;
+      products[name] = (products[name] ?? 0) + line.totalCents;
+    }
+    await store.commitReceipt(
+      noteId: note.id,
+      entry: DayChecklistFrozen(
+        receivedCents: note.totalCents,
+        productCents: products,
+      ),
+    );
+    served.remove(note.customerId);
+    await store.saveServed(today, served);
+    final frozen = store.loadFrozen(today)..remove(note.customerId);
+    await store.saveFrozen(today, frozen);
   }
 
   Future<void> _showDeletedNotes(Customer customer) async {
@@ -892,6 +968,10 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     CustomerNote note, {
     bool cleared = false,
   }) async {
+    // Soft-refresh home from local cache/SQLite; network sync is best-effort.
+    if (di.sl.isRegistered<HomeBoardBloc>()) {
+      di.sl<HomeBoardBloc>().add(const HomeBoardRequested());
+    }
     if (!ApiConfig.useRemoteApi) return;
     try {
       if (cleared || note.dueOn == null || note.totalCents <= 0) {
@@ -907,9 +987,6 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       }
     } catch (_) {
       // Local note already saved; home sync must not crash the clear flow.
-    }
-    if (di.sl.isRegistered<HomeBoardBloc>()) {
-      di.sl<HomeBoardBloc>().add(const HomeBoardRequested());
     }
   }
 

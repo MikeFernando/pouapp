@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../catalog/data/catalog_seed.dart';
 import '../../catalog/domain/entities/catalog.dart';
+import '../../customers/data/datasources/customer_local_data_source.dart';
 import '../../customers/domain/entities/customer.dart';
 import '../../customers/domain/entities/customer_note.dart';
 import '../../customers/domain/repositories/customer_note_repository.dart';
@@ -147,6 +150,7 @@ const _lastNames = <String>[
 /// Returns `true` when the home board should reload.
 Future<bool> seedHomeBoardDuesIfNeeded({
   required CustomerRepository customers,
+  required CustomerLocalDataSource localCustomers,
   required CustomerNoteRepository notes,
   required SharedPreferences prefs,
   CreateHomeNote? createHomeNote,
@@ -157,6 +161,7 @@ Future<bool> seedHomeBoardDuesIfNeeded({
   if (running != null) return running;
   final run = _runHomeBoardSeed(
     customers: customers,
+    localCustomers: localCustomers,
     notes: notes,
     prefs: prefs,
     createHomeNote: createHomeNote,
@@ -171,6 +176,7 @@ Future<bool> seedHomeBoardDuesIfNeeded({
 
 Future<bool> _runHomeBoardSeed({
   required CustomerRepository customers,
+  required CustomerLocalDataSource localCustomers,
   required CustomerNoteRepository notes,
   required SharedPreferences prefs,
   CreateHomeNote? createHomeNote,
@@ -179,6 +185,7 @@ Future<bool> _runHomeBoardSeed({
 }) async {
   final deduped = await _dedupeSeedCustomers(
     customers: customers,
+    localCustomers: localCustomers,
     notes: notes,
     prefs: prefs,
     clearHomeNote: clearHomeNote,
@@ -198,7 +205,7 @@ Future<bool> _runHomeBoardSeed({
   for (var index = 0; index < _overdueCount; index++) {
     final dueOn = today.subtract(Duration(days: index + 1));
     final ok = await _seedOne(
-      customers: customers,
+      localCustomers: localCustomers,
       notes: notes,
       createHomeNote: createHomeNote,
       name: _nameAt(index),
@@ -220,7 +227,7 @@ Future<bool> _runHomeBoardSeed({
       final offset = upcomingSpan == 0 ? 0 : index % (upcomingSpan + 1);
       final dueOn = firstUpcoming.add(Duration(days: offset));
       final ok = await _seedOne(
-        customers: customers,
+        localCustomers: localCustomers,
         notes: notes,
         createHomeNote: createHomeNote,
         name: _nameAt(_overdueCount + index),
@@ -248,15 +255,18 @@ Set<String> _seedNames() => {
 };
 
 /// Keeps the oldest customer per seeded name; deletes the rest.
+///
+/// Reads/writes SQLite only so dedupe never hangs the device offline.
 Future<bool> _dedupeSeedCustomers({
   required CustomerRepository customers,
+  required CustomerLocalDataSource localCustomers,
   required CustomerNoteRepository notes,
   required SharedPreferences prefs,
   ClearHomeNote? clearHomeNote,
 }) async {
   if (prefs.getBool(homeBoardDuesDedupedKey) == true) return false;
 
-  final items = await _loadAllCustomers(customers);
+  final items = await _loadAllLocalCustomers(localCustomers);
   if (items.isEmpty) {
     await prefs.setBool(homeBoardDuesDedupedKey, true);
     return false;
@@ -274,16 +284,18 @@ Future<bool> _dedupeSeedCustomers({
     if (group.length <= 1) continue;
     group.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     for (final extra in group.skip(1)) {
+      // Best-effort remote cleanup — never block on network.
       if (clearHomeNote != null) {
-        await clearHomeNote(customerId: extra.id);
+        unawaited(clearHomeNote(customerId: extra.id));
       }
       final draft = await notes.currentNote(extra.id);
       final note = draft.fold<CustomerNote?>((_) => null, (value) => value);
       if (note != null && note.status == NoteStatus.draft) {
         await notes.deleteNote(note.id);
       }
-      final deleted = await customers.deleteCustomer(extra.id);
-      if (deleted.isRight()) removed++;
+      await localCustomers.deleteCustomer(extra.id);
+      unawaited(customers.deleteCustomer(extra.id));
+      removed++;
     }
   }
 
@@ -292,19 +304,16 @@ Future<bool> _dedupeSeedCustomers({
   return removed > 0;
 }
 
-Future<List<Customer>> _loadAllCustomers(CustomerRepository customers) async {
+Future<List<Customer>> _loadAllLocalCustomers(
+  CustomerLocalDataSource localCustomers,
+) async {
   const pageSize = 100;
   final all = <Customer>[];
   var page = 0;
   while (true) {
-    final result = await customers.getCustomers(
+    final batch = await localCustomers.getCustomers(
       CustomerQuery(page: page, pageSize: pageSize),
     );
-    final batch = result.fold<CustomerPage?>(
-      (_) => null,
-      (value) => value,
-    );
-    if (batch == null) break;
     all.addAll(batch.items);
     if (!batch.hasMore || batch.items.isEmpty) break;
     page++;
@@ -319,7 +328,7 @@ String _nameAt(int index) {
 }
 
 Future<bool> _seedOne({
-  required CustomerRepository customers,
+  required CustomerLocalDataSource localCustomers,
   required CustomerNoteRepository notes,
   required CreateHomeNote? createHomeNote,
   required String name,
@@ -329,7 +338,8 @@ Future<bool> _seedOne({
   required int salt,
 }) async {
   try {
-    final created = await customers.createCustomer(
+    // Local SQLite only — home must work in neighborhoods without signal.
+    final customer = await localCustomers.createCustomer(
       CustomerInput(
         type: CustomerType.individual,
         name: name,
@@ -337,8 +347,6 @@ Future<bool> _seedOne({
         notes: 'Cliente de demonstração da home.',
       ),
     );
-    final customer = created.fold<Customer?>((_) => null, (value) => value);
-    if (customer == null) return false;
 
     final draft = await notes.activeDraft(customer.id);
     final note = draft.fold<CustomerNote?>((_) => null, (value) => value);
@@ -372,10 +380,12 @@ Future<bool> _seedOne({
     }
 
     if (createHomeNote != null) {
-      await createHomeNote(
-        customerId: customer.id,
-        dueOn: isoDate(saved.dueOn!),
-        totalCents: saved.totalCents,
+      unawaited(
+        createHomeNote(
+          customerId: customer.id,
+          dueOn: isoDate(saved.dueOn!),
+          totalCents: saved.totalCents,
+        ),
       );
     }
     return true;

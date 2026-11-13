@@ -18,6 +18,7 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
 import '../../../customers/presentation/customer_routes.dart';
 import '../../../customers/presentation/pages/customers_page.dart';
+import '../../data/day_checklist_store.dart';
 import '../../domain/rules/month_board.dart';
 import '../bloc/company_operation_bloc.dart';
 import '../bloc/home_board_bloc.dart';
@@ -27,6 +28,7 @@ import '../theme/workspace_colors.dart';
 import '../widgets/profile_menu_sheet.dart';
 import '../widgets/street_board_view.dart';
 import 'business_settings_page.dart';
+import 'add_delivery_page.dart';
 import 'finance_page.dart';
 
 class WorkspacePage extends StatelessWidget {
@@ -37,10 +39,7 @@ class WorkspacePage extends StatelessWidget {
     final company = loadedCompanyOperation();
     final home = loadedHomeBoard();
     if (home == null) {
-      return BlocProvider.value(
-        value: company,
-        child: const WorkspaceView(),
-      );
+      return BlocProvider.value(value: company, child: const WorkspaceView());
     }
 
     return MultiBlocProvider(
@@ -64,8 +63,32 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   var _valuesHidden = false;
   final _built = <int>{0};
   var _tab = 0;
+  var _adding = false;
   var _checklistReceivedCents = 0;
   Map<String, int> _checklistProductCents = const {};
+  var _committedReceivedCents = 0;
+  Map<String, int> _committedProductCents = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _reloadCommitted();
+  }
+
+  void _reloadCommitted() {
+    if (!di.sl.isRegistered<DayChecklistStore>()) return;
+    final total = di.sl<DayChecklistStore>().committedTotal();
+    _committedReceivedCents = total.receivedCents;
+    _committedProductCents = Map<String, int>.of(total.productCents);
+  }
+
+  Map<String, int> get _financeProductCents {
+    final merged = Map<String, int>.of(_checklistProductCents);
+    for (final entry in _committedProductCents.entries) {
+      merged[entry.key] = (merged[entry.key] ?? 0) + entry.value;
+    }
+    return merged;
+  }
 
   void _openTab(int index) {
     setState(() {
@@ -126,55 +149,84 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                   index: _tab,
                   children: [
                     fill(
-                      Column(
+                      Stack(
                         children: [
-                          _WorkspaceHeader(
-                            user: user,
-                            message: logoutError,
-                            receivedTodayCents:
-                                _receivedTodayCents(context) +
-                                _checklistReceivedCents,
-                            valuesHidden: _valuesHidden,
-                            onToggleValues: () {
-                              setState(
-                                () => _valuesHidden = !_valuesHidden,
-                              );
-                            },
+                          Column(
+                            children: [
+                              _WorkspaceHeader(
+                                user: user,
+                                message: logoutError,
+                                receivedTodayCents:
+                                    _receivedTodayCents(context) +
+                                    _checklistReceivedCents +
+                                    _committedReceivedCents,
+                                valuesHidden: _valuesHidden,
+                                onToggleValues: () {
+                                  setState(
+                                    () => _valuesHidden = !_valuesHidden,
+                                  );
+                                },
+                              ),
+                              Expanded(
+                                child: StreetBoardView(
+                                  valuesHidden: _valuesHidden,
+                                  checklistProductCents: _financeProductCents,
+                                  onNewSale: _addDeliveryPerson,
+                                  onChecklistChanged: (snapshot) {
+                                    if (_checklistReceivedCents ==
+                                            snapshot.receivedCents &&
+                                        _sameProductCents(
+                                          _checklistProductCents,
+                                          snapshot.productCents,
+                                        )) {
+                                      return;
+                                    }
+                                    setState(() {
+                                      _checklistReceivedCents =
+                                          snapshot.receivedCents;
+                                      _checklistProductCents = Map.of(
+                                        snapshot.productCents,
+                                      );
+                                    });
+                                  },
+                                  onOpenCustomer: (customerId) async {
+                                    await Navigator.of(context).pushNamed(
+                                      CustomerRoutes.details(customerId),
+                                    );
+                                    if (!context.mounted) return;
+                                    setState(_reloadCommitted);
+                                    // Reload hoje/amanhã after editing vencimento.
+                                    if (ApiConfig.useRemoteApi) {
+                                      context.read<HomeBoardBloc>().add(
+                                        const HomeBoardRequested(),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                          Expanded(
-                            child: StreetBoardView(
-                              valuesHidden: _valuesHidden,
-                              onChecklistChanged: (snapshot) {
-                                if (_checklistReceivedCents ==
-                                        snapshot.receivedCents &&
-                                    _sameProductCents(
-                                      _checklistProductCents,
-                                      snapshot.productCents,
-                                    )) {
-                                  return;
-                                }
-                                setState(() {
-                                  _checklistReceivedCents =
-                                      snapshot.receivedCents;
-                                  _checklistProductCents = Map.of(
-                                    snapshot.productCents,
-                                  );
-                                });
-                              },
-                              onOpenCustomer: (customerId) async {
-                                await Navigator.of(context).pushNamed(
-                                  CustomerRoutes.details(customerId),
-                                );
-                                if (!context.mounted) return;
-                                // Reload hoje/amanhã after editing vencimento.
-                                if (ApiConfig.useRemoteApi) {
-                                  context.read<HomeBoardBloc>().add(
-                                    const HomeBoardRequested(),
-                                  );
-                                }
-                              },
+                          if (_adding)
+                            Positioned.fill(
+                              child: _AddCover(
+                                onClose: () => setState(() => _adding = false),
+                                child: AddDeliveryPage(
+                                  onOpenCustomer: (customerId) async {
+                                    setState(() => _adding = false);
+                                    await Navigator.of(context).pushNamed(
+                                      CustomerRoutes.details(customerId),
+                                    );
+                                    if (!context.mounted) return;
+                                    setState(_reloadCommitted);
+                                    if (ApiConfig.useRemoteApi) {
+                                      context.read<HomeBoardBloc>().add(
+                                        const HomeBoardRequested(),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -191,8 +243,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     fill(
                       _built.contains(3)
                           ? FinancePage(
-                              checklistProductCents: _checklistProductCents,
-                              checklistReceivedCents: _checklistReceivedCents,
+                              checklistProductCents: _financeProductCents,
+                              checklistReceivedCents:
+                                  _checklistReceivedCents +
+                                  _committedReceivedCents,
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -206,9 +260,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     );
   }
 
+  void _addDeliveryPerson() {
+    setState(() => _adding = true);
+  }
+
   int _receivedTodayCents(BuildContext context) {
     if (ApiConfig.useRemoteApi) {
-      return context.watch<HomeBoardBloc>().state.board?.receivedTodayCents ?? 0;
+      return context.watch<HomeBoardBloc>().state.board?.receivedTodayCents ??
+          0;
     }
     final operation = context.watch<CompanyOperationBloc>().state.operation;
     final now = DateTime.now();
@@ -269,9 +328,7 @@ class _WorkspaceHeader extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: ColoredBox(color: Colors.white),
-            ),
+            const Positioned.fill(child: ColoredBox(color: Colors.white)),
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -501,6 +558,72 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
                   ),
                 )
               : null,
+        ),
+      ),
+    );
+  }
+}
+
+/// Covers the home content, sliding down from the top and stopping above the bar.
+class _AddCover extends StatefulWidget {
+  const _AddCover({required this.onClose, required this.child});
+
+  final VoidCallback onClose;
+  final Widget child;
+
+  @override
+  State<_AddCover> createState() => _AddCoverState();
+}
+
+class _AddCoverState extends State<_AddCover>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _close() async {
+    await _controller.reverse();
+    if (mounted) widget.onClose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+          .animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+          ),
+      child: ColoredBox(
+        color: const Color(0xFFF6F5F7),
+        child: Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  key: const Key('close_add_delivery'),
+                  tooltip: 'Fechar',
+                  onPressed: _close,
+                  icon: const Icon(Icons.close, color: pouInk),
+                ),
+              ),
+            ),
+            Expanded(child: widget.child),
+          ],
         ),
       ),
     );

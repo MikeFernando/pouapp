@@ -367,9 +367,21 @@ class CustomerNoteLocalDataSourceImpl implements CustomerNoteLocalDataSource {
     }
   }
 
+  /// Deleted notes stay in history for 30 days, then are removed.
+  static const deletedHistoryDays = 30;
+
   @override
   Future<List<CustomerNote>> deletedNotes(String customerId) async {
     final db = await openDatabase();
+    final cutoff = _clock()
+        .toUtc()
+        .subtract(const Duration(days: deletedHistoryDays))
+        .toIso8601String();
+    await db.delete(
+      'customer_notes',
+      where: 'customer_id = ? AND status = ? AND updated_at < ?',
+      whereArgs: [customerId, NoteStatus.deleted.name, cutoff],
+    );
     final rows = await db.query(
       'customer_notes',
       columns: ['id'],

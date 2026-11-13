@@ -17,6 +17,7 @@ class DayReceiptsCard extends StatefulWidget {
     required this.valuesHidden,
     required this.onOpenCustomer,
     this.servedCustomerIds = const {},
+    this.frozenByCustomer = const {},
     this.onToggleServed,
     this.expanded,
     this.onExpandedChanged,
@@ -32,7 +33,13 @@ class DayReceiptsCard extends StatefulWidget {
 
   /// Checklist marks owned by the parent (survive home reload / navigation).
   final Set<String> servedCustomerIds;
-  final ValueChanged<String>? onToggleServed;
+
+  /// Values frozen at mark-time — keep Financeiro after the note is deleted.
+  final Map<String, DayChecklistFrozen> frozenByCustomer;
+
+  /// When marking served, [entry] is the frozen contribution; when unmarking, null.
+  final void Function(String customerId, DayChecklistFrozen? entry)?
+      onToggleServed;
 
   /// Expand state owned by the parent (survive home reload / navigation).
   final bool? expanded;
@@ -98,19 +105,38 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
     return count;
   }
 
+  DayChecklistFrozen _liveFreeze(DayReceiptCustomer receipt) {
+    final products = <String, int>{};
+    final lines = widget.noteLinesByCustomer[receipt.customerId] ?? const [];
+    for (final line in lines) {
+      final name = line.name.trim();
+      if (name.isEmpty || line.totalCents <= 0) continue;
+      products[name] = (products[name] ?? 0) + line.totalCents;
+    }
+    return DayChecklistFrozen(
+      receivedCents: receipt.amountCents,
+      productCents: products,
+    );
+  }
+
   DayChecklistSnapshot get _checklistSnapshot {
     var cents = 0;
     final products = <String, int>{};
+    void add(DayChecklistFrozen entry) {
+      if (entry.receivedCents <= 0) return;
+      cents += entry.receivedCents;
+      for (final item in entry.productCents.entries) {
+        if (item.value <= 0) continue;
+        products[item.key] = (products[item.key] ?? 0) + item.value;
+      }
+    }
+
     for (final receipt in widget.receipts) {
       if (receipt.done) continue;
       if (!_servedIds.contains(receipt.customerId)) continue;
-      cents += receipt.amountCents;
-      final lines = widget.noteLinesByCustomer[receipt.customerId] ?? const [];
-      for (final line in lines) {
-        final name = line.name.trim();
-        if (name.isEmpty || line.totalCents <= 0) continue;
-        products[name] = (products[name] ?? 0) + line.totalCents;
-      }
+      // Always use the current note so two customers selling the same
+      // product add up, and unmarking removes that contribution.
+      add(_liveFreeze(receipt));
     }
     return DayChecklistSnapshot(
       receivedCents: cents,
@@ -150,6 +176,7 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
     }
     if (oldWidget.receipts != widget.receipts ||
         oldWidget.servedCustomerIds != widget.servedCustomerIds ||
+        oldWidget.frozenByCustomer != widget.frozenByCustomer ||
         oldWidget.noteLinesByCustomer != widget.noteLinesByCustomer) {
       _emitChecklistReceived();
     }
@@ -168,8 +195,17 @@ class _DayReceiptsCardState extends State<DayReceiptsCard> {
 
   void _toggleServed(String customerId) {
     final owned = widget.onToggleServed;
+    final marking = !_servedIds.contains(customerId);
+    DayChecklistFrozen? entry;
+    if (marking) {
+      for (final receipt in widget.receipts) {
+        if (receipt.customerId != customerId) continue;
+        entry = _liveFreeze(receipt);
+        break;
+      }
+    }
     if (owned != null) {
-      owned(customerId);
+      owned(customerId, entry);
       return;
     }
     setState(() {

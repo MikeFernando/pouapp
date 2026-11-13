@@ -51,6 +51,7 @@ import 'features/workspace/data/sync_worker.dart';
 import 'features/workspace/data/delivery_store.dart';
 import 'features/workspace/data/receivable_store.dart';
 import 'features/workspace/data/datasources/home_remote_data_source.dart';
+import 'features/workspace/data/home_board_cache.dart';
 import 'features/workspace/data/datasources/workspace_local_data_source.dart';
 import 'features/workspace/data/datasources/workspace_simulated_data_source.dart';
 import 'features/workspace/data/repositories/workspace_repository_impl.dart';
@@ -210,7 +211,10 @@ Future<void> init() async {
     sl.registerLazySingleton(() => GetHomeBoard(sl()));
     sl.registerLazySingleton(() => CreateHomeNote(sl()));
     sl.registerLazySingleton(() => ClearHomeNote(sl()));
-    sl.registerLazySingleton(() => HomeBoardBloc(getHomeBoard: sl()));
+    sl.registerLazySingleton(() => HomeBoardCache(sharedPreferences: sl()));
+    sl.registerLazySingleton(
+      () => HomeBoardBloc(getHomeBoard: sl(), cache: sl()),
+    );
   }
   sl.registerLazySingleton(
     () => ReceivableStore(

@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/error/failures.dart';
+import '../../data/home_board_cache.dart';
 import '../../domain/entities/home_board.dart';
 import '../../domain/entities/street_ledger.dart';
 import '../../domain/usecases/home_use_cases.dart';
@@ -50,36 +50,59 @@ class HomeBoardRequested extends HomeBoardEvent {
 }
 
 class HomeBoardBloc extends Bloc<HomeBoardEvent, HomeBoardState> {
-  HomeBoardBloc({required this.getHomeBoard}) : super(const HomeBoardState()) {
+  HomeBoardBloc({
+    required this.getHomeBoard,
+    required this.cache,
+  }) : super(const HomeBoardState()) {
     on<HomeBoardRequested>(_onRequested);
   }
 
   final GetHomeBoard getHomeBoard;
+  final HomeBoardCache cache;
 
   Future<void> _onRequested(
     HomeBoardRequested event,
     Emitter<HomeBoardState> emit,
   ) async {
-    emit(state.copyWith(status: HomeBoardStatus.loading, clearMessage: true));
-    // Always send the device calendar day so UTC servers don't shift hoje/amanhã.
-    final result = await getHomeBoard(event.date ?? isoDate(DateTime.now()));
-    result.fold(
-      (failure) => emit(
-        state.copyWith(
-          status: HomeBoardStatus.failure,
-          message: switch (failure) {
-            NetworkFailure() => 'Sem conexão com a API.',
-            _ => 'Não foi possível carregar a home.',
-          },
-        ),
-      ),
-      (board) => emit(
+    final date = event.date ?? isoDate(DateTime.now());
+    final cached = cache.read(date: date);
+
+    // Offline-first: show cache immediately; never blank the home on refresh.
+    if (state.board == null && cached != null) {
+      emit(
         state.copyWith(
           status: HomeBoardStatus.ready,
-          board: board,
+          board: cached,
           clearMessage: true,
         ),
-      ),
+      );
+    } else if (state.board == null) {
+      emit(state.copyWith(status: HomeBoardStatus.loading, clearMessage: true));
+    }
+
+    final result = await getHomeBoard(date);
+    await result.fold(
+      (failure) async {
+        // Keep working offline from SQLite notes + last cache.
+        final fallback = state.board ?? cached ?? emptyHomeBoard();
+        emit(
+          state.copyWith(
+            status: HomeBoardStatus.ready,
+            board: fallback,
+            clearMessage: true,
+          ),
+        );
+      },
+      (board) async {
+        await cache.write(board);
+        emit(
+          state.copyWith(
+            status: HomeBoardStatus.ready,
+            board: board,
+            clearMessage: true,
+          ),
+        );
+      },
     );
   }
 }

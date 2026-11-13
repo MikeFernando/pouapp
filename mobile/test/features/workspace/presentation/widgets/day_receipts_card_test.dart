@@ -151,8 +151,12 @@ void main() {
         valuesHidden: false,
         onOpenCustomer: (_) {},
         servedCustomerIds: Set.unmodifiable(served),
-        onToggleServed: (id) {
-          if (!served.add(id)) served.remove(id);
+        onToggleServed: (id, entry) {
+          if (served.contains(id)) {
+            served.remove(id);
+          } else {
+            served.add(id);
+          }
         },
         onChecklistChanged: (snapshot) => reported = snapshot,
       );

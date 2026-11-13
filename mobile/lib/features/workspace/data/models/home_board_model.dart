@@ -49,4 +49,24 @@ class HomeBoardModel extends HomeBoard {
       upcomingDues: parseList(json['upcomingDues']),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> itemJson(HomeDueItem item) => {
+      'customerId': item.customerId,
+      'customerName': item.customerName,
+      'openCents': item.openCents,
+      'dueOn': item.dueOn,
+      'openNotes': item.openNotes,
+      'settled': item.settled,
+    };
+    return {
+      'date': date,
+      'receivedTodayCents': receivedTodayCents,
+      'receiptsDueToday': [
+        for (final item in receiptsDueToday) itemJson(item),
+      ],
+      'duesTomorrow': [for (final item in duesTomorrow) itemJson(item)],
+      'upcomingDues': [for (final item in upcomingDues) itemJson(item)],
+    };
+  }
 }

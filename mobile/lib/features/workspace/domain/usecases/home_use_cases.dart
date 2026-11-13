@@ -18,6 +18,8 @@ class GetHomeBoard implements UseCase<HomeBoard, String?> {
       return Right(await remote.getHome(date: date));
     } on NetworkException {
       return const Left(NetworkFailure());
+    } on NotFoundException {
+      return const Left(ServerFailure());
     } on ServerException {
       return const Left(ServerFailure());
     }
@@ -41,6 +43,10 @@ class CreateHomeNote {
         totalCents: totalCents,
       );
       return const Right(unit);
+    } on NotFoundException {
+      // Local customer/note is the source of truth offline. A 404 means the
+      // API does not know this customer yet — do not crash the background sync.
+      return const Left(ServerFailure());
     } on NetworkException {
       return const Left(NetworkFailure());
     } on ServerException {

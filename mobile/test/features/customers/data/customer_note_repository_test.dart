@@ -312,6 +312,48 @@ void main() {
     expect(open.lines, isEmpty);
   });
 
+  test('drops deleted notes older than 30 days from history', () async {
+    var now = DateTime.utc(2026, 6, 2);
+    final aging = CustomerNoteRepositoryImpl(
+      localDataSource: CustomerNoteLocalDataSourceImpl(
+        openDatabase: customers.database,
+        clock: () => now,
+        newId: () => 'note-${noteSequence++}',
+      ),
+    );
+    final bia = await customers.createCustomer(
+      const CustomerInput(type: CustomerType.individual, name: 'Bia'),
+    );
+    final draft = _take(await aging.activeDraft(bia.id));
+    _take(
+      await aging.saveLines(
+        noteId: draft.id,
+        lines: const [
+          NoteLineDraft(
+            name: 'Alho',
+            unit: CatalogUnit.piece,
+            quantity: 1,
+            unitPriceCents: 300,
+          ),
+        ],
+      ),
+    );
+    _take(await aging.deleteNote(draft.id));
+
+    final fresh = (await aging.deletedNotes(bia.id)).fold(
+      (failure) => throw StateError('$failure'),
+      (value) => value,
+    );
+    expect(fresh, hasLength(1));
+
+    now = DateTime.utc(2026, 7, 3);
+    final expired = (await aging.deletedNotes(bia.id)).fold(
+      (failure) => throw StateError('$failure'),
+      (value) => value,
+    );
+    expect(expired, isEmpty);
+  });
+
   test(
     'upgrades version 1 without dropping customers or inventing lines',
     () async {
