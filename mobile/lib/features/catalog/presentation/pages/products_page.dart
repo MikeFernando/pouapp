@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/business_look.dart';
 import '../../../../app/pou_alphabet_index.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/pou_item_edit_sheet.dart';
@@ -26,12 +27,22 @@ class _ProductsPageState extends State<ProductsPage> {
   CatalogSnapshot? _snapshot;
   String? _filterLetter;
   var _scrubbing = false;
+  PouChrome? _catalogChrome;
 
   @override
   void initState() {
     super.initState();
     _searchFocus.addListener(_onSearchFocusChanged);
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final chrome = BusinessLook.chromeOf(context);
+    final changed = _catalogChrome != null && _catalogChrome != chrome;
+    _catalogChrome = chrome;
+    if (changed) _load(silent: true);
   }
 
   @override
@@ -164,9 +175,8 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   void _tell(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _setLetter(String? letter) {
@@ -199,19 +209,20 @@ class _ProductsPageState extends State<ProductsPage> {
   List<ProductStock> _filteredProducts() {
     final query = _search.text.trim().toLowerCase();
     final letter = _filterLetter;
-    final rows = [
-      for (final row in _snapshot?.products ?? const <ProductStock>[])
-        if ((query.isEmpty ||
-                row.product.name.toLowerCase().contains(query) ||
-                _sku(row.product).toLowerCase().contains(query)) &&
-            (letter == null ||
-                pouAlphabetInitial(row.product.name) == letter))
-          row,
-    ]..sort(
-      (a, b) => a.product.name.toLowerCase().compareTo(
-        b.product.name.toLowerCase(),
-      ),
-    );
+    final rows =
+        [
+          for (final row in _snapshot?.products ?? const <ProductStock>[])
+            if ((query.isEmpty ||
+                    row.product.name.toLowerCase().contains(query) ||
+                    _sku(row.product).toLowerCase().contains(query)) &&
+                (letter == null ||
+                    pouAlphabetInitial(row.product.name) == letter))
+              row,
+        ]..sort(
+          (a, b) => a.product.name.toLowerCase().compareTo(
+            b.product.name.toLowerCase(),
+          ),
+        );
     return rows;
   }
 
@@ -265,7 +276,7 @@ class _ProductsPageState extends State<ProductsPage> {
                 key: const Key('product_add'),
                 heroTag: 'product_add',
                 tooltip: 'Novo produto',
-                backgroundColor: pouBrand,
+                backgroundColor: pouThemeBrand(context),
                 foregroundColor: Colors.white,
                 onPressed: _addProduct,
                 child: const Icon(Icons.add),
@@ -301,7 +312,8 @@ class _ProductsPageState extends State<ProductsPage> {
         ),
       );
     }
-    final hasSource = (_snapshot?.products ?? const <ProductStock>[]).isNotEmpty;
+    final hasSource =
+        (_snapshot?.products ?? const <ProductStock>[]).isNotEmpty;
     if (!hasSource) {
       return const Center(child: Text('Nenhum produto encontrado.'));
     }
@@ -319,7 +331,7 @@ class _ProductsPageState extends State<ProductsPage> {
         else if (products.isNotEmpty)
           ListView.separated(
             key: const Key('products_list'),
-            padding: const EdgeInsets.fromLTRB(16, 0, 28, 88),
+            padding: const EdgeInsets.fromLTRB(16, 0, 28, 112),
             itemCount: products.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -532,10 +544,26 @@ class _ProductCardState extends State<_ProductCard> {
 }
 
 const _gray = <double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0, 0, 0, 1, 0,
+  0.2126,
+  0.7152,
+  0.0722,
+  0,
+  0,
+  0.2126,
+  0.7152,
+  0.0722,
+  0,
+  0,
+  0.2126,
+  0.7152,
+  0.0722,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
 ];
 
 class _ProductAction extends StatelessWidget {
@@ -678,6 +706,7 @@ class _NewProductSheetState extends State<_NewProductSheet> {
   var _unit = CatalogUnit.kilogram;
   var _saving = false;
   String? _error;
+  String? _categoryLabel;
 
   @override
   void dispose() {
@@ -708,6 +737,7 @@ class _NewProductSheetState extends State<_NewProductSheet> {
         salePriceCents: price,
         openingLocation: StockLocationCode.warehouse,
         openingQuantity: 0,
+        category: _categoryLabel,
       ),
     );
     if (!mounted) return;
@@ -718,6 +748,39 @@ class _NewProductSheetState extends State<_NewProductSheet> {
       }),
       (_) => Navigator.of(context).pop(true),
     );
+  }
+
+  List<Widget> _categorySuggestions(BuildContext context) {
+    final suggestions = BusinessLook.suggestionsOf(context);
+    if (suggestions.isEmpty) return const [];
+    return [
+      const SizedBox(height: 12),
+      Text(
+        'Categoria',
+        style: Theme.of(context).textTheme.titleSmall
+            ?.copyWith(color: pouInk, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final suggestion in suggestions)
+            ChoiceChip(
+              key: Key('new_product_category_${suggestion.id}'),
+              label: Text(suggestion.label),
+              selected: _categoryLabel == suggestion.label,
+              onSelected: _saving
+                  ? null
+                  : (selected) {
+                      setState(() {
+                        _categoryLabel = selected ? suggestion.label : null;
+                      });
+                    },
+            ),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -761,6 +824,7 @@ class _NewProductSheetState extends State<_NewProductSheet> {
                 textInputAction: TextInputAction.next,
                 decoration: _fieldDecoration('Nome'),
               ),
+              ..._categorySuggestions(context),
               const SizedBox(height: 12),
               DropdownButtonFormField<CatalogUnit>(
                 key: const Key('new_product_unit'),
@@ -790,9 +854,8 @@ class _NewProductSheetState extends State<_NewProductSheet> {
                 inputFormatters: const [BrlCentsInputFormatter()],
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _saving ? null : _save(),
-                decoration: _fieldDecoration('Preço').copyWith(
-                  prefixText: 'R\$ ',
-                ),
+                decoration: _fieldDecoration('Preço')
+                    .copyWith(prefixText: 'R\$ '),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),

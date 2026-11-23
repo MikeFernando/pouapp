@@ -10,7 +10,8 @@ class UnauthenticatedShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WelcomePage(
-      onOrderNow: () => showLoginSheet(context),
+      onLogin: () => showLoginSheet(context),
+      onRegister: () => showLoginSheet(context, startOnRegister: true),
     );
   }
 }

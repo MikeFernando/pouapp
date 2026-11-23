@@ -15,7 +15,13 @@ const _subtitleColor = Color(0xFF6B7280);
 const _labelColor = Color(0xFF111827);
 
 /// Opens login/register in a modal over the welcome screen.
-Future<void> showLoginSheet(BuildContext context) {
+///
+/// [startOnRegister] opens the existing registration form. The default stays
+/// on the login form.
+Future<void> showLoginSheet(
+  BuildContext context, {
+  bool startOnRegister = false,
+}) {
   final authBloc = context.read<AuthBloc>();
   return showModalBottomSheet<void>(
     context: context,
@@ -31,29 +37,38 @@ Future<void> showLoginSheet(BuildContext context) {
     ),
     builder: (_) => BlocProvider.value(
       value: authBloc,
-      child: const LoginSheet(),
+      child: LoginSheet(startOnRegister: startOnRegister),
     ),
   );
 }
 
 class LoginSheet extends StatefulWidget {
-  const LoginSheet({super.key});
+  const LoginSheet({super.key, this.startOnRegister = false});
+
+  final bool startOnRegister;
 
   @override
   State<LoginSheet> createState() => _LoginSheetState();
 }
 
 class _LoginSheetState extends State<LoginSheet> {
-  var _creatingAccount = false;
+  late bool _creatingAccount;
+
+  @override
+  void initState() {
+    super.initState();
+    _creatingAccount = widget.startOnRegister;
+  }
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final keyboard = media.viewInsets.bottom;
-    final baseHeight =
-        media.size.height * (_creatingAccount ? 0.64 : 0.58);
-    final sheetHeight =
-        (baseHeight + keyboard).clamp(baseHeight, media.size.height * 0.94);
+    final baseHeight = media.size.height * (_creatingAccount ? 0.64 : 0.58);
+    final sheetHeight = (baseHeight + keyboard).clamp(
+      baseHeight,
+      media.size.height * 0.94,
+    );
 
     return BlocListener<AuthBloc, AuthState>(
       listenWhen: (previous, current) =>
@@ -81,8 +96,7 @@ class _LoginSheetState extends State<LoginSheet> {
             Expanded(
               child: _creatingAccount
                   ? _RegisterSheetForm(
-                      onSignIn: () =>
-                          setState(() => _creatingAccount = false),
+                      onSignIn: () => setState(() => _creatingAccount = false),
                     )
                   : _LoginSheetForm(
                       onCreateAccount: () =>
@@ -139,16 +153,13 @@ InputDecoration _sheetFieldDecoration({
 }
 
 ButtonStyle get _primaryPillButtonStyle => FilledButton.styleFrom(
-      backgroundColor: pouBrand,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: pouBrand.withValues(alpha: 0.45),
-      disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
-      shape: const StadiumBorder(),
-      textStyle: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
-    );
+  backgroundColor: pouBrand,
+  foregroundColor: Colors.white,
+  disabledBackgroundColor: pouBrand.withValues(alpha: 0.45),
+  disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
+  shape: const StadiumBorder(),
+  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+);
 
 class _LoginSheetForm extends StatefulWidget {
   const _LoginSheetForm({required this.onCreateAccount});
@@ -295,13 +306,14 @@ class _LoginSheetFormState extends State<_LoginSheetForm> {
                   prefix: Icons.lock_outline_rounded,
                   suffix: IconButton(
                     key: const Key('toggle_password'),
-                    tooltip:
-                        _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
+                    tooltip: _obscurePassword
+                        ? 'Mostrar senha'
+                        : 'Ocultar senha',
                     onPressed: isSubmitting
                         ? null
                         : () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
@@ -389,15 +401,11 @@ class _LoginSheetFormState extends State<_LoginSheetForm> {
                   children: [
                     const Text(
                       'Ainda não tem conta? ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _subtitleColor,
-                      ),
+                      style: TextStyle(fontSize: 14, color: _subtitleColor),
                     ),
                     TextButton(
                       key: const Key('create_account'),
-                      onPressed:
-                          isSubmitting ? null : widget.onCreateAccount,
+                      onPressed: isSubmitting ? null : widget.onCreateAccount,
                       style: TextButton.styleFrom(
                         foregroundColor: _sheetGreen,
                         padding: EdgeInsets.zero,
@@ -596,13 +604,14 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                   prefix: Icons.lock_outline_rounded,
                   suffix: IconButton(
                     key: const Key('register_toggle_password'),
-                    tooltip:
-                        _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
+                    tooltip: _obscurePassword
+                        ? 'Mostrar senha'
+                        : 'Ocultar senha',
                     onPressed: isSubmitting
                         ? null
                         : () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
@@ -617,10 +626,7 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
               const SizedBox(height: 6),
               const Text(
                 'Use pelo menos 8 caracteres.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _subtitleColor,
-                ),
+                style: TextStyle(fontSize: 12, color: _subtitleColor),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -646,10 +652,10 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                   style: FilledButton.styleFrom(
                     backgroundColor: pouBrand,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        pouBrand.withValues(alpha: 0.45),
-                    disabledForegroundColor:
-                        Colors.white.withValues(alpha: 0.7),
+                    disabledBackgroundColor: pouBrand.withValues(alpha: 0.45),
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: 0.7,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -686,10 +692,7 @@ class _RegisterSheetFormState extends State<_RegisterSheetForm> {
                   children: [
                     const Text(
                       'Já tem uma conta? ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _subtitleColor,
-                      ),
+                      style: TextStyle(fontSize: 14, color: _subtitleColor),
                     ),
                     TextButton(
                       key: const Key('back_to_login'),

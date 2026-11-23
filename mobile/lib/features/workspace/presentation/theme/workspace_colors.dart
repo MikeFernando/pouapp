@@ -84,8 +84,10 @@ TextStyle _sized(TextStyle? style, double fontSize) {
   );
 }
 
-ThemeData workspaceTheme(ThemeData base) {
-  const colors = WorkspaceColors.rua;
+ThemeData workspaceTheme(ThemeData base, {Color brand = pouBrand}) {
+  final colors = brand == pouBrand
+      ? WorkspaceColors.rua
+      : WorkspaceColors.rua.copyWith(accent: brand, highlight: brand);
   final text = base.textTheme;
   return base.copyWith(
     colorScheme: base.colorScheme.copyWith(
@@ -97,13 +99,17 @@ ThemeData workspaceTheme(ThemeData base) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: pouBrand,
+        backgroundColor: brand,
         foregroundColor: Colors.white,
         textStyle: const TextStyle(
           fontSize: workspaceFontPrimary,
           fontWeight: FontWeight.w600,
         ),
       ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: brand,
+      foregroundColor: Colors.white,
     ),
     extensions: [colors],
     textTheme: text.copyWith(

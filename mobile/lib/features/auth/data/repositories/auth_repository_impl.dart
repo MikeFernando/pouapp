@@ -105,6 +105,11 @@ class AuthRepositoryImpl implements AuthRepository {
           await localDataSource.clear();
           await tokenStore?.clear();
           return const Right(null);
+        } on NotFoundException {
+          // The token still verifies, but the account was removed.
+          await localDataSource.clear();
+          await tokenStore?.clear();
+          return const Right(null);
         }
       }
 

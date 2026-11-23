@@ -21,6 +21,54 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> useCleaningCatalog() {
+    return _guard(() async {
+      await localDataSource.useCleaningCatalog();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<Failure, Unit>> useMealsCatalog() {
+    return _guard(() async {
+      await localDataSource.useMealsCatalog();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<Failure, Unit>> usePizzasCatalog() {
+    return _guard(() async {
+      await localDataSource.usePizzasCatalog();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<Failure, Unit>> useSnacksCatalog() {
+    return _guard(() async {
+      await localDataSource.useSnacksCatalog();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<Failure, Unit>> useCakesCatalog() {
+    return _guard(() async {
+      await localDataSource.useCakesCatalog();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<Failure, Unit>> useProduceCatalog() {
+    return _guard(() async {
+      await localDataSource.useProduceCatalog();
+      return unit;
+    });
+  }
+
+  @override
   Future<Either<Failure, ProductStock>> getProduct(String id) {
     return _guard(() => localDataSource.getProduct(id));
   }
@@ -77,10 +125,8 @@ class CatalogRepositoryImpl implements CatalogRepository {
     required int salePriceCents,
   }) {
     return _guard(
-      () => localDataSource.setSalePrice(
-        id: id,
-        salePriceCents: salePriceCents,
-      ),
+      () =>
+          localDataSource.setSalePrice(id: id, salePriceCents: salePriceCents),
     );
   }
 

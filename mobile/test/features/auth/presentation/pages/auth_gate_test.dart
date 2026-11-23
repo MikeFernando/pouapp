@@ -14,6 +14,10 @@ import 'package:pouapp/features/auth/domain/usecases/update_user_name.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:pouapp/features/auth/presentation/bloc/auth_event.dart';
 import 'package:pouapp/features/auth/presentation/pages/auth_gate.dart';
+import 'package:pouapp/features/business/domain/entities/business_setup.dart';
+import 'package:pouapp/features/business/domain/repositories/business_setup_repository.dart';
+import 'package:pouapp/features/business/domain/usecases/business_setup_use_cases.dart';
+import 'package:pouapp/features/business/presentation/bloc/business_setup_bloc.dart';
 
 class MockLogin extends Mock implements Login {}
 
@@ -56,16 +60,27 @@ void main() {
   });
 
   Future<void> pumpGate(WidgetTester tester) async {
+    final setup = _ConfiguredBusinessSetup();
     await tester.pumpWidget(
       MaterialApp(
-        home: BlocProvider(
-          create: (_) => AuthBloc(
-            login: mockLogin,
-            registerAccount: mockRegister,
-            getCurrentUser: mockGetCurrentUser,
-            logout: mockLogout,
-            updateUserName: mockUpdateUserName,
-          )..add(const AuthSessionRequested()),
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) => AuthBloc(
+                login: mockLogin,
+                registerAccount: mockRegister,
+                getCurrentUser: mockGetCurrentUser,
+                logout: mockLogout,
+                updateUserName: mockUpdateUserName,
+              )..add(const AuthSessionRequested()),
+            ),
+            BlocProvider(
+              create: (_) => BusinessSetupBloc(
+                getBusinessSetup: GetBusinessSetup(setup),
+                saveBusinessSetup: SaveBusinessSetup(setup),
+              ),
+            ),
+          ],
           child: const AuthGate(),
         ),
       ),
@@ -159,6 +174,22 @@ void main() {
     expect(find.text('Ana Souza'), findsNothing);
   });
 
+  testWidgets('should open registration from the onboarding start button', (
+    tester,
+  ) async {
+    await pumpGate(tester);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('onboarding_start')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('onboarding_start')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('register_name')), findsOneWidget);
+    expect(find.byKey(const Key('register_email')), findsOneWidget);
+    expect(find.byKey(const Key('login_email')), findsNothing);
+  });
+
   testWidgets('should keep the home screen when logout fails', (tester) async {
     when(() => mockGetCurrentUser(any()))
         .thenAnswer((_) async => const Right(tUser));
@@ -177,4 +208,19 @@ void main() {
     expect(find.text('Ana Souza'), findsOneWidget);
     expect(find.byKey(const Key('login_submit')), findsNothing);
   });
+}
+
+class _ConfiguredBusinessSetup implements BusinessSetupRepository {
+  @override
+  Future<Either<Failure, BusinessSetup>> read(String userId) async {
+    return Right(BusinessSetup.legacy(userId));
+  }
+
+  @override
+  Future<Either<Failure, BusinessSetup>> save({
+    required String userId,
+    required BusinessKind kind,
+  }) async {
+    return Right(BusinessSetup.configured(userId: userId, kind: kind));
+  }
 }

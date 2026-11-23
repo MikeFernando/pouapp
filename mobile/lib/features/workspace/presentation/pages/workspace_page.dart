@@ -1,19 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/nav_glyphs.dart';
 import '../../../../app/pou_app_colors.dart';
 import '../../../../app/pou_shell_navigation.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart' as di;
-import '../../../auth/data/datasources/profile_avatar_store.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../catalog/presentation/pages/products_page.dart';
 import '../../../customers/presentation/customer_routes.dart';
@@ -25,9 +20,9 @@ import '../bloc/home_board_bloc.dart';
 import '../loaded_operation.dart';
 import '../operation_labels.dart';
 import '../theme/workspace_colors.dart';
-import '../widgets/profile_menu_sheet.dart';
+import '../widgets/pou_drawer_3d.dart';
 import '../widgets/street_board_view.dart';
-import 'business_settings_page.dart';
+import '../widgets/theme_selector.dart';
 import 'add_delivery_page.dart';
 import 'finance_page.dart';
 
@@ -110,149 +105,153 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     final logoutError = auth is Authenticated ? auth.errorMessage : null;
 
     return Theme(
-      data: workspaceTheme(Theme.of(context)),
+      data: workspaceTheme(Theme.of(context), brand: pouThemeBrand(context)),
       child: Builder(
         builder: (context) {
-          return RoundedNavigationScaffold(
-            key: const Key('workspace_home'),
-            selectedIndex: _tab,
-            onSelected: _openTab,
-            destinations: const [
-              RoundedNavigationDestination(
-                glyph: NavGlyphKind.home,
-                label: 'Home',
-              ),
-              RoundedNavigationDestination(
-                glyph: NavGlyphKind.products,
-                label: 'Produtos',
-              ),
-              RoundedNavigationDestination(
-                glyph: NavGlyphKind.customers,
-                label: 'Clientes',
-              ),
-              RoundedNavigationDestination(
-                glyph: NavGlyphKind.finance,
-                label: 'Financeiro',
-              ),
-            ],
-            content: LayoutBuilder(
-              builder: (context, constraints) {
-                Widget fill(Widget child) {
-                  return SizedBox(
-                    width: constraints.maxWidth,
-                    height: constraints.maxHeight,
-                    child: child,
-                  );
-                }
+          return PouDrawer3D(
+            user: user,
+            child: RoundedNavigationScaffold(
+              key: const Key('workspace_home'),
+              selectedIndex: _tab,
+              onSelected: _openTab,
+              destinations: const [
+                RoundedNavigationDestination(
+                  glyph: NavGlyphKind.home,
+                  label: 'Home',
+                ),
+                RoundedNavigationDestination(
+                  glyph: NavGlyphKind.products,
+                  label: 'Produtos',
+                ),
+                RoundedNavigationDestination(
+                  glyph: NavGlyphKind.customers,
+                  label: 'Clientes',
+                ),
+                RoundedNavigationDestination(
+                  glyph: NavGlyphKind.finance,
+                  label: 'Financeiro',
+                ),
+              ],
+              content: LayoutBuilder(
+                builder: (context, constraints) {
+                  Widget fill(Widget child) {
+                    return SizedBox(
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      child: child,
+                    );
+                  }
 
-                return IndexedStack(
-                  index: _tab,
-                  children: [
-                    fill(
-                      Stack(
-                        children: [
-                          Column(
-                            children: [
-                              _WorkspaceHeader(
-                                user: user,
-                                message: logoutError,
-                                receivedTodayCents:
-                                    _receivedTodayCents(context) +
+                  return IndexedStack(
+                    index: _tab,
+                    children: [
+                      fill(
+                        Stack(
+                          children: [
+                            Column(
+                              children: [
+                                _WorkspaceHeader(
+                                  user: user,
+                                  message: logoutError,
+                                  receivedTodayCents:
+                                      _receivedTodayCents(context) +
+                                      _checklistReceivedCents +
+                                      _committedReceivedCents,
+                                  valuesHidden: _valuesHidden,
+                                  onToggleValues: () {
+                                    setState(
+                                      () => _valuesHidden = !_valuesHidden,
+                                    );
+                                  },
+                                ),
+                                Expanded(
+                                  child: StreetBoardView(
+                                    valuesHidden: _valuesHidden,
+                                    checklistProductCents: _financeProductCents,
+                                    onNewSale: _addDeliveryPerson,
+                                    onChecklistChanged: (snapshot) {
+                                      if (_checklistReceivedCents ==
+                                              snapshot.receivedCents &&
+                                          _sameProductCents(
+                                            _checklistProductCents,
+                                            snapshot.productCents,
+                                          )) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        _checklistReceivedCents =
+                                            snapshot.receivedCents;
+                                        _checklistProductCents = Map.of(
+                                          snapshot.productCents,
+                                        );
+                                      });
+                                    },
+                                    onOpenCustomer: (customerId) async {
+                                      await Navigator.of(context).pushNamed(
+                                        CustomerRoutes.details(customerId),
+                                      );
+                                      if (!context.mounted) return;
+                                      setState(_reloadCommitted);
+                                      // Reload hoje/amanhã after editing vencimento.
+                                      if (ApiConfig.useRemoteApi) {
+                                        context.read<HomeBoardBloc>().add(
+                                          const HomeBoardRequested(),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_adding)
+                              Positioned.fill(
+                                child: _AddCover(
+                                  onClose: () =>
+                                      setState(() => _adding = false),
+                                  child: AddDeliveryPage(
+                                    onOpenCustomer: (customerId) async {
+                                      setState(() => _adding = false);
+                                      await Navigator.of(context).pushNamed(
+                                        CustomerRoutes.details(customerId),
+                                      );
+                                      if (!context.mounted) return;
+                                      setState(_reloadCommitted);
+                                      if (ApiConfig.useRemoteApi) {
+                                        context.read<HomeBoardBloc>().add(
+                                          const HomeBoardRequested(),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      fill(
+                        _built.contains(1)
+                            ? const ProductsPage()
+                            : const SizedBox.shrink(),
+                      ),
+                      fill(
+                        _built.contains(2)
+                            ? const CustomersPage()
+                            : const SizedBox.shrink(),
+                      ),
+                      fill(
+                        _built.contains(3)
+                            ? FinancePage(
+                                checklistProductCents: _financeProductCents,
+                                checklistReceivedCents:
                                     _checklistReceivedCents +
                                     _committedReceivedCents,
-                                valuesHidden: _valuesHidden,
-                                onToggleValues: () {
-                                  setState(
-                                    () => _valuesHidden = !_valuesHidden,
-                                  );
-                                },
-                              ),
-                              Expanded(
-                                child: StreetBoardView(
-                                  valuesHidden: _valuesHidden,
-                                  checklistProductCents: _financeProductCents,
-                                  onNewSale: _addDeliveryPerson,
-                                  onChecklistChanged: (snapshot) {
-                                    if (_checklistReceivedCents ==
-                                            snapshot.receivedCents &&
-                                        _sameProductCents(
-                                          _checklistProductCents,
-                                          snapshot.productCents,
-                                        )) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      _checklistReceivedCents =
-                                          snapshot.receivedCents;
-                                      _checklistProductCents = Map.of(
-                                        snapshot.productCents,
-                                      );
-                                    });
-                                  },
-                                  onOpenCustomer: (customerId) async {
-                                    await Navigator.of(context).pushNamed(
-                                      CustomerRoutes.details(customerId),
-                                    );
-                                    if (!context.mounted) return;
-                                    setState(_reloadCommitted);
-                                    // Reload hoje/amanhã after editing vencimento.
-                                    if (ApiConfig.useRemoteApi) {
-                                      context.read<HomeBoardBloc>().add(
-                                        const HomeBoardRequested(),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_adding)
-                            Positioned.fill(
-                              child: _AddCover(
-                                onClose: () => setState(() => _adding = false),
-                                child: AddDeliveryPage(
-                                  onOpenCustomer: (customerId) async {
-                                    setState(() => _adding = false);
-                                    await Navigator.of(context).pushNamed(
-                                      CustomerRoutes.details(customerId),
-                                    );
-                                    if (!context.mounted) return;
-                                    setState(_reloadCommitted);
-                                    if (ApiConfig.useRemoteApi) {
-                                      context.read<HomeBoardBloc>().add(
-                                        const HomeBoardRequested(),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                        ],
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                    ),
-                    fill(
-                      _built.contains(1)
-                          ? const ProductsPage()
-                          : const SizedBox.shrink(),
-                    ),
-                    fill(
-                      _built.contains(2)
-                          ? const CustomersPage()
-                          : const SizedBox.shrink(),
-                    ),
-                    fill(
-                      _built.contains(3)
-                          ? FinancePage(
-                              checklistProductCents: _financeProductCents,
-                              checklistReceivedCents:
-                                  _checklistReceivedCents +
-                                  _committedReceivedCents,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
           );
         },
@@ -367,73 +366,82 @@ class _WorkspaceHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Recebido hoje',
-                              style: TextStyle(
-                                color: _muted,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      formatBrl(
-                                        receivedTodayCents,
-                                        hidden: valuesHidden,
-                                      ),
-                                      style: const TextStyle(
-                                        color: _ink,
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -1.0,
-                                        height: 1,
-                                      ),
-                                    ),
+                                const Text(
+                                  'Recebido hoje',
+                                  style: TextStyle(
+                                    color: _muted,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                const SizedBox(width: 2),
-                                IconButton(
-                                  key: const Key('workspace_hide_values'),
-                                  tooltip: valuesHidden
-                                      ? 'Mostrar valores'
-                                      : 'Esconder valores',
-                                  onPressed: onToggleValues,
-                                  visualDensity: VisualDensity.compact,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 44,
-                                    minHeight: 44,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  icon: Icon(
-                                    valuesHidden
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    color: _ink,
-                                    size: 24,
-                                  ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          formatBrl(
+                                            receivedTodayCents,
+                                            hidden: valuesHidden,
+                                          ),
+                                          style: const TextStyle(
+                                            color: _ink,
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -1.0,
+                                            height: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    IconButton(
+                                      key: const Key('workspace_hide_values'),
+                                      tooltip: valuesHidden
+                                          ? 'Mostrar valores'
+                                          : 'Esconder valores',
+                                      onPressed: onToggleValues,
+                                      visualDensity: VisualDensity.compact,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 44,
+                                        minHeight: 44,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      icon: Icon(
+                                        valuesHidden
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: _ink,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      _HeaderAvatar(userId: user.id),
-                    ],
+                          ),
+                          const SizedBox(width: 12),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth * 0.56,
+                            ),
+                            child: ThemeSelector(userId: user.id),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   if (message != null) ...[
                     const SizedBox(height: 8),
@@ -443,121 +451,6 @@ class _WorkspaceHeader extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeaderAvatar extends StatefulWidget {
-  const _HeaderAvatar({required this.userId});
-
-  final String userId;
-
-  @override
-  State<_HeaderAvatar> createState() => _HeaderAvatarState();
-}
-
-class _HeaderAvatarState extends State<_HeaderAvatar> {
-  String? _path;
-  var _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant _HeaderAvatar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.userId != widget.userId) {
-      _path = null;
-      _load();
-    }
-  }
-
-  Future<void> _load() async {
-    final path = await di.sl<ProfileAvatarStore>().pathForUser(widget.userId);
-    if (!mounted) return;
-    setState(() => _path = path);
-  }
-
-  Future<void> _openMenu() async {
-    if (_loading) return;
-    final action = await showProfileMenuSheet(context);
-    if (!mounted || action == null) return;
-    switch (action) {
-      case ProfileMenuAction.changePhoto:
-        await _pick();
-      case ProfileMenuAction.settings:
-        await showBusinessSettingsSheet(context);
-      case ProfileMenuAction.logout:
-        context.read<AuthBloc>().add(const AuthLogoutRequested());
-    }
-  }
-
-  Future<void> _pick() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 88,
-      );
-      if (picked == null) return;
-      final saved = await di.sl<ProfileAvatarStore>().saveFromGallery(
-        userId: widget.userId,
-        sourcePath: picked.path,
-      );
-      if (!mounted) return;
-      setState(() => _path = saved);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível atualizar a foto.')),
-      );
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final image = _path == null
-        ? const AssetImage('assets/header_avatar.jpg')
-        : FileImage(File(_path!)) as ImageProvider;
-
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: const Key('profile_avatar'),
-        onTap: _loading ? null : _openMenu,
-        customBorder: const CircleBorder(),
-        child: Ink.image(
-          image: image,
-          width: 46,
-          height: 46,
-          fit: BoxFit.cover,
-          child: _loading
-              ? const ColoredBox(
-                  color: Color(0x66000000),
-                  child: Center(
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                )
-              : null,
         ),
       ),
     );

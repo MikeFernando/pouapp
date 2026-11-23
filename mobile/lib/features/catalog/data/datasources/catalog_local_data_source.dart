@@ -67,6 +67,34 @@ abstract class CatalogLocalDataSource {
 
   Future<List<StockMovement>> productMovements(String productId);
 
+  /// Drops the hortifruti demo catalog and installs household cleaners.
+  ///
+  /// A second call keeps the cleaning products already stored.
+  Future<void> useCleaningCatalog();
+
+  /// Replaces the seeded catalog with packed lunches.
+  ///
+  /// A second call keeps the marmitas already stored.
+  Future<void> useMealsCatalog();
+
+  /// Replaces the seeded catalog with pizzas.
+  ///
+  /// A second call keeps the pizzas already stored.
+  Future<void> usePizzasCatalog();
+
+  /// Replaces the seeded catalog with Brazilian snacks.
+  ///
+  /// A second call keeps the snacks already stored.
+  Future<void> useSnacksCatalog();
+
+  /// Replaces the seeded catalog with pot cakes.
+  ///
+  /// A second call keeps the pot cakes already stored.
+  Future<void> useCakesCatalog();
+
+  /// Restores the produce list after a cleaning or meals catalog was installed.
+  Future<void> useProduceCatalog();
+
   Future<void> close();
 
   /// Connection shared with the operational ledger and drafts.
@@ -1214,8 +1242,91 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     return database;
   }
 
+  @override
+  Future<void> useCleaningCatalog() async {
+    final db = await _databaseOrOpen();
+    await _installSeededCatalog(
+      db,
+      kind: 'cleaning',
+      products: cleaningCatalogProducts,
+    );
+  }
+
+  @override
+  Future<void> useMealsCatalog() async {
+    final db = await _databaseOrOpen();
+    await _installSeededCatalog(
+      db,
+      kind: 'meals',
+      products: mealsCatalogProducts,
+    );
+  }
+
+  @override
+  Future<void> usePizzasCatalog() async {
+    final db = await _databaseOrOpen();
+    await _installSeededCatalog(
+      db,
+      kind: 'pizzas',
+      products: pizzaCatalogProducts,
+    );
+  }
+
+  @override
+  Future<void> useSnacksCatalog() async {
+    final db = await _databaseOrOpen();
+    await _installSeededCatalog(
+      db,
+      kind: 'snacks',
+      products: snacksCatalogProducts,
+    );
+  }
+
+  @override
+  Future<void> useCakesCatalog() async {
+    final db = await _databaseOrOpen();
+    await _installSeededCatalog(
+      db,
+      kind: 'cakes',
+      products: cakesCatalogProducts,
+    );
+  }
+
+  @override
+  Future<void> useProduceCatalog() async {
+    final db = await _databaseOrOpen();
+    final kind = await _catalogKind(db);
+    if (kind == null || kind == 'hortifruti') return;
+    await _installSeededCatalog(
+      db,
+      kind: 'hortifruti',
+      products: demoCatalogProducts,
+    );
+  }
+
   Future<void> _ensureLocationsAndSeed(Database db) async {
     if (!_seedDemo) return;
+    final kind = await _catalogKind(db);
+    if (kind == 'cleaning') {
+      await _ensureProducts(db, cleaningCatalogProducts, _clock());
+      return;
+    }
+    if (kind == 'meals') {
+      await _ensureProducts(db, mealsCatalogProducts, _clock());
+      return;
+    }
+    if (kind == 'pizzas') {
+      await _ensureProducts(db, pizzaCatalogProducts, _clock());
+      return;
+    }
+    if (kind == 'snacks') {
+      await _ensureProducts(db, snacksCatalogProducts, _clock());
+      return;
+    }
+    if (kind == 'cakes') {
+      await _ensureProducts(db, cakesCatalogProducts, _clock());
+      return;
+    }
     final seeded = await db.query(
       'app_meta',
       where: 'key = ?',
@@ -1243,10 +1354,7 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
   Future<void> _renameDemoEggs(Database db, DateTime now) async {
     await db.update(
       'products',
-      {
-        'name': 'Ovos bandeja 30',
-        'updated_at': now.toIso8601String(),
-      },
+      {'name': 'Ovos bandeja 30', 'updated_at': now.toIso8601String()},
       where: 'id = ? AND name = ?',
       whereArgs: const ['product-ovos', 'Bandeja de ovos'],
     );
@@ -1427,6 +1535,91 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     });
   }
 
+  Future<String?> _catalogKind(Database db) async {
+    final rows = await db.query(
+      'app_meta',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: const ['catalog_kind'],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  /// Replaces every seeded catalog with [products] and records [kind].
+  ///
+  /// Products the business added by hand stay. A matching kind only fills
+  /// gaps, so opening the app again does not duplicate the list.
+  Future<void> _installSeededCatalog(
+    Database db, {
+    required String kind,
+    required List<DemoCatalogProduct> products,
+  }) async {
+    if (await _catalogKind(db) == kind) {
+      await _ensureProducts(db, products, _clock());
+      return;
+    }
+    final now = _clock();
+    final removeIds = [
+      for (final product in demoCatalogProducts) product.id,
+      for (final product in cleaningCatalogProducts) product.id,
+      for (final product in mealsCatalogProducts) product.id,
+      for (final product in pizzaCatalogProducts) product.id,
+      for (final product in snacksCatalogProducts) product.id,
+      for (final product in cakesCatalogProducts) product.id,
+    ];
+    final marks = List.filled(removeIds.length, '?').join(',');
+    await db.transaction((txn) async {
+      for (final table in const [
+        'stock_draft_lines',
+        'stock_operation_lines',
+        'movements',
+        'product_minimums',
+      ]) {
+        await txn.delete(
+          table,
+          where: 'product_id IN ($marks)',
+          whereArgs: removeIds,
+        );
+      }
+      await txn.delete(
+        'products',
+        where: 'id IN ($marks)',
+        whereArgs: removeIds,
+      );
+      for (final product in products) {
+        if (await _productWasDeleted(txn, product.id)) continue;
+        await _insertDemo(txn, product, now);
+      }
+      await txn.insert('app_meta', {
+        'key': 'catalog_kind',
+        'value': kind,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
+  Future<void> _ensureProducts(
+    Database db,
+    List<DemoCatalogProduct> products,
+    DateTime now,
+  ) async {
+    final present = await db.query('products', columns: const ['id']);
+    final known = {for (final row in present) row['id'] as String};
+    final missing = <DemoCatalogProduct>[];
+    for (final product in products) {
+      if (known.contains(product.id)) continue;
+      if (await _productWasDeleted(db, product.id)) continue;
+      missing.add(product);
+    }
+    if (missing.isEmpty) return;
+    await db.transaction((txn) async {
+      for (final product in missing) {
+        await _insertDemo(txn, product, now);
+      }
+    });
+  }
+
   Future<void> _insertDemo(
     DatabaseExecutor txn,
     DemoCatalogProduct demo,
@@ -1436,7 +1629,7 @@ class CatalogLocalDataSourceImpl implements CatalogLocalDataSource {
     await txn.insert('products', {
       'id': demo.id,
       'name': demo.name,
-      'category': 'Hortifruti',
+      'category': demo.category,
       'sku': null,
       'unit': demo.unit.name,
       'active': 1,

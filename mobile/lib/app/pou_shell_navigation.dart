@@ -56,12 +56,12 @@ class RoundedNavigationScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
-        systemNavigationBarColor: pouLeafChrome,
+        systemNavigationBarColor: pouChromeColor(context),
         systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarContrastEnforced: false,
       ),
       child: Scaffold(
-        backgroundColor: pouLeafChrome,
+        backgroundColor: pouChromeColor(context),
         body: Stack(
           fit: StackFit.expand,
           children: [
@@ -77,7 +77,7 @@ class RoundedNavigationScaffold extends StatelessWidget {
                   child: SizedBox(
                     height: barHeight,
                     width: double.infinity,
-                    child: pouLeafBackdrop(),
+                    child: pouChromeFill(context),
                   ),
                 ),
               ),
@@ -87,7 +87,7 @@ class RoundedNavigationScaffold extends StatelessWidget {
               right: 0,
               bottom: 0,
               height: barHeight,
-              child: pouLeafBackdrop(),
+              child: pouChromeFill(context),
             ),
             Column(
               children: [
@@ -135,7 +135,8 @@ class PouShellBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final gesture = gestureInset ??
+    final gesture =
+        gestureInset ??
         (keyboard > 0 ? 0.0 : MediaQuery.viewPaddingOf(context).bottom);
     return KeyedSubtree(
       key: const Key('workspace_nav'),
@@ -178,11 +179,9 @@ class _PouShellNavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _idle = Color(0xB3FFFFFF);
-
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.white : _idle;
+    final color = pouNavForeground(context, selected: selected);
     return Semantics(
       button: true,
       selected: selected,

@@ -8,6 +8,8 @@ import 'core/config/api_config.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
+import 'features/business/presentation/bloc/business_setup_bloc.dart';
+import 'features/business/presentation/bloc/business_setup_event.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
 import 'features/customers/domain/repositories/customer_repository.dart';
 import 'features/license/presentation/bloc/license_bloc.dart';
@@ -36,9 +38,7 @@ class PouApp extends StatelessWidget {
     return MaterialApp(
       title: 'PouApp',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: pouBrand,
-        ).copyWith(
+        colorScheme: ColorScheme.fromSeed(seedColor: pouBrand).copyWith(
           primary: pouBrand,
           onPrimary: pouCanvas,
           secondary: pouAccent,
@@ -67,9 +67,7 @@ class PouApp extends StatelessWidget {
         navigationBarTheme: const NavigationBarThemeData(
           backgroundColor: pouBrand,
           indicatorColor: Colors.white24,
-          iconTheme: WidgetStatePropertyAll(
-            IconThemeData(color: Colors.white),
-          ),
+          iconTheme: WidgetStatePropertyAll(IconThemeData(color: Colors.white)),
           labelTextStyle: WidgetStatePropertyAll(
             TextStyle(color: Colors.white),
           ),
@@ -84,16 +82,17 @@ class PouApp extends StatelessWidget {
       home: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (_) =>
-                di.sl<AuthBloc>()..add(const AuthSessionRequested()),
+            create: (_) => di.sl<AuthBloc>()..add(const AuthSessionRequested()),
           ),
           BlocProvider(create: (_) => di.sl<LicenseBloc>()),
+          BlocProvider(create: (_) => di.sl<BusinessSetupBloc>()),
         ],
         child: BlocListener<AuthBloc, AuthState>(
           listenWhen: (previous, current) =>
               current is Unauthenticated && previous is! Unauthenticated,
           listener: (context, state) {
             context.read<LicenseBloc>().add(const LicenseCacheCleared());
+            context.read<BusinessSetupBloc>().add(const BusinessSetupReset());
             // Drop another account's customers from the on-device cache.
             di.sl<CustomerRepository>().clearLocalCache();
           },

@@ -357,7 +357,7 @@ class _AddDeliveryPageState extends State<AddDeliveryPage> {
                 key: const Key('add_delivery_new_customer'),
                 heroTag: 'add_delivery_new_customer',
                 tooltip: 'Novo cliente',
-                backgroundColor: pouBrand,
+                backgroundColor: pouThemeBrand(context),
                 foregroundColor: Colors.white,
                 onPressed: _openNewCustomer,
                 child: const Icon(Icons.add),

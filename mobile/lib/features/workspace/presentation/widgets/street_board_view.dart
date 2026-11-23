@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../app/pou_app_colors.dart';
 import '../../../../core/config/api_config.dart';
 import '../../../../injection_container.dart';
 import '../../../catalog/domain/entities/catalog.dart';
@@ -561,16 +562,16 @@ class _NovaVendaButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   static const _radius = 14.0;
-  static const _forest = Color(0xFF062E0C);
   static const _height = 52.0;
 
   @override
   Widget build(BuildContext context) {
+    final sale = pouSaleLook(context);
     return Semantics(
       button: true,
       label: 'Nova Venda',
       child: Material(
-        color: _forest,
+        color: sale.fallback,
         borderRadius: BorderRadius.circular(_radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -584,21 +585,21 @@ class _NovaVendaButton extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 Image.asset(
-                  'assets/images/nova-venda-fundo-botanico.png',
+                  sale.asset,
                   fit: BoxFit.cover,
-                  alignment: Alignment.centerRight,
+                  alignment: sale.alignment,
                   excludeFromSemantics: true,
                   errorBuilder: (context, error, stackTrace) {
-                    return const ColoredBox(color: _forest);
+                    return ColoredBox(color: sale.fallback);
                   },
                 ),
-                const Center(
+                Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _NovaVendaCart(),
-                      SizedBox(width: 8),
-                      Text(
+                      _NovaVendaCart(white: sale.whiteCart, icon: sale.icon),
+                      const SizedBox(width: 8),
+                      const Text(
                         'Nova Venda',
                         style: TextStyle(
                           color: Colors.white,
@@ -620,10 +621,23 @@ class _NovaVendaButton extends StatelessWidget {
 }
 
 class _NovaVendaCart extends StatelessWidget {
-  const _NovaVendaCart();
+  const _NovaVendaCart({required this.white, this.icon});
+
+  final bool white;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    if (icon != null) {
+      return Icon(icon, color: Colors.white, size: 24);
+    }
+    if (white) {
+      return const Icon(
+        Icons.shopping_cart_outlined,
+        color: Colors.white,
+        size: 24,
+      );
+    }
     return Image.asset(
       'assets/images/carrinho-botanico.png',
       width: 24,

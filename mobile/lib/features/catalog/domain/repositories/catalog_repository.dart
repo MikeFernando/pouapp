@@ -7,6 +7,24 @@ import '../entities/stock_operation.dart';
 abstract class CatalogRepository {
   Future<Either<Failure, CatalogSnapshot>> load();
 
+  /// Replaces the hortifruti demo catalog with household cleaners.
+  Future<Either<Failure, Unit>> useCleaningCatalog();
+
+  /// Replaces the seeded catalog with packed lunches.
+  Future<Either<Failure, Unit>> useMealsCatalog();
+
+  /// Replaces the seeded catalog with pizzas.
+  Future<Either<Failure, Unit>> usePizzasCatalog();
+
+  /// Replaces the seeded catalog with Brazilian snacks.
+  Future<Either<Failure, Unit>> useSnacksCatalog();
+
+  /// Replaces the seeded catalog with pot cakes.
+  Future<Either<Failure, Unit>> useCakesCatalog();
+
+  /// Restores produce after another seeded catalog was installed.
+  Future<Either<Failure, Unit>> useProduceCatalog();
+
   Future<Either<Failure, ProductStock>> getProduct(String id);
 
   Future<Either<Failure, ProductStock>> createProduct(ProductDraft draft);

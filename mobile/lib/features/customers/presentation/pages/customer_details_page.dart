@@ -197,7 +197,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
         }
         if (customer == null) {
           return Scaffold(
-            backgroundColor: pouLeafChrome,
+            backgroundColor: pouChromeColor(context),
             appBar: pouLeafAppBar(title: const Text('Cliente')),
             body: Center(
               child: Padding(
@@ -227,7 +227,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
             await _handleLeaveAttempt();
           },
           child: Scaffold(
-            backgroundColor: pouLeafChrome,
+            backgroundColor: pouChromeColor(context),
             appBar: pouLeafAppBar(
               title: Text(customer.name),
               actions: [
@@ -314,7 +314,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
                         height:
                             MediaQuery.paddingOf(context).top + kToolbarHeight,
                         width: double.infinity,
-                        child: pouLeafBackdrop(),
+                        child: pouChromeFill(context),
                       ),
                     ),
                   ),
@@ -675,8 +675,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
     final currentDue = note.dueOn;
-    final firstDate =
-        currentDue != null && noteDueIsOverdue(currentDue, today)
+    final firstDate = currentDue != null && noteDueIsOverdue(currentDue, today)
         ? DateTime(currentDue.year, currentDue.month, currentDue.day)
         : todayStart;
     final picked = await showPouDateSheet(
@@ -713,10 +712,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
     final saved = result.getOrElse(() => note);
     setState(() {
       _noteError = null;
-      _note = note.copyWith(
-        dueOn: saved.dueOn,
-        updatedAt: saved.updatedAt,
-      );
+      _note = note.copyWith(dueOn: saved.dueOn, updatedAt: saved.updatedAt);
       final snapshot = _savedNote;
       if (snapshot != null) {
         _savedNote = snapshot.copyWith(
@@ -882,10 +878,7 @@ class _CustomerDetailsViewState extends State<CustomerDetailsView> {
       _noteError = null;
       _note = next;
       _paymentMethod = next.paymentMethod;
-      _rememberSavedSnapshot(
-        note: next,
-        paymentMethod: next.paymentMethod,
-      );
+      _rememberSavedSnapshot(note: next, paymentMethod: next.paymentMethod);
     });
     unawaited(_syncNoteToHome(next, cleared: true));
   }

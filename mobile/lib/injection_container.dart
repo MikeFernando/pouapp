@@ -15,6 +15,7 @@ import 'features/auth/data/datasources/api_auth_remote_data_source.dart';
 import 'features/auth/data/datasources/auth_local_data_source.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/datasources/profile_avatar_store.dart';
+import 'features/business/data/datasources/business_theme_store.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/get_current_user.dart';
@@ -23,6 +24,12 @@ import 'features/auth/domain/usecases/logout.dart';
 import 'features/auth/domain/usecases/register_account.dart';
 import 'features/auth/domain/usecases/update_user_name.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/business/data/datasources/business_setup_local_data_source.dart';
+import 'features/business/data/datasources/business_setup_remote_data_source.dart';
+import 'features/business/data/repositories/business_setup_repository_impl.dart';
+import 'features/business/domain/repositories/business_setup_repository.dart';
+import 'features/business/domain/usecases/business_setup_use_cases.dart';
+import 'features/business/presentation/bloc/business_setup_bloc.dart';
 import 'features/license/data/datasources/license_local_data_source.dart';
 import 'features/license/data/datasources/license_remote_data_source.dart';
 import 'features/license/data/repositories/license_repository_impl.dart';
@@ -70,12 +77,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => InternetConnection());
   sl.registerLazySingleton(() => AuthTokenStore(sharedPreferences: sl()));
   sl.registerLazySingleton(() => ApiClient(tokenStore: sl()));
-  sl.registerLazySingleton(
-    () => ProfileAvatarStore(sharedPreferences: sl()),
-  );
-  sl.registerLazySingleton(
-    () => DayChecklistStore(sharedPreferences: sl()),
-  );
+  sl.registerLazySingleton(() => ProfileAvatarStore(sharedPreferences: sl()));
+  sl.registerLazySingleton(() => BusinessThemeStore(sharedPreferences: sl()));
+  sl.registerLazySingleton(() => DayChecklistStore(sharedPreferences: sl()));
 
   //! Features - Auth
   sl.registerFactory(
@@ -99,20 +103,41 @@ Future<void> init() async {
       tokenStore: ApiConfig.useRemoteApi ? sl() : null,
     ),
   );
+  sl.registerLazySingleton(
+    () => BusinessSetupLocalDataSource(sharedPreferences: sl()),
+  );
+  if (ApiConfig.useRemoteApi) {
+    sl.registerLazySingleton<BusinessSetupRemoteDataSource>(
+      () => BusinessSetupRemoteDataSourceImpl(apiClient: sl()),
+    );
+  }
+  sl.registerLazySingleton<BusinessSetupRepository>(
+    () => BusinessSetupRepositoryImpl(
+      localDataSource: sl(),
+      remoteDataSource: ApiConfig.useRemoteApi ? sl() : null,
+    ),
+  );
+  sl.registerLazySingleton(() => GetBusinessSetup(sl()));
+  sl.registerLazySingleton(() => SaveBusinessSetup(sl()));
+  sl.registerFactory(
+    () => BusinessSetupBloc(getBusinessSetup: sl(), saveBusinessSetup: sl()),
+  );
   sl.registerLazySingleton<AuthRemoteDataSource>(() {
     if (ApiConfig.useRemoteApi) {
       return ApiAuthRemoteDataSource(apiClient: sl(), tokenStore: sl());
     }
-    return SimulatedAuthRemoteDataSource(sharedPreferences: sl());
+    return SimulatedAuthRemoteDataSource(
+      sharedPreferences: sl(),
+      onAccountCreated: (userId) =>
+          sl<BusinessSetupLocalDataSource>().markPending(userId),
+    );
   });
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(sharedPreferences: sl()),
   );
 
   //! Features - License (payment kill switch)
-  sl.registerFactory(
-    () => LicenseBloc(checkLicense: sl(), repository: sl()),
-  );
+  sl.registerFactory(() => LicenseBloc(checkLicense: sl(), repository: sl()));
   sl.registerLazySingleton(() => CheckLicense(sl()));
   sl.registerLazySingleton<LicenseRepository>(
     () => LicenseRepositoryImpl(

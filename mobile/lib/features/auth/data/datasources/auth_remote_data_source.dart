@@ -51,11 +51,15 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
     this.delay = const Duration(milliseconds: 300),
     bool? enabled,
     this._sharedPreferences,
+    this.onAccountCreated,
   }) : enabled = enabled ?? simulatedAuthEnabled;
 
   final Duration delay;
   final bool enabled;
   final SharedPreferences? _sharedPreferences;
+
+  /// Marks a brand-new simulated account as waiting for business setup.
+  final Future<void> Function(String userId)? onAccountCreated;
   final List<_DevelopmentAccount> _memoryAccounts = [];
 
   static const _builtinAccounts = <_DevelopmentAccount>[
@@ -140,6 +144,7 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
         user: user,
       ),
     ]);
+    await onAccountCreated?.call(user.id);
     return user;
   }
 

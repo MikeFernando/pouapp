@@ -108,9 +108,8 @@ void main() {
     }
 
     final first = open();
-    final removed = await CatalogRepositoryImpl(
-      localDataSource: first,
-    ).deleteProduct('product-alho-500');
+    final removed = await CatalogRepositoryImpl(localDataSource: first)
+        .deleteProduct('product-alho-500');
     expect(removed.isRight(), isTrue);
     await first.close();
 
@@ -122,6 +121,156 @@ void main() {
     );
     expect((await repo.getProduct('product-cebola')).isRight(), isTrue);
     await second.close();
+    if (file.existsSync()) file.deleteSync();
+  });
+
+  test('cleaning replaces the hortifruti demo catalog once', () async {
+    final file = File(
+      '${Directory.systemTemp.path}/pou-cleaning-catalog-${DateTime.now().microsecondsSinceEpoch}.db',
+    );
+    if (file.existsSync()) file.deleteSync();
+    final source = CatalogLocalDataSourceImpl(
+      databasePath: file.path,
+      seedDemo: true,
+      clock: () => DateTime(2026, 11, 15, 12),
+      newId: () => 'id-cleaning',
+    );
+    final repo = CatalogRepositoryImpl(localDataSource: source);
+    final before = (await repo.load()).getOrElse(
+      () => throw StateError('load'),
+    );
+    expect(
+      before.products.any((row) => row.product.name == 'Banana nanica'),
+      isTrue,
+    );
+
+    expect((await repo.useCleaningCatalog()).isRight(), isTrue);
+    final after = (await repo.load()).getOrElse(
+      () => throw StateError('after'),
+    );
+    final names = after.products.map((row) => row.product.name).toList();
+    expect(names, isNot(contains('Banana nanica')));
+    expect(names, contains('Desengordurante'));
+    expect(names.where((name) => name == 'Desengordurante'), hasLength(1));
+
+    await repo.useCleaningCatalog();
+    final again = (await repo.load()).getOrElse(
+      () => throw StateError('again'),
+    );
+    expect(
+      again.products.where((row) => row.product.name == 'Desengordurante'),
+      hasLength(1),
+    );
+    await source.close();
+
+    final reopened = CatalogLocalDataSourceImpl(
+      databasePath: file.path,
+      seedDemo: true,
+      clock: () => DateTime(2026, 11, 15, 13),
+      newId: () => 'id-reopen',
+    );
+    final stored = await CatalogRepositoryImpl(localDataSource: reopened)
+        .load();
+    final kept = stored.getOrElse(() => throw StateError('kept'));
+    expect(
+      kept.products.any((row) => row.product.name == 'Banana nanica'),
+      isFalse,
+    );
+    expect(
+      kept.products.any((row) => row.product.name == 'Desinfetante lavanda'),
+      isTrue,
+    );
+    await reopened.close();
+    if (file.existsSync()) file.deleteSync();
+  });
+
+  test('meals replaces cleaning and produce, and a hand-added product stays', () async {
+    final file = File(
+      '${Directory.systemTemp.path}/pou-meals-catalog-${DateTime.now().microsecondsSinceEpoch}.db',
+    );
+    if (file.existsSync()) file.deleteSync();
+    final source = CatalogLocalDataSourceImpl(
+      databasePath: file.path,
+      seedDemo: true,
+      clock: () => DateTime(2026, 11, 15, 12),
+      newId: () => 'id-meals',
+    );
+    final repo = CatalogRepositoryImpl(localDataSource: source);
+    expect((await repo.useCleaningCatalog()).isRight(), isTrue);
+    final added = await repo.createProduct(
+      const ProductDraft(
+        name: 'Marmita da casa',
+        unit: CatalogUnit.piece,
+        salePriceCents: 1800,
+        openingLocation: StockLocationCode.warehouse,
+        openingQuantity: 4,
+        category: 'Tradicionais',
+      ),
+    );
+    expect(added.isRight(), isTrue);
+
+    expect((await repo.useMealsCatalog()).isRight(), isTrue);
+    final meals = (await repo.load()).getOrElse(() => throw StateError('meals'));
+    final names = meals.products.map((row) => row.product.name).toList();
+    expect(names, contains('Feijoada'));
+    expect(names, contains('Bife acebolado'));
+    expect(names, contains('Marmita vegetariana'));
+    expect(names, contains('Frango grelhado'));
+    expect(names, contains('Marmita da casa'));
+    expect(names, isNot(contains('Desengordurante')));
+    expect(names, isNot(contains('Banana nanica')));
+    expect(names.where((name) => name == 'Feijoada'), hasLength(1));
+    expect(
+      meals.products
+          .firstWhere((row) => row.product.name == 'Bife acebolado')
+          .product
+          .salePriceCents,
+      2500,
+    );
+
+    await repo.useMealsCatalog();
+    final again = (await repo.load()).getOrElse(() => throw StateError('again'));
+    expect(
+      again.products.where((row) => row.product.name == 'Feijoada'),
+      hasLength(1),
+    );
+    await source.close();
+
+    final reopened = CatalogLocalDataSourceImpl(
+      databasePath: file.path,
+      seedDemo: true,
+      clock: () => DateTime(2026, 11, 15, 13),
+      newId: () => 'id-meals-reopen',
+    );
+    final kept = await CatalogRepositoryImpl(localDataSource: reopened).load();
+    final stored = kept.getOrElse(() => throw StateError('kept'));
+    expect(
+      stored.products.any((row) => row.product.name == 'Feijoada'),
+      isTrue,
+    );
+    expect(
+      stored.products.any((row) => row.product.name == 'Banana nanica'),
+      isFalse,
+    );
+
+    final restored = CatalogRepositoryImpl(localDataSource: reopened);
+    expect((await restored.useProduceCatalog()).isRight(), isTrue);
+    final produce = (await restored.load()).getOrElse(
+      () => throw StateError('produce'),
+    );
+    expect(
+      produce.products.any((row) => row.product.name == 'Banana nanica'),
+      isTrue,
+    );
+    expect(
+      produce.products.any((row) => row.product.name == 'Feijoada'),
+      isFalse,
+    );
+    expect(
+      produce.products.any((row) => row.product.name == 'Marmita da casa'),
+      isTrue,
+    );
+    await reopened.close();
     if (file.existsSync()) file.deleteSync();
   });
 

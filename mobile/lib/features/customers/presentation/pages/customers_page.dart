@@ -16,14 +16,7 @@ import '../customer_routes.dart';
 import '../widgets/customer_new_sheet.dart';
 import '../widgets/customer_status_badge.dart';
 
-enum _CustomerListMode {
-  all,
-  buyMore,
-  buyLess,
-  lateHistory,
-  active,
-  inactive,
-}
+enum _CustomerListMode { all, buyMore, buyLess, lateHistory, active, inactive }
 
 extension on _CustomerListMode {
   String get label => switch (this) {
@@ -135,7 +128,8 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
 
     // Draft notes with past due also mark the customer as Em atraso.
     if (di.sl.isRegistered<CustomerNoteRepository>()) {
-      final notesResult = await di.sl<CustomerNoteRepository>()
+      final notesResult = await di
+          .sl<CustomerNoteRepository>()
           .draftNotesWithDue();
       notesResult.fold((_) {}, (notes) {
         for (final note in notes) {
@@ -238,21 +232,23 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
   int _compare(Customer a, Customer b) {
     switch (_mode) {
       case _CustomerListMode.buyMore:
-        final byPurchase =
-            (_purchaseCents[b.id] ?? 0).compareTo(_purchaseCents[a.id] ?? 0);
+        final byPurchase = (_purchaseCents[b.id] ?? 0).compareTo(
+          _purchaseCents[a.id] ?? 0,
+        );
         if (byPurchase != 0) return byPurchase;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       case _CustomerListMode.buyLess:
-        final byPurchase =
-            (_purchaseCents[a.id] ?? 0).compareTo(_purchaseCents[b.id] ?? 0);
+        final byPurchase = (_purchaseCents[a.id] ?? 0).compareTo(
+          _purchaseCents[b.id] ?? 0,
+        );
         if (byPurchase != 0) return byPurchase;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       case _CustomerListMode.lateHistory:
-        final byLate =
-            (_lateCount[b.id] ?? 0).compareTo(_lateCount[a.id] ?? 0);
+        final byLate = (_lateCount[b.id] ?? 0).compareTo(_lateCount[a.id] ?? 0);
         if (byLate != 0) return byLate;
-        final byCents =
-            (_lateCents[b.id] ?? 0).compareTo(_lateCents[a.id] ?? 0);
+        final byCents = (_lateCents[b.id] ?? 0).compareTo(
+          _lateCents[a.id] ?? 0,
+        );
         if (byCents != 0) return byCents;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       case _CustomerListMode.all:
@@ -474,8 +470,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                                 ),
                               ],
                             ),
-                          if (letter != null &&
-                              (visible.isEmpty || _scrubbing))
+                          if (letter != null && (visible.isEmpty || _scrubbing))
                             IgnorePointer(
                               child: Center(
                                 child: PouAlphabetLetterPreview(
@@ -518,7 +513,7 @@ class _PeopleCustomersViewState extends State<PeopleCustomersView> {
                 key: const Key('customer_add'),
                 heroTag: 'customer_add',
                 tooltip: 'Novo cliente',
-                backgroundColor: pouBrand,
+                backgroundColor: pouThemeBrand(context),
                 foregroundColor: Colors.white,
                 onPressed: () => _openForm(context),
                 child: const Icon(Icons.add),
@@ -573,7 +568,7 @@ class _CustomersViewState extends State<CustomersView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: pouLeafChrome,
+      backgroundColor: pouChromeColor(context),
       appBar: pouLeafAppBar(title: const Text('Clientes')),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('customer_add'),
@@ -775,10 +770,7 @@ class _CustomerTile extends StatelessWidget {
       title: Text(customer.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(details, maxLines: 2, overflow: TextOverflow.ellipsis),
       isThreeLine: details.length > 48,
-      trailing: CustomerStatusBadge(
-        status: customer.status,
-        compact: true,
-      ),
+      trailing: CustomerStatusBadge(status: customer.status, compact: true),
       onTap: () async {
         await Navigator.of(context)
             .pushNamed(CustomerRoutes.details(customer.id));
@@ -819,4 +811,3 @@ class _CustomersMessage extends StatelessWidget {
     );
   }
 }
-

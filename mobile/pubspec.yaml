@@ -90,6 +90,11 @@ flutter:
   assets:
     - assets/
     - assets/produce/
+    - assets/cleaning/
+    - assets/meals/
+    - assets/pizzas/
+    - assets/snacks/
+    - assets/cakes/
     - assets/images/
     - assets/images/logo.png
     - assets/images/grocery_hero.png

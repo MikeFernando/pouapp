@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pouapp/core/error/exceptions.dart';
 import 'package:pouapp/core/error/failures.dart';
+import 'package:pouapp/core/network/api_client.dart';
+import 'package:pouapp/core/network/auth_token_store.dart';
 import 'package:pouapp/features/auth/data/datasources/auth_local_data_source.dart';
 import 'package:pouapp/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:pouapp/features/auth/data/exceptions/auth_exceptions.dart';
@@ -13,6 +15,8 @@ import 'package:pouapp/features/auth/domain/failures/auth_failures.dart';
 class MockAuthRemoteDataSource extends Mock implements AuthRemoteDataSource {}
 
 class MockAuthLocalDataSource extends Mock implements AuthLocalDataSource {}
+
+class MockAuthTokenStore extends Mock implements AuthTokenStore {}
 
 void main() {
   late AuthRepositoryImpl repository;
@@ -264,6 +268,28 @@ void main() {
       // assert
       expect(result, const Right(null));
       verifyZeroInteractions(mockRemoteDataSource);
+    });
+
+    test('should drop the session when the account no longer exists', () async {
+      final tokens = MockAuthTokenStore();
+      final remoteRepository = AuthRepositoryImpl(
+        remoteDataSource: mockRemoteDataSource,
+        localDataSource: mockLocalDataSource,
+        tokenStore: tokens,
+      );
+      when(() => mockLocalDataSource.getCachedUser())
+          .thenAnswer((_) async => tUserModel);
+      when(() => tokens.readAccessToken()).thenAnswer((_) async => 'access');
+      when(() => mockRemoteDataSource.currentUser())
+          .thenThrow(NotFoundException());
+      when(() => mockLocalDataSource.clear()).thenAnswer((_) async {});
+      when(() => tokens.clear()).thenAnswer((_) async {});
+
+      final result = await remoteRepository.getCurrentUser();
+
+      expect(result, const Right(null));
+      verify(() => mockLocalDataSource.clear()).called(1);
+      verify(() => tokens.clear()).called(1);
     });
 
     test('should return CacheFailure when the cache cannot be read', () async {
